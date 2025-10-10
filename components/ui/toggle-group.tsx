@@ -1,86 +1,73 @@
-import React, { useState } from 'react'
+"use client";
 
-interface ToggleGroupItem {
-  value: string
-  label: React.ReactNode
-  disabled?: boolean
+import * as React from "react";
+import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group@1.1.2";
+import { type VariantProps } from "class-variance-authority@0.7.1";
+
+import { cn } from "./utils";
+import { toggleVariants } from "./toggle";
+
+const ToggleGroupContext = React.createContext<
+  VariantProps<typeof toggleVariants>
+>({
+  size: "default",
+  variant: "default",
+});
+
+function ToggleGroup({
+  className,
+  variant,
+  size,
+  children,
+  ...props
+}: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
+  VariantProps<typeof toggleVariants>) {
+  return (
+    <ToggleGroupPrimitive.Root
+      data-slot="toggle-group"
+      data-variant={variant}
+      data-size={size}
+      className={cn(
+        "group/toggle-group flex w-fit items-center rounded-md data-[variant=outline]:shadow-xs",
+        className,
+      )}
+      {...props}
+    >
+      <ToggleGroupContext.Provider value={{ variant, size }}>
+        {children}
+      </ToggleGroupContext.Provider>
+    </ToggleGroupPrimitive.Root>
+  );
 }
 
-interface ToggleGroupProps {
-  items: ToggleGroupItem[]
-  value?: string[]
-  defaultValue?: string[]
-  onValueChange?: (value: string[]) => void
-  type?: 'single' | 'multiple'
-  size?: 'sm' | 'md' | 'lg'
-  variant?: 'default' | 'outline'
-  className?: string
-}
-
-const ToggleGroup: React.FC<ToggleGroupProps> = ({
-  items,
-  value: controlledValue,
-  defaultValue = [],
-  onValueChange,
-  type = 'multiple',
-  size = 'md',
-  variant = 'default',
-  className = ''
-}) => {
-  const [internalValue, setInternalValue] = useState(defaultValue)
-  const value = controlledValue !== undefined ? controlledValue : internalValue
-
-  const sizeClasses = {
-    sm: 'h-8 px-2 text-xs',
-    md: 'h-9 px-3 text-sm',
-    lg: 'h-10 px-4 text-base'
-  }
-
-  const variantClasses = {
-    default: 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white',
-    outline: 'border border-gray-600 bg-transparent text-gray-300 hover:bg-gray-700 hover:text-white'
-  }
-
-  const activeClasses = {
-    default: 'bg-gray-700 text-white',
-    outline: 'border border-gray-600 bg-gray-700 text-white'
-  }
-
-  const handleToggle = (itemValue: string) => {
-    let newValue: string[]
-    
-    if (type === 'single') {
-      newValue = value.includes(itemValue) ? [] : [itemValue]
-    } else {
-      newValue = value.includes(itemValue)
-        ? value.filter(v => v !== itemValue)
-        : [...value, itemValue]
-    }
-
-    if (controlledValue === undefined) {
-      setInternalValue(newValue)
-    }
-    onValueChange?.(newValue)
-  }
+function ToggleGroupItem({
+  className,
+  children,
+  variant,
+  size,
+  ...props
+}: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
+  VariantProps<typeof toggleVariants>) {
+  const context = React.useContext(ToggleGroupContext);
 
   return (
-    <div className={`inline-flex rounded-md border border-gray-700 overflow-hidden ${className}`}>
-      {items.map((item) => (
-        <button
-          key={item.value}
-          onClick={() => handleToggle(item.value)}
-          disabled={item.disabled}
-          className={`inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:pointer-events-none disabled:opacity-50 ${
-            sizeClasses[size]
-          } ${
-            value.includes(item.value) ? activeClasses[variant] : variantClasses[variant]
-          } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  )
+    <ToggleGroupPrimitive.Item
+      data-slot="toggle-group-item"
+      data-variant={context.variant || variant}
+      data-size={context.size || size}
+      className={cn(
+        toggleVariants({
+          variant: context.variant || variant,
+          size: context.size || size,
+        }),
+        "min-w-0 flex-1 shrink-0 rounded-none shadow-none first:rounded-l-md last:rounded-r-md focus:z-10 focus-visible:z-10 data-[variant=outline]:border-l-0 data-[variant=outline]:first:border-l",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </ToggleGroupPrimitive.Item>
+  );
 }
 
-export default ToggleGroup
+export { ToggleGroup, ToggleGroupItem };

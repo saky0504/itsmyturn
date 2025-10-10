@@ -1,59 +1,21 @@
-import React from 'react'
+MIT License
 
-interface CodeComponentProps {
-  code: string
-  language?: string
-  showLineNumbers?: boolean
-  className?: string
-}
+Copyright (c) 2025 Vinyl Player Team
 
-const CodeComponent: React.FC<CodeComponentProps> = ({
-  code,
-  language = 'javascript',
-  showLineNumbers = true,
-  className = ''
-}) => {
-  const lines = code.split('\n')
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-  return (
-    <div className={`bg-gray-900 rounded-lg overflow-hidden ${className}`}>
-      {/* Header */}
-      <div className="bg-gray-800 px-4 py-2 border-b border-gray-700">
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <span className="ml-4 text-gray-400 text-sm">{language}</span>
-        </div>
-      </div>
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-      {/* Code Content */}
-      <div className="p-4">
-        <pre className="text-gray-100 text-sm font-mono leading-relaxed">
-          {showLineNumbers ? (
-            <div className="flex">
-              <div className="text-gray-600 pr-4 select-none">
-                {lines.map((_, index) => (
-                  <div key={index} className="leading-relaxed">
-                    {(index + 1).toString().padStart(3, ' ')}
-                  </div>
-                ))}
-              </div>
-              <div className="flex-1">
-                {lines.map((line, index) => (
-                  <div key={index} className="leading-relaxed">
-                    {line || '\u00A0'}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            code
-          )}
-        </pre>
-      </div>
-    </div>
-  )
-}
-
-export default CodeComponent
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

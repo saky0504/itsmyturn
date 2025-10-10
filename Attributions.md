@@ -1,25 +1,3 @@
-# Attributions
+This Figma Make file includes components from [shadcn/ui](https://ui.shadcn.com/) used under [MIT license](https://github.com/shadcn-ui/ui/blob/main/LICENSE.md).
 
-## Third-party Libraries and Resources
-
-### Frontend Dependencies
-- **React** - UI library
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling framework
-- **Vite** - Build tool and dev server
-- **React Router** - Client-side routing
-
-### Backend Services
-- **Supabase** - Backend-as-a-Service
-- **Spotify Web API** - Music streaming integration
-
-### Development Tools
-- **ESLint** - Code linting
-- **PostCSS** - CSS processing
-
-### Icons and Assets
-- **Vite SVG** - Default Vite logo
-- **Custom icons** - Created for this project
-
-## License Information
-All third-party libraries are used under their respective open-source licenses.
+This Figma Make file includes photos from [Unsplash](https://unsplash.com) used under [license](https://unsplash.com/license).

@@ -1,48 +1,58 @@
-import React, { useRef, useEffect, useState } from 'react'
+"use client";
 
-interface ScrollAreaProps {
-  children: React.ReactNode
-  className?: string
-  maxHeight?: string
-}
+import * as React from "react";
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area@1.2.3";
 
-const ScrollArea: React.FC<ScrollAreaProps> = ({
+import { cn } from "./utils";
+
+function ScrollArea({
+  className,
   children,
-  className = '',
-  maxHeight = '300px'
-}) => {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [showScrollbar, setShowScrollbar] = useState(false)
-
-  useEffect(() => {
-    const checkScrollbar = () => {
-      if (scrollRef.current) {
-        const { scrollHeight, clientHeight } = scrollRef.current
-        setShowScrollbar(scrollHeight > clientHeight)
-      }
-    }
-
-    checkScrollbar()
-    window.addEventListener('resize', checkScrollbar)
-    
-    return () => window.removeEventListener('resize', checkScrollbar)
-  }, [children])
-
+  ...props
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
   return (
-    <div className={`relative ${className}`}>
-      <div
-        ref={scrollRef}
-        className="overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
-        style={{ maxHeight }}
+    <ScrollAreaPrimitive.Root
+      data-slot="scroll-area"
+      className={cn("relative", className)}
+      {...props}
+    >
+      <ScrollAreaPrimitive.Viewport
+        data-slot="scroll-area-viewport"
+        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
       >
         {children}
-      </div>
-      
-      {showScrollbar && (
-        <div className="absolute right-0 top-0 bottom-0 w-1 bg-gray-700 opacity-50 pointer-events-none" />
-      )}
-    </div>
-  )
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  );
 }
 
-export default ScrollArea
+function ScrollBar({
+  className,
+  orientation = "vertical",
+  ...props
+}: React.ComponentProps<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>) {
+  return (
+    <ScrollAreaPrimitive.ScrollAreaScrollbar
+      data-slot="scroll-area-scrollbar"
+      orientation={orientation}
+      className={cn(
+        "flex touch-none p-px transition-colors select-none",
+        orientation === "vertical" &&
+          "h-full w-2.5 border-l border-l-transparent",
+        orientation === "horizontal" &&
+          "h-2.5 flex-col border-t border-t-transparent",
+        className,
+      )}
+      {...props}
+    >
+      <ScrollAreaPrimitive.ScrollAreaThumb
+        data-slot="scroll-area-thumb"
+        className="bg-border relative flex-1 rounded-full"
+      />
+    </ScrollAreaPrimitive.ScrollAreaScrollbar>
+  );
+}
+
+export { ScrollArea, ScrollBar };

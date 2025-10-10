@@ -1,129 +1,32 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Hono } from "npm:hono";
+import { cors } from "npm:hono/cors";
+import { logger } from "npm:hono/logger";
+import * as kv from "./kv_store.tsx";
+import spotifyApp from "./spotify.tsx";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+const app = new Hono();
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+// Enable logger
+app.use('*', logger(console.log));
 
-  try {
-    // Create Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    )
+// Enable CORS for all routes and methods
+app.use(
+  "/*",
+  cors({
+    origin: "*",
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    exposeHeaders: ["Content-Length"],
+    maxAge: 600,
+  }),
+);
 
-    // Get the request body
-    const { action, data } = await req.json()
+// Health check endpoint
+app.get("/make-server-f3afc2d2/health", (c) => {
+  return c.json({ status: "ok" });
+});
 
-    switch (action) {
-      case 'get_user_playlists':
-        return await getUserPlaylists(supabaseClient, data)
-      
-      case 'save_playlist':
-        return await savePlaylist(supabaseClient, data)
-      
-      case 'get_track_history':
-        return await getTrackHistory(supabaseClient, data)
-      
-      default:
-        return new Response(
-          JSON.stringify({ error: 'Invalid action' }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-    }
-  } catch (error) {
-    console.error('Server error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
-  }
-})
+// Mount Spotify routes
+app.route("/", spotifyApp);
 
-async function getUserPlaylists(supabase: any, data: any) {
-  const { user_id } = data
-  
-  const { data: playlists, error } = await supabase
-    .from('playlists')
-    .select('*')
-    .eq('user_id', user_id)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    throw error
-  }
-
-  return new Response(
-    JSON.stringify({ playlists }),
-    { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    }
-  )
-}
-
-async function savePlaylist(supabase: any, data: any) {
-  const { user_id, name, tracks, description } = data
-  
-  const { data: playlist, error } = await supabase
-    .from('playlists')
-    .insert({
-      user_id,
-      name,
-      description,
-      tracks: JSON.stringify(tracks),
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single()
-
-  if (error) {
-    throw error
-  }
-
-  return new Response(
-    JSON.stringify({ playlist }),
-    { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    }
-  )
-}
-
-async function getTrackHistory(supabase: any, data: any) {
-  const { user_id, limit = 50 } = data
-  
-  const { data: history, error } = await supabase
-    .from('track_history')
-    .select('*')
-    .eq('user_id', user_id)
-    .order('played_at', { ascending: false })
-    .limit(limit)
-
-  if (error) {
-    throw error
-  }
-
-  return new Response(
-    JSON.stringify({ history }),
-    { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    }
-  )
-}
+Deno.serve(app.fetch);

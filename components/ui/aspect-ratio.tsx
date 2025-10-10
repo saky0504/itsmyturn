@@ -1,27 +1,11 @@
-import React from 'react'
+"use client";
 
-interface AspectRatioProps {
-  ratio?: number
-  children: React.ReactNode
-  className?: string
+import * as AspectRatioPrimitive from "@radix-ui/react-aspect-ratio@1.1.2";
+
+function AspectRatio({
+  ...props
+}: React.ComponentProps<typeof AspectRatioPrimitive.Root>) {
+  return <AspectRatioPrimitive.Root data-slot="aspect-ratio" {...props} />;
 }
 
-const AspectRatio: React.FC<AspectRatioProps> = ({
-  ratio = 16 / 9,
-  children,
-  className = ''
-}) => {
-  return (
-    <div className={`relative w-full ${className}`}>
-      <div
-        className="absolute inset-0"
-        style={{ paddingBottom: `${(1 / ratio) * 100}%` }}
-      />
-      <div className="absolute inset-0">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-export default AspectRatio
+export { AspectRatio };

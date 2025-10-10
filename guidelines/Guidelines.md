@@ -1,167 +1,61 @@
-# Project Guidelines
+**Add your own guidelines here**
+<!--
 
-## 🎵 ItsMyTurn Music App
+System Guidelines
 
-### Development Guidelines
+Use this file to provide the AI with rules and guidelines you want it to follow.
+This template outlines a few examples of things you can add. You can add your own sections and format it to suit your needs
 
-#### Code Style
-- **TypeScript**: Use TypeScript for all new files
-- **Components**: Use functional components with hooks
-- **Styling**: Use Tailwind CSS for styling
-- **File Naming**: Use PascalCase for components, camelCase for utilities
+TIP: More context isn't always better. It can confuse the LLM. Try and add the most important rules you need
 
-#### Component Structure
-```tsx
-import React from 'react'
+# General guidelines
 
-interface ComponentProps {
-  // Define props with TypeScript
-}
+Any general rules you want the AI to follow.
+For example:
 
-const Component: React.FC<ComponentProps> = ({ prop1, prop2 }) => {
-  // Component logic
-  
-  return (
-    <div className="tailwind-classes">
-      {/* JSX content */}
-    </div>
-  )
-}
+* Only use absolute positioning when necessary. Opt for responsive and well structured layouts that use flexbox and grid by default
+* Refactor code as you go to keep code clean
+* Keep file sizes small and put helper functions and components in their own files.
 
-export default Component
-```
+--------------
 
-#### State Management
-- Use React hooks (useState, useEffect, useContext)
-- Keep state close to where it's used
-- Consider Context API for global state
+# Design system guidelines
+Rules for how the AI should make generations look like your company's design system
 
-#### API Integration
-- Spotify Web API for music data
-- Supabase for backend services
-- Use proper error handling and loading states
+Additionally, if you select a design system to use in the prompt box, you can reference
+your design system's components, tokens, variables and components.
+For example:
 
-### Design Guidelines
+* Use a base font-size of 14px
+* Date formats should always be in the format “Jun 10”
+* The bottom toolbar should only ever have a maximum of 4 items
+* Never use the floating action button with the bottom toolbar
+* Chips should always come in sets of 3 or more
+* Don't use a dropdown if there are 2 or fewer options
 
-#### Color Scheme
-- **Primary**: Green (#1DB954) - Spotify brand color
-- **Background**: Dark gray/black gradient
-- **Text**: White and light gray
-- **Accents**: Red for play states, gray for inactive
+You can also create sub sections and add more specific details
+For example:
 
-#### Typography
-- **Headers**: Bold, large text
-- **Body**: Regular weight, readable size
-- **Captions**: Smaller, muted colors
 
-#### Components
-- **Vinyl Player**: Central music player with spinning vinyl animation
-- **Track Cards**: Clean, minimal design with album art
-- **Navigation**: Bottom navigation for mobile-first design
+## Button
+The Button component is a fundamental interactive element in our design system, designed to trigger actions or navigate
+users through the application. It provides visual feedback and clear affordances to enhance user experience.
 
-### File Organization
+### Usage
+Buttons should be used for important actions that users need to take, such as form submissions, confirming choices,
+or initiating processes. They communicate interactivity and should have clear, action-oriented labels.
 
-#### Folder Structure
-```
-src/
-├── components/
-│   ├── ui/           # Reusable UI components
-│   ├── figma/        # Figma-generated components
-│   └── Layout.jsx    # Main layout component
-├── pages/            # Page components
-├── lib/              # Utility libraries
-└── hooks/            # Custom React hooks
-```
-
-#### Import Order
-1. React and React-related imports
-2. Third-party libraries
-3. Local components
-4. Utilities and hooks
-5. Styles
-
-### Performance Guidelines
-
-#### Optimization
-- Use React.memo for expensive components
-- Implement proper loading states
-- Optimize images and assets
-- Use lazy loading where appropriate
-
-#### Bundle Size
-- Import only needed functions from libraries
-- Use dynamic imports for large components
-- Monitor bundle size with build tools
-
-### Testing Guidelines
-
-#### Component Testing
-- Test component rendering
-- Test user interactions
-- Test prop variations
-- Test error states
-
-#### Integration Testing
-- Test API integrations
-- Test routing
-- Test state management
-
-### Deployment Guidelines
-
-#### Environment Variables
-- Use `.env` files for configuration
-- Never commit sensitive data
-- Use different configs for dev/prod
-
-#### Build Process
-- Use Vite for building
-- Optimize assets
-- Test build locally before deployment
-
-### Git Guidelines
-
-#### Commit Messages
-- Use conventional commit format
-- Be descriptive and clear
-- Reference issues when applicable
-
-#### Branch Strategy
-- `main`: Production-ready code
-- `develop`: Integration branch
-- `feature/*`: New features
-- `fix/*`: Bug fixes
-
-### Documentation
-
-#### Code Comments
-- Comment complex logic
-- Use JSDoc for functions
-- Keep comments up to date
-
-#### README Updates
-- Update installation instructions
-- Document new features
-- Include usage examples
-
-### Accessibility
-
-#### Guidelines
-- Use semantic HTML
-- Provide alt text for images
-- Ensure keyboard navigation
-- Test with screen readers
-- Maintain color contrast ratios
-
-### Security
-
-#### Best Practices
-- Validate user input
-- Sanitize data
-- Use HTTPS in production
-- Implement proper authentication
-- Handle errors gracefully
-
----
-
-*Last updated: [Current Date]*
-*Version: 1.0.0*
+### Variants
+* Primary Button
+  * Purpose : Used for the main action in a section or page
+  * Visual Style : Bold, filled with the primary brand color
+  * Usage : One primary button per section to guide users toward the most important action
+* Secondary Button
+  * Purpose : Used for alternative or supporting actions
+  * Visual Style : Outlined with the primary color, transparent background
+  * Usage : Can appear alongside a primary button for less important actions
+* Tertiary Button
+  * Purpose : Used for the least important actions
+  * Visual Style : Text-only with no border, using primary color
+  * Usage : For actions that should be available but not emphasized
+-->

@@ -1,50 +1,33 @@
-import React, { useState } from 'react'
+"use client";
 
-interface CollapsibleProps {
-  trigger: React.ReactNode
-  children: React.ReactNode
-  defaultOpen?: boolean
-  className?: string
+import * as CollapsiblePrimitive from "@radix-ui/react-collapsible@1.1.3";
+
+function Collapsible({
+  ...props
+}: React.ComponentProps<typeof CollapsiblePrimitive.Root>) {
+  return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
 }
 
-const Collapsible: React.FC<CollapsibleProps> = ({
-  trigger,
-  children,
-  defaultOpen = false,
-  className = ''
-}) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
-
+function CollapsibleTrigger({
+  ...props
+}: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleTrigger>) {
   return (
-    <div className={className}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-      >
-        <span className="text-white">{trigger}</span>
-        <svg
-          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      
-      <div
-        className={`overflow-hidden transition-all duration-200 ${
-          isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-        }`}
-      >
-        <div className="p-3 bg-gray-700 rounded-b-lg">
-          {children}
-        </div>
-      </div>
-    </div>
-  )
+    <CollapsiblePrimitive.CollapsibleTrigger
+      data-slot="collapsible-trigger"
+      {...props}
+    />
+  );
 }
 
-export default Collapsible
+function CollapsibleContent({
+  ...props
+}: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent>) {
+  return (
+    <CollapsiblePrimitive.CollapsibleContent
+      data-slot="collapsible-content"
+      {...props}
+    />
+  );
+}
+
+export { Collapsible, CollapsibleTrigger, CollapsibleContent };

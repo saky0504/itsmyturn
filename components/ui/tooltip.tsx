@@ -1,134 +1,61 @@
-import React, { useState, useRef, useEffect } from 'react'
+"use client";
 
-interface TooltipProps {
-  content: React.ReactNode
-  children: React.ReactNode
-  side?: 'top' | 'bottom' | 'left' | 'right'
-  align?: 'start' | 'center' | 'end'
-  delay?: number
-  className?: string
+import * as React from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip@1.1.8";
+
+import { cn } from "./utils";
+
+function TooltipProvider({
+  delayDuration = 0,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+  return (
+    <TooltipPrimitive.Provider
+      data-slot="tooltip-provider"
+      delayDuration={delayDuration}
+      {...props}
+    />
+  );
 }
 
-const Tooltip: React.FC<TooltipProps> = ({
-  content,
-  children,
-  side = 'top',
-  align = 'center',
-  delay = 200,
-  className = ''
-}) => {
-  const [isVisible, setIsVisible] = useState(false)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-  const timeoutRef = useRef<NodeJS.Timeout>()
-  const triggerRef = useRef<HTMLDivElement>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
-
-  const showTooltip = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    timeoutRef.current = setTimeout(() => {
-      if (triggerRef.current && tooltipRef.current) {
-        const triggerRect = triggerRef.current.getBoundingClientRect()
-        const tooltipRect = tooltipRef.current.getBoundingClientRect()
-        
-        let x = 0
-        let y = 0
-
-        switch (side) {
-          case 'top':
-            x = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2
-            y = triggerRect.top - tooltipRect.height - 8
-            break
-          case 'bottom':
-            x = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2
-            y = triggerRect.bottom + 8
-            break
-          case 'left':
-            x = triggerRect.left - tooltipRect.width - 8
-            y = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2
-            break
-          case 'right':
-            x = triggerRect.right + 8
-            y = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2
-            break
-        }
-
-        // Adjust alignment
-        if (side === 'top' || side === 'bottom') {
-          switch (align) {
-            case 'start':
-              x = triggerRect.left
-              break
-            case 'end':
-              x = triggerRect.right - tooltipRect.width
-              break
-          }
-        } else {
-          switch (align) {
-            case 'start':
-              y = triggerRect.top
-              break
-            case 'end':
-              y = triggerRect.bottom - tooltipRect.height
-              break
-          }
-        }
-
-        setPosition({ x, y })
-        setIsVisible(true)
-      }
-    }, delay)
-  }
-
-  const hideTooltip = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    setIsVisible(false)
-  }
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [])
-
+function Tooltip({
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
   return (
-    <div className={`relative inline-block ${className}`}>
-      <div
-        ref={triggerRef}
-        onMouseEnter={showTooltip}
-        onMouseLeave={hideTooltip}
-        className="inline-block"
+    <TooltipProvider>
+      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+    </TooltipProvider>
+  );
+}
+
+function TooltipTrigger({
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+}
+
+function TooltipContent({
+  className,
+  sideOffset = 0,
+  children,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content
+        data-slot="tooltip-content"
+        sideOffset={sideOffset}
+        className={cn(
+          "bg-primary text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance",
+          className,
+        )}
+        {...props}
       >
         {children}
-      </div>
-
-      {isVisible && (
-        <div
-          ref={tooltipRef}
-          className="fixed z-50 px-2 py-1 text-sm text-white bg-gray-900 border border-gray-700 rounded-md shadow-lg"
-          style={{
-            left: position.x,
-            top: position.y
-          }}
-        >
-          {content}
-          
-          {/* Arrow */}
-          <div className={`absolute w-2 h-2 bg-gray-900 border border-gray-700 rotate-45 ${
-            side === 'top' ? 'top-full left-1/2 -translate-x-1/2 -translate-y-1' :
-            side === 'bottom' ? 'bottom-full left-1/2 -translate-x-1/2 translate-y-1' :
-            side === 'left' ? 'left-full top-1/2 -translate-y-1/2 -translate-x-1' :
-            'right-full top-1/2 -translate-y-1/2 translate-x-1'
-          }`} />
-        </div>
-      )}
-    </div>
-  )
+        <TooltipPrimitive.Arrow className="bg-primary fill-primary z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
+      </TooltipPrimitive.Content>
+    </TooltipPrimitive.Portal>
+  );
 }
 
-export default Tooltip
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

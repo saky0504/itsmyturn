@@ -1,39 +1,46 @@
-import React from 'react'
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot@1.1.2";
+import { cva, type VariantProps } from "class-variance-authority@0.7.1";
 
-interface BadgeProps {
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'success'
-  size?: 'sm' | 'md' | 'lg'
-  children: React.ReactNode
-  className?: string
-}
+import { cn } from "./utils";
 
-const Badge: React.FC<BadgeProps> = ({
-  variant = 'default',
-  size = 'md',
-  children,
-  className = ''
-}) => {
-  const baseClasses = 'inline-flex items-center font-medium rounded-full'
-  
-  const variantClasses = {
-    default: 'bg-green-500 text-white',
-    secondary: 'bg-gray-700 text-gray-300',
-    destructive: 'bg-red-500 text-white',
-    outline: 'border border-gray-600 text-gray-300 bg-transparent',
-    success: 'bg-green-600 text-white'
-  }
+const badgeVariants = cva(
+  "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  {
+    variants: {
+      variant: {
+        default:
+          "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        secondary:
+          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        destructive:
+          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline:
+          "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
 
-  const sizeClasses = {
-    sm: 'px-2 py-1 text-xs',
-    md: 'px-2.5 py-0.5 text-sm',
-    lg: 'px-3 py-1 text-base'
-  }
+function Badge({
+  className,
+  variant,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"span"> &
+  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot : "span";
 
   return (
-    <span className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}>
-      {children}
-    </span>
-  )
+    <Comp
+      data-slot="badge"
+      className={cn(badgeVariants({ variant }), className)}
+      {...props}
+    />
+  );
 }
 
-export default Badge
+export { Badge, badgeVariants };

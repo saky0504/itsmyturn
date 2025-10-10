@@ -1,5 +1,5 @@
-import { VinylPlayer } from './components/VinylPlayer';
-import { Toaster } from './components/ui/sonner';
+import { VinylPlayer } from '../components/VinylPlayer';
+import { Toaster } from '../components/ui/sonner';
 
 export default function App() {
   return (
