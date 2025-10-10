@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, useAnimationControls } from 'motion/react';
+import { motion, useAnimationControls } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Search, Music } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
@@ -62,7 +62,7 @@ export default function SpotifyVinylPlayer() {
     spotify_url: ''
   };
 
-  // API 호출 함수들
+  // API ?�출 ?�수??
   const searchTracks = async (query: string) => {
     try {
       setIsSearching(true);
@@ -146,7 +146,7 @@ export default function SpotifyVinylPlayer() {
     }
   };
 
-  // LP 회전 애니메이션 관리
+  // LP ?�전 ?�니메이??관�?
   useEffect(() => {
     if (isPlaying) {
       spinControls.start({
@@ -162,7 +162,7 @@ export default function SpotifyVinylPlayer() {
     }
   }, [isPlaying, spinControls]);
 
-  // 오디오 이벤트 핸들러
+  // ?�디???�벤???�들??
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -185,7 +185,7 @@ export default function SpotifyVinylPlayer() {
     };
   }, [currentTrackIndex]);
 
-  // 볼륨 키보드 컨트롤
+  // 볼륨 ?�보??컨트�?
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
@@ -213,7 +213,7 @@ export default function SpotifyVinylPlayer() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [volume]);
 
-  // 재생/일시정지
+  // ?�생/?�시?��?
   const togglePlayPause = async () => {
     if (!audioRef.current || !currentTrack.preview_url) return;
 
@@ -235,7 +235,7 @@ export default function SpotifyVinylPlayer() {
     }
   };
 
-  // 다음 트랙
+  // ?�음 ?�랙
   const nextTrack = () => {
     if (tracks.length > 0) {
       setCurrentTrackIndex((prev) => (prev + 1) % tracks.length);
@@ -243,7 +243,7 @@ export default function SpotifyVinylPlayer() {
     }
   };
 
-  // 이전 트랙
+  // ?�전 ?�랙
   const prevTrack = () => {
     if (tracks.length > 0) {
       setCurrentTrackIndex((prev) => (prev - 1 + tracks.length) % tracks.length);
@@ -251,7 +251,7 @@ export default function SpotifyVinylPlayer() {
     }
   };
 
-  // 진행바 클릭
+  // 진행�??�릭
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!audioRef.current || !duration) return;
     
@@ -263,7 +263,7 @@ export default function SpotifyVinylPlayer() {
     setCurrentTime(newTime);
   };
 
-  // 스와이프 제스처
+  // ?��??�프 ?�스�?
   const handlePanEnd = (event: any, info: any) => {
     const threshold = 50;
     if (info.offset.x > threshold) {
@@ -273,7 +273,7 @@ export default function SpotifyVinylPlayer() {
     }
   };
 
-  // 검색 핸들러
+  // 검???�들??
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -282,7 +282,7 @@ export default function SpotifyVinylPlayer() {
     }
   };
 
-  // 서버 헬스 체크
+  // ?�버 ?�스 체크
   const checkServerHealth = async () => {
     try {
       console.log('Checking server health...');
@@ -311,7 +311,7 @@ export default function SpotifyVinylPlayer() {
     }
   };
 
-  // 컴포넌트 마운트 시 헬스 체크 후 추천 트랙 로드
+  // 컴포?�트 마운?????�스 체크 ??추천 ?�랙 로드
   useEffect(() => {
     const initializeApp = async () => {
       const isHealthy = await checkServerHealth();
@@ -332,7 +332,7 @@ export default function SpotifyVinylPlayer() {
   if (isMobile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-yellow-50 to-amber-100 p-4">
-        {/* 볼륨 토스트 */}
+        {/* 볼륨 ?�스??*/}
         {showVolumeToast && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -353,7 +353,7 @@ export default function SpotifyVinylPlayer() {
           </motion.div>
         )}
 
-        {/* 검색 인터페이스 */}
+        {/* 검???�터?�이??*/}
         {showSearch && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -387,7 +387,7 @@ export default function SpotifyVinylPlayer() {
           </motion.div>
         )}
 
-        {/* LP 레코드 */}
+        {/* LP ?�코??*/}
         <motion.div
           className="relative w-80 h-80 mb-8 cursor-pointer"
           onClick={togglePlayPause}
@@ -398,9 +398,9 @@ export default function SpotifyVinylPlayer() {
           onPanEnd={handlePanEnd}
           dragElastic={0.3}
         >
-          {/* 외부 LP */}
+          {/* ?��? LP */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gray-900 to-black shadow-2xl">
-            {/* 홈 패턴 */}
+            {/* ???�턴 */}
             {[...Array(12)].map((_, i) => (
               <div
                 key={i}
@@ -414,7 +414,7 @@ export default function SpotifyVinylPlayer() {
               />
             ))}
             
-            {/* 중앙 앨범 커버 */}
+            {/* 중앙 ?�범 커버 */}
             <div className="absolute top-1/2 left-1/2 w-32 h-32 -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden border-4 border-gray-800 shadow-lg">
               {currentTrack.cover ? (
                 <ImageWithFallback
@@ -432,7 +432,7 @@ export default function SpotifyVinylPlayer() {
             {/* 중앙 구멍 */}
             <div className="absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-600 shadow-inner" />
             
-            {/* 재생/일시정지 표시 */}
+            {/* ?�생/?�시?��? ?�시 */}
             {isLoading ? (
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-black/70 flex items-center justify-center">
                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -451,7 +451,7 @@ export default function SpotifyVinylPlayer() {
             )}
           </div>
 
-          {/* 톤암 */}
+          {/* ?�암 */}
           <motion.div
             className="absolute -top-4 -right-8 w-32 h-2 origin-left"
             animate={{
@@ -464,7 +464,7 @@ export default function SpotifyVinylPlayer() {
           </motion.div>
         </motion.div>
 
-        {/* 트랙 정보 */}
+        {/* ?�랙 ?�보 */}
         <div className="text-center mb-6 px-4">
           <h2 className="text-2xl text-gray-900 mb-3 leading-tight">
             {currentTrack.title}
@@ -472,7 +472,7 @@ export default function SpotifyVinylPlayer() {
           <p className="text-gray-600 text-lg">{currentTrack.artist}</p>
         </div>
 
-        {/* 진행바 */}
+        {/* 진행�?*/}
         {currentTrack.preview_url && (
           <div className="w-full max-w-sm mb-6">
             <div
@@ -491,7 +491,7 @@ export default function SpotifyVinylPlayer() {
           </div>
         )}
 
-        {/* 컨트롤 버튼 */}
+        {/* 컨트�?버튼 */}
         <div className="flex items-center gap-6">
           <Button
             variant="outline"
@@ -533,12 +533,12 @@ export default function SpotifyVinylPlayer() {
           </Button>
         </div>
 
-        {/* 사용 안내 */}
+        {/* ?�용 ?�내 */}
         <div className="text-center text-gray-500 text-sm mt-8 px-4">
-          <p>LP를 터치해서 재생/일시정지</p>
-          <p>좌우로 드래그해서 트랙 변경</p>
-          <p>볼륨: ↑↓ 키 사용</p>
-          <p className="text-xs mt-2 text-amber-600">30초 미리보기만 재생됩니다</p>
+          <p>LP�??�치?�서 ?�생/?�시?��?</p>
+          <p>좌우�??�래그해???�랙 변�?/p>
+          <p>볼륨: ?�↓ ???�용</p>
+          <p className="text-xs mt-2 text-amber-600">30�?미리보기�??�생?�니??/p>
         </div>
 
         {/* Hidden audio element */}
@@ -556,10 +556,10 @@ export default function SpotifyVinylPlayer() {
     );
   }
 
-  // 데스크톱 버전은 기존과 동일한 구조...
+  // ?�스?�톱 버전?� 기존�??�일??구조...
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-100 p-8">
-      {/* 볼륨 토스트 */}
+      {/* 볼륨 ?�스??*/}
       {showVolumeToast && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -580,7 +580,7 @@ export default function SpotifyVinylPlayer() {
         </motion.div>
       )}
 
-      {/* 검색 인터페이스 */}
+      {/* 검???�터?�이??*/}
       {showSearch && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -616,7 +616,7 @@ export default function SpotifyVinylPlayer() {
       )}
 
       <div ref={containerRef} className="text-center">
-        {/* LP 턴테이블 */}
+        {/* LP ?�테?�블 */}
         <motion.div
           className="relative w-96 h-96 mb-12 cursor-pointer mx-auto"
           onClick={togglePlayPause}
@@ -627,9 +627,9 @@ export default function SpotifyVinylPlayer() {
           onPanEnd={handlePanEnd}
           dragElastic={0.2}
         >
-          {/* 외부 LP */}
+          {/* ?��? LP */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gray-900 to-black shadow-2xl">
-            {/* 홈 패턴 */}
+            {/* ???�턴 */}
             {[...Array(15)].map((_, i) => (
               <div
                 key={i}
@@ -643,7 +643,7 @@ export default function SpotifyVinylPlayer() {
               />
             ))}
             
-            {/* 중앙 앨범 커버 */}
+            {/* 중앙 ?�범 커버 */}
             <div className="absolute top-1/2 left-1/2 w-40 h-40 -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden border-4 border-gray-800 shadow-lg">
               {currentTrack.cover ? (
                 <ImageWithFallback
@@ -661,7 +661,7 @@ export default function SpotifyVinylPlayer() {
             {/* 중앙 구멍 */}
             <div className="absolute top-1/2 left-1/2 w-8 h-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 shadow-inner" />
             
-            {/* 재생/일시정지 표시 */}
+            {/* ?�생/?�시?��? ?�시 */}
             {isLoading ? (
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-black/70 flex items-center justify-center">
                 <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
@@ -680,7 +680,7 @@ export default function SpotifyVinylPlayer() {
             )}
           </div>
 
-          {/* 톤암 */}
+          {/* ?�암 */}
           <motion.div
             className="absolute -top-6 -right-12 w-40 h-3 origin-left"
             animate={{
@@ -693,7 +693,7 @@ export default function SpotifyVinylPlayer() {
           </motion.div>
         </motion.div>
 
-        {/* 트랙 정보 */}
+        {/* ?�랙 ?�보 */}
         <div className="text-center mb-8 max-w-md px-4">
           <h2 className="text-gray-900 text-2xl mb-2 leading-tight">
             {currentTrack.title}
@@ -701,7 +701,7 @@ export default function SpotifyVinylPlayer() {
           <p className="text-gray-600 text-lg">{currentTrack.artist}</p>
         </div>
 
-        {/* 진행바 */}
+        {/* 진행�?*/}
         {currentTrack.preview_url && (
           <div className="w-full max-w-md mb-8 mx-auto">
             <div
@@ -720,7 +720,7 @@ export default function SpotifyVinylPlayer() {
           </div>
         )}
 
-        {/* 컨트롤 버튼 */}
+        {/* 컨트�?버튼 */}
         <div className="flex items-center justify-center gap-8">
           <Button
             variant="outline"
@@ -762,11 +762,11 @@ export default function SpotifyVinylPlayer() {
           </Button>
         </div>
 
-        {/* 사용 안내 */}
+        {/* ?�용 ?�내 */}
         <div className="text-center text-gray-500 mt-12 max-w-lg">
-          <p className="mb-2">LP를 클릭해서 재생/일시정지 • 좌우로 드래그해서 트랙 변경</p>
-          <p className="mb-2">진행바를 클릭해서 구간 이동 • 볼륨: ↑↓ 키 사용</p>
-          <p className="text-sm text-amber-600 mt-4">⚠️ Spotify 30초 미리보기만 재생됩니다</p>
+          <p className="mb-2">LP�??�릭?�서 ?�생/?�시?��? ??좌우�??�래그해???�랙 변�?/p>
+          <p className="mb-2">진행바�? ?�릭?�서 구간 ?�동 ??볼륨: ?�↓ ???�용</p>
+          <p className="text-sm text-amber-600 mt-4">?�️ Spotify 30�?미리보기�??�생?�니??/p>
         </div>
 
         {/* Hidden audio element */}

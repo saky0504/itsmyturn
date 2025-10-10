@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, PanInfo, useAnimationControls } from 'motion/react';
+import { motion, PanInfo, useAnimationControls } from 'framer-motion';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Shuffle, Repeat, Search, Music } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
 import { useIsMobile } from './ui/use-mobile';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import referenceLP from 'figma:asset/da548d540d08adba07ff463391103da0bd49d5a7.png';
 
@@ -37,7 +37,7 @@ export function VinylPlayerBackup() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [hasUserInteracted, setHasUserInteracted] = useState(false); // 자동재생 허용 여부
+  const [hasUserInteracted, setHasUserInteracted] = useState(false); // ?�동?�생 ?�용 ?��?
   const spinControls = useAnimationControls();
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -47,7 +47,7 @@ export function VinylPlayerBackup() {
 
   const currentTrack = tracks[currentTrackIndex];
 
-  // 🎵 Spotify API 호출 함수들
+  // ?�� Spotify API ?�출 ?�수??
   const searchTracks = async (query: string) => {
     try {
       setIsSearching(true);
@@ -146,7 +146,7 @@ export function VinylPlayerBackup() {
     }
   };
 
-  // 서버 헬스 체크
+  // ?�버 ?�스 체크
   const checkServerHealth = async () => {
     try {
       console.log('Checking server health...');
@@ -172,11 +172,11 @@ export function VinylPlayerBackup() {
 
   // Load tracks from Spotify API with retry
   useEffect(() => {
-    // 토스트 시스템 테스트
+    // ?�스???�스???�스??
     setTimeout(() => {
-      toast.success('VinylPlayer 시작됨', { 
+      toast.success('VinylPlayer ?�작??, { 
         duration: 2000,
-        description: '음악을 재생할 준비가 완료되었습니다'
+        description: '?�악???�생??준비�? ?�료?�었?�니??
       });
     }, 500);
     
@@ -188,21 +188,21 @@ export function VinylPlayerBackup() {
           await loadRecommendations();
         } else {
           // If health check fails, show toast and retry after 3 seconds
-          console.log('🚨 서버 건강 상태 확인 실패');
-          toast.error('서버 연결 실패', {
+          console.log('?�� ?�버 건강 ?�태 ?�인 ?�패');
+          toast.error('?�버 ?�결 ?�패', {
             duration: 3000,
-            description: '3초 후 자동으로 재시도합니다'
+            description: '3�????�동?�로 ?�시?�합?�다'
           });
           setTimeout(() => {
-            console.log('🔄 서버 재연결 시도 중...');
+            console.log('?�� ?�버 ?�연�??�도 �?..');
             initializeApp(); // Retry
           }, 3000);
         }
       } catch (error) {
         console.error('App initialization error:', error);
-        toast.error('앱 초기화 실패', {
+        toast.error('??초기???�패', {
           duration: 4000,
-          description: '잠시 후 다시 시도해주세요'
+          description: '?�시 ???�시 ?�도?�주?�요'
         });
       } finally {
         setTracksLoading(false);
@@ -214,13 +214,13 @@ export function VinylPlayerBackup() {
 
   // Volume toast indicator (smooth tone)
   const showVolumeIndicator = (newVolume: number) => {
-    toast(`🔊 Volume ${newVolume}%`, {
+    toast(`?�� Volume ${newVolume}%`, {
       duration: 1500,
       position: 'top-center'
     });
   };
 
-  // 오디오 이벤트 핸들러
+  // ?�디???�벤???�들??
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -232,29 +232,29 @@ export function VinylPlayerBackup() {
     const updateDuration = () => {
       if (audio.duration && !isNaN(audio.duration)) {
         setDuration(audio.duration);
-        console.log('🎵 Duration loaded:', audio.duration);
+        console.log('?�� Duration loaded:', audio.duration);
       }
     };
     
     const handleLoadStart = () => {
-      console.log('🎵 Loading audio...');
+      console.log('?�� Loading audio...');
       setIsLoading(true);
     };
     
     const handleCanPlay = () => {
-      console.log('🎵 Audio can play');
+      console.log('?�� Audio can play');
       setIsLoading(false);
     };
     
     const handleLoadedData = () => {
-      console.log('🎵 Audio data loaded');
+      console.log('?�� Audio data loaded');
       if (audio.duration && !isNaN(audio.duration)) {
         setDuration(audio.duration);
       }
     };
     
     const handleEnded = () => {
-      console.log('🎵 Track ended');
+      console.log('?�� Track ended');
       setIsPlaying(false);
       setCurrentTime(0);
       handleNextTrack();
@@ -290,7 +290,7 @@ export function VinylPlayerBackup() {
         }
       }
       
-      console.error('❌ Audio error:', {
+      console.error('??Audio error:', {
         code: errorCode,
         message: errorMessage,
         src: audio.src,
@@ -302,9 +302,9 @@ export function VinylPlayerBackup() {
       setIsLoading(false);
       setIsPlaying(false);
       
-      // SRC_NOT_SUPPORTED 에러의 경우 자동으로 다음 재생 가능한 트랙으로 이동
+      // SRC_NOT_SUPPORTED ?�러??경우 ?�동?�로 ?�음 ?�생 가?�한 ?�랙?�로 ?�동
       if (error?.code === error.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-        console.log('🔄 Trying to find next playable track...');
+        console.log('?�� Trying to find next playable track...');
         const nextIndex = findNextPlayableTrack(currentTrackIndex);
         if (nextIndex !== -1 && nextIndex !== currentTrackIndex) {
           toast('Switching to available track...', { duration: 2000 });
@@ -315,22 +315,22 @@ export function VinylPlayerBackup() {
         }
       }
       
-      // 다른 에러의 경우 사용자에게 알림
+      // ?�른 ?�러??경우 ?�용?�에�??�림
       toast.error('Audio playback failed');
     };
 
     const handlePlay = () => {
-      console.log('🎵 Audio started playing');
+      console.log('?�� Audio started playing');
       setIsPlaying(true);
       setIsLoading(false);
     };
 
     const handlePause = () => {
-      console.log('🎵 Audio paused');
+      console.log('?�� Audio paused');
       setIsPlaying(false);
     };
 
-    // 모든 이벤트 리스너 등록
+    // 모든 ?�벤??리스???�록
     audio.addEventListener('timeupdate', updateTime);
     audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('loadeddata', handleLoadedData);
@@ -354,14 +354,14 @@ export function VinylPlayerBackup() {
     };
   }, [currentTrackIndex]);
 
-  // 볼륨 업데이트
+  // 볼륨 ?�데?�트
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume / 100;
     }
   }, [volume]);
 
-  // 트랙 변경 시 자동 재생 처리
+  // ?�랙 변�????�동 ?�생 처리
   useEffect(() => {
     if (!currentTrack) return;
 
@@ -375,25 +375,25 @@ export function VinylPlayerBackup() {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
           
-          // 새 트랙 URL 설정 (유효성 검사 포함)
+          // ???�랙 URL ?�정 (?�효??검???�함)
           if (isValidPreviewUrl(currentTrack.preview_url)) {
-            console.log('✅ Setting valid preview URL:', currentTrack.preview_url);
+            console.log('??Setting valid preview URL:', currentTrack.preview_url);
             audioRef.current.src = currentTrack.preview_url!;
-            audioRef.current.load(); // 강제로 새 소스 로드
+            audioRef.current.load(); // 강제�????�스 로드
           } else {
-            console.log('⚠️ Invalid preview URL, removing audio source:', currentTrack.preview_url);
+            console.log('?�️ Invalid preview URL, removing audio source:', currentTrack.preview_url);
             audioRef.current.removeAttribute('src');
             audioRef.current.load();
           }
         }
         
-        console.log('🎵 Setting up track:', currentTrack.title, currentTrack.preview_url);
+        console.log('?�� Setting up track:', currentTrack.title, currentTrack.preview_url);
         
-        // 자동 재생이 필요한 경우 (사용자가 이미 상호작용했고 유효한 URL인 경우만)
+        // ?�동 ?�생???�요??경우 (?�용?��? ?��? ?�호?�용?�고 ?�효??URL??경우�?
         if (shouldAutoPlayRef.current && audioRef.current && isValidPreviewUrl(currentTrack.preview_url) && hasUserInteracted) {
           shouldAutoPlayRef.current = false;
           
-          // 오디오 로딩 대기
+          // ?�디??로딩 ?��?
           const waitForLoad = new Promise<void>((resolve) => {
             if (!audioRef.current) return resolve();
             
@@ -414,16 +414,16 @@ export function VinylPlayerBackup() {
             if (audioRef.current) {
               audioRef.current.volume = volume / 100;
               await audioRef.current.play();
-              console.log('🎵 Auto-playing:', currentTrack.title);
+              console.log('?�� Auto-playing:', currentTrack.title);
             }
           } catch (error) {
-            console.error('❌ Auto-play error:', error);
+            console.error('??Auto-play error:', error);
             setIsPlaying(false);
-            toast.error('자동재생이 차단되었습니다. 재생 버튼을 클릭해주세요.');
+            toast.error('?�동?�생??차단?�었?�니?? ?�생 버튼???�릭?�주?�요.');
           }
         }
       } catch (error) {
-        console.error('❌ Track setup error:', error);
+        console.error('??Track setup error:', error);
         setIsPlaying(false);
       } finally {
         setIsLoading(false);
@@ -433,7 +433,7 @@ export function VinylPlayerBackup() {
     setupNewTrack();
   }, [currentTrack]);
 
-  // 하드웨어 볼륨 키 감지
+  // ?�드?�어 볼륨 ??감�?
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'ArrowUp' || event.code === 'ArrowDown') {
@@ -454,7 +454,7 @@ export function VinylPlayerBackup() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [volume]);
 
-  // LP 회전 애니메이션 제어
+  // LP ?�전 ?�니메이???�어
   useEffect(() => {
     if (isPlaying) {
       spinControls.start({
@@ -470,7 +470,7 @@ export function VinylPlayerBackup() {
     }
   }, [isPlaying, spinControls, currentTrackIndex]);
 
-  // Preview URL 유효성 검사 (더 관대하게)
+  // Preview URL ?�효??검??(??관?�?�게)
   const isValidPreviewUrl = (url: string | null | undefined): boolean => {
     if (!url || typeof url !== 'string' || url.trim() === '') return false;
     try {
@@ -481,7 +481,7 @@ export function VinylPlayerBackup() {
     }
   };
 
-  // 재생 가능한 다음 트랙 찾기
+  // ?�생 가?�한 ?�음 ?�랙 찾기
   const findNextPlayableTrack = (startIndex: number, direction: 'next' | 'prev' = 'next'): number => {
     let index = startIndex;
     let attempts = 0;
@@ -501,18 +501,18 @@ export function VinylPlayerBackup() {
       attempts++;
     }
     
-    return -1; // 재생 가능한 트랙이 없음
+    return -1; // ?�생 가?�한 ?�랙???�음
   };
 
   const handlePlayPause = async () => {
     if (!audioRef.current) {
-      console.log('❌ No audio element');
+      console.log('??No audio element');
       return;
     }
 
-    // Preview URL 유효성 검사
+    // Preview URL ?�효??검??
     if (!isValidPreviewUrl(currentTrack?.preview_url)) {
-      console.log('❌ Invalid preview URL, trying to find next playable track');
+      console.log('??Invalid preview URL, trying to find next playable track');
       const nextPlayableIndex = findNextPlayableTrack(currentTrackIndex);
       
       if (nextPlayableIndex === -1) {
@@ -525,7 +525,7 @@ export function VinylPlayerBackup() {
       return;
     }
 
-    // 첫 번째 사용자 상호작용 기록
+    // �?번째 ?�용???�호?�용 기록
     if (!hasUserInteracted) {
       setHasUserInteracted(true);
     }
@@ -533,13 +533,13 @@ export function VinylPlayerBackup() {
     try {
       if (isPlaying) {
         audioRef.current.pause();
-        console.log('⏸️ Paused');
+        console.log('?�️ Paused');
       } else {
-        console.log('▶️ Attempting to play:', currentTrack.title);
+        console.log('?�️ Attempting to play:', currentTrack.title);
         setIsLoading(true);
         audioRef.current.volume = volume / 100;
         
-        // 짧은 타임아웃으로 로딩 시간 제한
+        // 짧�? ?�?�아?�으�?로딩 ?�간 ?�한
         const playPromise = Promise.race([
           audioRef.current.play(),
           new Promise((_, reject) => 
@@ -548,10 +548,10 @@ export function VinylPlayerBackup() {
         ]);
         
         await playPromise;
-        console.log('✅ Playing started');
+        console.log('??Playing started');
       }
     } catch (error: any) {
-      console.error('❌ Play/pause error:', {
+      console.error('??Play/pause error:', {
         name: error.name,
         message: error.message,
         code: error.code,
@@ -566,7 +566,7 @@ export function VinylPlayerBackup() {
         toast.error('Click to allow audio playback');
       } else if (error.message === 'Load timeout') {
         toast.error('Track loading timeout');
-        // 타임아웃 시 다음 트랙으로 넘어가기
+        // ?�?�아?????�음 ?�랙?�로 ?�어가�?
         const nextIndex = findNextPlayableTrack(currentTrackIndex);
         if (nextIndex !== -1) {
           setCurrentTrackIndex(nextIndex);
@@ -575,7 +575,7 @@ export function VinylPlayerBackup() {
         toast.error('Audio playback was interrupted');
       } else if (error.name === 'NotSupportedError') {
         toast.error('Audio format not supported');
-        // 지원되지 않는 형식인 경우 다음 재생 가능한 트랙으로
+        // 지?�되지 ?�는 ?�식??경우 ?�음 ?�생 가?�한 ?�랙?�로
         const nextIndex = findNextPlayableTrack(currentTrackIndex);
         if (nextIndex !== -1) {
           setCurrentTrackIndex(nextIndex);
@@ -593,17 +593,17 @@ export function VinylPlayerBackup() {
     shouldAutoPlayRef.current = wasPlaying;
     setIsPlaying(false);
     
-    // 재생 가능한 이전 트랙 찾기
+    // ?�생 가?�한 ?�전 ?�랙 찾기
     const nextIndex = findNextPlayableTrack(currentTrackIndex, 'prev');
     if (nextIndex !== -1) {
       setCurrentTrackIndex(nextIndex);
-      console.log(`🔄 Previous playable track ${wasPlaying ? '(auto-play)' : '(paused)'}`);
+      console.log(`?�� Previous playable track ${wasPlaying ? '(auto-play)' : '(paused)'}`);
     } else {
-      // 재생 가능한 트랙이 없으면 기본 동작
+      // ?�생 가?�한 ?�랙???�으�?기본 ?�작
       setCurrentTrackIndex((prev) => 
         prev === 0 ? tracks.length - 1 : prev - 1
       );
-      console.log(`🔄 Previous track ${wasPlaying ? '(auto-play)' : '(paused)'} - may not be playable`);
+      console.log(`?�� Previous track ${wasPlaying ? '(auto-play)' : '(paused)'} - may not be playable`);
     }
   };
 
@@ -614,17 +614,17 @@ export function VinylPlayerBackup() {
     shouldAutoPlayRef.current = wasPlaying;
     setIsPlaying(false);
     
-    // 재생 가능한 다음 트랙 찾기
+    // ?�생 가?�한 ?�음 ?�랙 찾기
     const nextIndex = findNextPlayableTrack(currentTrackIndex, 'next');
     if (nextIndex !== -1) {
       setCurrentTrackIndex(nextIndex);
-      console.log(`🔄 Next playable track ${wasPlaying ? '(auto-play)' : '(paused)'}`);
+      console.log(`?�� Next playable track ${wasPlaying ? '(auto-play)' : '(paused)'}`);
     } else {
-      // 재생 가능한 트랙이 없으면 기본 동작
+      // ?�생 가?�한 ?�랙???�으�?기본 ?�작
       setCurrentTrackIndex((prev) => 
         prev === tracks.length - 1 ? 0 : prev + 1
       );
-      console.log(`🔄 Next track ${wasPlaying ? '(auto-play)' : '(paused)'} - may not be playable`);
+      console.log(`?�� Next track ${wasPlaying ? '(auto-play)' : '(paused)'} - may not be playable`);
     }
   };
 
@@ -635,7 +635,7 @@ export function VinylPlayerBackup() {
     setCurrentTime(newTime);
   };
 
-  // 진행바 클릭 핸들러
+  // 진행�??�릭 ?�들??
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!audioRef.current || !duration) return;
     
@@ -646,7 +646,7 @@ export function VinylPlayerBackup() {
     handleSeek(newTime);
   };
 
-  // 검색 핸들러
+  // 검???�들??
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -666,12 +666,12 @@ export function VinylPlayerBackup() {
   if (tracksLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100">
-        {/* 음표가 포함된 로딩 인디케이터 */}
+        {/* ?�표가 ?�함??로딩 ?�디케?�터 */}
         <div className="relative w-20 h-20 mb-6">
-          {/* 외부 회전하는 링 */}
+          {/* ?��? ?�전?�는 �?*/}
           <div className="absolute inset-0 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin"></div>
           
-          {/* 중앙 음표 아이콘 */}
+          {/* 중앙 ?�표 ?�이�?*/}
           <div className="absolute inset-0 flex items-center justify-center">
             <svg 
               width="24" 
@@ -698,13 +698,13 @@ export function VinylPlayerBackup() {
     React.useEffect(() => {
       // Multiple toast attempts to ensure visibility
       setTimeout(() => {
-        toast.error('음악을 불러올 수 없습니다', {
+        toast.error('?�악??불러?????�습?�다', {
           duration: 6000,
-          description: '네트워크 연결을 확인해주세요',
+          description: '?�트?�크 ?�결???�인?�주?�요',
           action: {
-            label: '다시 시도',
+            label: '?�시 ?�도',
             onClick: () => {
-              toast.info('새로고침 중입니다...', { duration: 1000 });
+              toast.info('?�로고침 중입?�다...', { duration: 1000 });
               setTimeout(() => window.location.reload(), 500);
             }
           }
@@ -713,15 +713,15 @@ export function VinylPlayerBackup() {
       
       // Backup alert if toast doesn't work
       setTimeout(() => {
-        console.log('🚨 음악 로딩 실패 - 토스트 알림이 표시되어야 합니다');
+        console.log('?�� ?�악 로딩 ?�패 - ?�스???�림???�시?�어???�니??);
       }, 200);
     }, []);
     
     // Show placeholder track instead of empty state
     const placeholderTrack = {
       id: 'placeholder',
-      title: '음악 로딩 중...',
-      artist: '잠시만 기다려주세요',
+      title: '?�악 로딩 �?..',
+      artist: '?�시�?기다?�주?�요',
       album: 'Loading',
       cover: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop',
       preview_url: null,
@@ -735,48 +735,48 @@ export function VinylPlayerBackup() {
         <div className="w-80 h-80 rounded-full bg-gray-200 flex items-center justify-center mb-8">
           <Music className="w-20 h-20 text-gray-400" />
         </div>
-        <p className="text-gray-600 text-center mb-4">음악을 불러오는 중입니다...</p>
+        <p className="text-gray-600 text-center mb-4">?�악??불러?�는 중입?�다...</p>
         <Button 
           onClick={() => {
-            toast.info('새로고침 중...', { duration: 1000 });
+            toast.info('?�로고침 �?..', { duration: 1000 });
             setTimeout(() => window.location.reload(), 500);
           }}
           className="bg-gray-900 text-white hover:bg-gray-700"
         >
-          🔄 다시 시도
+          ?�� ?�시 ?�도
         </Button>
       </div>
     );
   }
 
   const handleDragEnd = (event: any, info: PanInfo) => {
-    // 모바일에서는 더 민감하게, 데스크톱에서는 덜 민감하게
+    // 모바?�에?�는 ??민감?�게, ?�스?�톱?�서????민감?�게
     const swipeThreshold = isMobile ? 30 : 50;
     
     if (info.offset.x > swipeThreshold) {
-      // 오른쪽 스와이프 - 다음 트랙
+      // ?�른�??��??�프 - ?�음 ?�랙
       handleNextTrack();
     } else if (info.offset.x < -swipeThreshold) {
-      // 왼쪽 스와이프 - 이전 트랙
+      // ?�쪽 ?��??�프 - ?�전 ?�랙
       handlePreviousTrack();
     }
   };
 
   return (
     <div className={`flex flex-col min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 ${isMobile ? 'pt-0' : 'p-8 justify-center items-center'}`}>
-      {/* 데모 모드 표시 */}
+      {/* ?�모 모드 ?�시 */}
       {isDemoMode && (
         <div className="fixed top-4 left-4 z-50 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-          데모 모드 🎧
+          ?�모 모드 ?��
         </div>
       )}
       
-      {/* 모바일에서는 LP가 화면 상단을 크게 차지 */}
+      {/* 모바?�에?�는 LP가 ?�면 ?�단???�게 차�? */}
       {isMobile ? (
         <div className="relative w-full flex-1 flex flex-col">
-          {/* LP 영역 - 화면 상단 60% 차지 */}
+          {/* LP ?�역 - ?�면 ?�단 60% 차�? */}
           <div className="relative h-[60vh] overflow-hidden flex items-center justify-center">
-            {/* 턴테이블 베이스 - 모바일에서는 화면보다 크게 */}
+            {/* ?�테?�블 베이??- 모바?�에?�는 ?�면보다 ?�게 */}
             <div className="relative -mt-32" ref={containerRef}>
               <motion.div
                 className="relative cursor-pointer w-[126vw] h-[126vw]"
@@ -787,7 +787,7 @@ export function VinylPlayerBackup() {
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {/* LP 레코드 베이스 */}
+                {/* LP ?�코??베이??*/}
                 <motion.div
                   className="absolute inset-0 rounded-full"
                   animate={spinControls}
@@ -808,7 +808,7 @@ export function VinylPlayerBackup() {
                   }}
                 />
                 
-                {/* LP 홈 패턴 오버레이 */}
+                {/* LP ???�턴 ?�버?�이 */}
                 <motion.div
                   className="absolute inset-0 rounded-full"
                   animate={spinControls}
@@ -827,7 +827,7 @@ export function VinylPlayerBackup() {
                   }}
                 />
                 
-                {/* 추가 홈 패턴 레이어들 */}
+                {/* 추�? ???�턴 ?�이?�들 */}
                 <motion.div
                   className="absolute inset-0 rounded-full"
                   animate={spinControls}
@@ -900,7 +900,7 @@ export function VinylPlayerBackup() {
                   }}
                 />
   
-                {/* 앨범 커버 (가운데) */}
+                {/* ?�범 커버 (가?�데) */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <motion.div
                     className="w-[42vw] h-[42vw] rounded-full overflow-hidden bg-gray-200 shadow-lg"
@@ -914,7 +914,7 @@ export function VinylPlayerBackup() {
                   </motion.div>
                 </div>
                 
-                {/* 중앙 스피너 홀 */}
+                {/* 중앙 ?�피???� */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div 
                     className="w-[3vw] h-[3vw] bg-gray-800 rounded-full shadow-inner"
@@ -924,7 +924,7 @@ export function VinylPlayerBackup() {
                   />
                 </div>
                 
-                {/* 재생/일시정지 표시 (터치 시에만 표시) */}
+                {/* ?�생/?�시?��? ?�시 (?�치 ?�에�??�시) */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   {isLoading ? (
                     <div className="w-[16vw] h-[16vw] border-4 border-white border-t-transparent rounded-full animate-spin" />
@@ -944,20 +944,20 @@ export function VinylPlayerBackup() {
             </div>
           </div>
           
-          {/* 컨텐츠 영역 - 화면 하단 40% */}
+          {/* 컨텐�??�역 - ?�면 ?�단 40% */}
           <div className="flex-1 px-6 pb-6 flex flex-col justify-between">
-            {/* 트랙 정보 */}
+            {/* ?�랙 ?�보 */}
             <div className="text-center mb-2 px-4">
-              {/* 제목 - 두 줄로 자동 줄바꿈 */}
+              {/* ?�목 - ??줄로 ?�동 줄바�?*/}
               <h2 className="text-2xl text-gray-900 mb-2 leading-tight">
                 {currentTrack.title}
               </h2>
               
-              {/* 아티스트 */}
+              {/* ?�티?�트 */}
               <p className="text-gray-600 text-lg">{currentTrack.artist}</p>
             </div>
 
-            {/* 재생 진행 바 */}
+            {/* ?�생 진행 �?*/}
             <div className="w-full mb-2">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>{formatTime(currentTime)}</span>
@@ -980,9 +980,9 @@ export function VinylPlayerBackup() {
               </div>
             </div>
 
-            {/* 컨트롤 패널 - 완전 균등한 간격으로 정렬 */}
+            {/* 컨트�??�널 - ?�전 균등??간격?�로 ?�렬 */}
             <div className="grid grid-cols-5 gap-4 items-center w-full max-w-sm mx-auto mb-2 px-4">
-              {/* 1열: 검색 버튼 */}
+              {/* 1?? 검??버튼 */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -992,7 +992,7 @@ export function VinylPlayerBackup() {
                 <Search className="w-5 h-5" />
               </Button>
 
-              {/* 2열: 이전 버튼 */}
+              {/* 2?? ?�전 버튼 */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -1003,7 +1003,7 @@ export function VinylPlayerBackup() {
                 <SkipBack className="w-5 h-5" />
               </Button>
 
-              {/* 3열: 메인 재생/일시정지 버튼 */}
+              {/* 3?? 메인 ?�생/?�시?��? 버튼 */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -1020,7 +1020,7 @@ export function VinylPlayerBackup() {
                 )}
               </Button>
 
-              {/* 4열: 다음 버튼 */}
+              {/* 4?? ?�음 버튼 */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -1031,7 +1031,7 @@ export function VinylPlayerBackup() {
                 <SkipForward className="w-5 h-5" />
               </Button>
 
-              {/* 5열: 추천 버튼 */}
+              {/* 5?? 추천 버튼 */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -1046,10 +1046,10 @@ export function VinylPlayerBackup() {
           </div>
         </div>
       ) : (
-        /* 데스크톱 레이아웃 */
+        /* ?�스?�톱 ?�이?�웃 */
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-[104px] items-center">
-            {/* LP 턴테이블 */}
+            {/* LP ?�테?�블 */}
             <div className="relative flex items-center justify-center" ref={containerRef}>
               <motion.div
                 className="relative cursor-pointer w-[504px] h-[504px] rounded-full"
@@ -1060,7 +1060,7 @@ export function VinylPlayerBackup() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {/* LP 레코드 베이스 */}
+                {/* LP ?�코??베이??*/}
                 <motion.div
                   className="absolute inset-0 rounded-full"
                   animate={spinControls}
@@ -1081,7 +1081,7 @@ export function VinylPlayerBackup() {
                   }}
                 />
                 
-                {/* LP 홈 패턴 오버레이 */}
+                {/* LP ???�턴 ?�버?�이 */}
                 <motion.div
                   className="absolute inset-0 rounded-full"
                   animate={spinControls}
@@ -1100,7 +1100,7 @@ export function VinylPlayerBackup() {
                   }}
                 />
                 
-                {/* 추가 홈 패턴 레이어들 */}
+                {/* 추�? ???�턴 ?�이?�들 */}
                 <motion.div
                   className="absolute inset-0 rounded-full"
                   animate={spinControls}
@@ -1173,7 +1173,7 @@ export function VinylPlayerBackup() {
                   }}
                 />
 
-                {/* 앨범 커버 (가운데) */}
+                {/* ?�범 커버 (가?�데) */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <motion.div
                     className="w-48 h-48 rounded-full overflow-hidden bg-gray-200 shadow-lg"
@@ -1187,7 +1187,7 @@ export function VinylPlayerBackup() {
                   </motion.div>
                 </div>
                 
-                {/* 중앙 스피너 홀 */}
+                {/* 중앙 ?�피???� */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div 
                     className="w-3 h-3 bg-gray-800 rounded-full shadow-inner"
@@ -1197,7 +1197,7 @@ export function VinylPlayerBackup() {
                   />
                 </div>
                 
-                {/* 재생/일시정지 표시 (터치 시에만 표시) */}
+                {/* ?�생/?�시?��? ?�시 (?�치 ?�에�??�시) */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                   {isLoading ? (
                     <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin" />
@@ -1214,9 +1214,9 @@ export function VinylPlayerBackup() {
               </motion.div>
             </div>
 
-            {/* 사이드 컨트롤 패널 */}
+            {/* ?�이??컨트�??�널 */}
             <div className="space-y-8">
-              {/* 트랙 정보 */}
+              {/* ?�랙 ?�보 */}
               <div className="text-center lg:text-left">
                 <h2 className="text-4xl text-gray-900 mb-4 leading-tight">
                   {currentTrack.title}
@@ -1225,7 +1225,7 @@ export function VinylPlayerBackup() {
                 <p className="text-gray-500">{currentTrack.album}</p>
               </div>
 
-              {/* 재생 진행 바 */}
+              {/* ?�생 진행 �?*/}
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-2">
                   <span>{formatTime(currentTime)}</span>
@@ -1242,7 +1242,7 @@ export function VinylPlayerBackup() {
                 </div>
               </div>
 
-              {/* 컨트롤 버튼들 */}
+              {/* 컨트�?버튼??*/}
               <div className="flex items-center justify-center lg:justify-start space-x-4">
                 <Button
                   variant="ghost"
@@ -1304,22 +1304,22 @@ export function VinylPlayerBackup() {
         </div>
       )}
 
-      {/* 오디오 엘리먼트 */}
+      {/* ?�디???�리먼트 */}
       <audio
         ref={audioRef}
         preload="metadata"
         className="hidden"
       />
 
-      {/* 검색 팝업 */}
+      {/* 검???�업 */}
       {showSearch && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md bg-white border-0 shadow-2xl">
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <Search className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                <h3 className="text-xl text-gray-900 mb-2">음악 검색</h3>
-                <p className="text-gray-600 text-sm">아티스트나 곡 제목을 입력하세요</p>
+                <h3 className="text-xl text-gray-900 mb-2">?�악 검??/h3>
+                <p className="text-gray-600 text-sm">?�티?�트??�??�목???�력?�세??/p>
               </div>
               
               <form onSubmit={handleSearch} className="space-y-4">
@@ -1327,7 +1327,7 @@ export function VinylPlayerBackup() {
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="아티스트나 곡 제목..."
+                    placeholder="?�티?�트??�??�목..."
                     className="w-full pl-4 pr-4 py-3 text-base border-0 border-b-2 border-gray-200 rounded-none bg-transparent focus:border-gray-900 focus:ring-0 transition-colors"
                     autoFocus
                     disabled={isSearching}
@@ -1348,7 +1348,7 @@ export function VinylPlayerBackup() {
                     disabled={!searchQuery.trim() || isSearching}
                     className="flex-1 bg-gray-900 text-white hover:bg-gray-700 disabled:bg-gray-300"
                   >
-                    {isSearching ? '검색 중...' : '검색'}
+                    {isSearching ? '검??�?..' : '검??}
                   </Button>
                 </div>
               </form>

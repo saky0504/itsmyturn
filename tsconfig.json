@@ -27,6 +27,6 @@
       }
     },
     "include": ["src", "**/*.ts", "**/*.tsx"],
-    "exclude": ["node_modules", "dist", "supabase/functions/**/*"],
+    "exclude": ["node_modules", "dist", "supabase/functions/**/*", "LICENSE", "vite.config.ts", "*.config.ts"],
     "references": [{ "path": "./tsconfig.node.json" }]
   }

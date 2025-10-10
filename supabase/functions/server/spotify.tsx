@@ -69,10 +69,10 @@ app.get('/make-server-f3afc2d2/spotify/demo', (c) => {
 // Spotify API Base URL
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 
-// Get demo tracks helper function (실제 재생 가능한 샘플 트랙)
+// Get demo tracks helper function (?�제 ?�생 가?�한 ?�플 ?�랙)
 function getDemoTracks() {
   
-  // HTML5 완전 호환 데모 트랙들 (웹에서 바로 재생 가능)
+  // HTML5 ?�전 ?�환 ?�모 ?�랙??(?�에??바로 ?�생 가??
   const demoTracks = [
     {
       id: 'demo1',
@@ -280,19 +280,19 @@ app.get('/make-server-f3afc2d2/spotify/playlist/:id', async (c) => {
 // Get recommendations
 app.get('/make-server-f3afc2d2/spotify/recommendations', async (c) => {
   try {
-    console.log('🎵 === Starting Spotify recommendations request ===');
-    console.log('🔑 Getting Spotify access token...');
+    console.log('?�� === Starting Spotify recommendations request ===');
+    console.log('?�� Getting Spotify access token...');
     
     let accessToken;
     try {
       accessToken = await getSpotifyAccessToken();
       console.log('Access token obtained successfully');
     } catch (tokenError) {
-      console.error('❌ Failed to get access token:', tokenError.message);
-      // Spotify API 실패시에만 데모 트랙 사용
-      console.log('📻 Using demo tracks as fallback');
+      console.error('??Failed to get access token:', tokenError.message);
+      // Spotify API ?�패?�에�??�모 ?�랙 ?�용
+      console.log('?�� Using demo tracks as fallback');
       const demoResult = getDemoTracks();
-      console.log('📻 Demo tracks prepared:', demoResult.tracks.map(t => ({ title: t.title, url: t.preview_url })));
+      console.log('?�� Demo tracks prepared:', demoResult.tracks.map(t => ({ title: t.title, url: t.preview_url })));
       return c.json(demoResult);
     }
     
@@ -418,14 +418,14 @@ app.get('/make-server-f3afc2d2/spotify/recommendations', async (c) => {
     
     // If no tracks with preview found, return demo tracks
     if (tracks.length === 0) {
-      console.log('⚠️ No tracks with preview found, returning demo tracks');
+      console.log('?�️ No tracks with preview found, returning demo tracks');
       const demoResult = getDemoTracks();
-      console.log('📻 Demo tracks prepared:', demoResult.tracks.map(t => ({ title: t.title, url: t.preview_url })));
+      console.log('?�� Demo tracks prepared:', demoResult.tracks.map(t => ({ title: t.title, url: t.preview_url })));
       return c.json(demoResult);
     }
     
-    console.log('✅ === Successfully returning Spotify tracks ===');
-    console.log('🎵 Tracks with preview URLs:', tracks.map(t => ({ title: t.title, url: t.preview_url?.substring(0, 50) + '...' })));
+    console.log('??=== Successfully returning Spotify tracks ===');
+    console.log('?�� Tracks with preview URLs:', tracks.map(t => ({ title: t.title, url: t.preview_url?.substring(0, 50) + '...' })));
     return c.json({ tracks });
   } catch (error) {
     console.error('=== Spotify recommendations error ===');
@@ -436,13 +436,13 @@ app.get('/make-server-f3afc2d2/spotify/recommendations', async (c) => {
     });
     
     // Always return demo tracks on any error
-    console.log('📻 Returning demo tracks due to error');
+    console.log('?�� Returning demo tracks due to error');
     try {
       const demoResult = getDemoTracks();
-      console.log('📻 Demo tracks prepared after error:', demoResult.tracks.map(t => ({ title: t.title, url: t.preview_url })));
+      console.log('?�� Demo tracks prepared after error:', demoResult.tracks.map(t => ({ title: t.title, url: t.preview_url })));
       return c.json(demoResult);
     } catch (demoError) {
-      console.error('❌ Failed to get demo tracks:', demoError);
+      console.error('??Failed to get demo tracks:', demoError);
       return c.json({ 
         error: 'Service temporarily unavailable',
         tracks: []
