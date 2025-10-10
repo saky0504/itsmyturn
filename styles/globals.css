@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS Variables */
+:root {
+  --spotify-green: #1DB954;
+  --spotify-black: #191414;
+  --spotify-gray: #121212;
+  --spotify-light-gray: #1a1a1a;
+  --spotify-text-gray: #b3b3b3;
+  --spotify-white: #ffffff;
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Circular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, #191414 0%, #121212 50%, #000000 100%);
+  color: var(--spotify-white);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--spotify-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--spotify-text-gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+/* Selection */
+::selection {
+  background: var(--spotify-green);
+  color: var(--spotify-white);
+}
+
+/* Focus Styles */
+*:focus {
+  outline: 2px solid var(--spotify-green);
+  outline-offset: 2px;
+}
+
+/* Button Styles */
+.btn-primary {
+  @apply bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-full transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-full transition-colors duration-200;
+}
+
+.btn-ghost {
+  @apply text-gray-400 hover:text-white transition-colors duration-200;
+}
+
+/* Card Styles */
+.card {
+  @apply bg-gray-800 rounded-lg p-4 shadow-lg hover:shadow-xl transition-shadow duration-200;
+}
+
+.card-hover {
+  @apply hover:bg-gray-700 transition-colors duration-200;
+}
+
+/* Vinyl Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vinyl-spin {
+  animation: spin 3s linear infinite;
+}
+
+.vinyl-spin-slow {
+  animation: spin 6s linear infinite;
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, #1DB954 0%, #1ed760 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Loading Spinner */
+.spinner {
+  border: 2px solid var(--spotify-gray);
+  border-top: 2px solid var(--spotify-green);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+/* Progress Bar */
+.progress-bar {
+  background: linear-gradient(90deg, var(--spotify-green) 0%, #1ed760 100%);
+  border-radius: 4px;
+  height: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Track List Styles */
+.track-item {
+  @apply flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700 transition-colors duration-200;
+}
+
+.track-item.active {
+  @apply bg-green-500 bg-opacity-20;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none;
+  }
+  
+  .mobile-full {
+    width: 100%;
+  }
+}
+
+@media (min-width: 769px) {
+  .desktop-hidden {
+    display: none;
+  }
+}
+
+/* Dark Mode Enhancements */
+.dark-mode {
+  color-scheme: dark;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
