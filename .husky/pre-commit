@@ -1,0 +1,9 @@
+# 민감한 파일 체크
+if git diff --cached --name-only | grep -E "^\.env$|^deno\.env$|^\.env\.local$"; then
+  echo "❌ ERROR: Attempting to commit sensitive .env files!"
+  echo "Please remove them from staging:"
+  echo "  git reset HEAD .env deno.env"
+  exit 1
+fi
+
+echo "✅ Pre-commit check passed"
