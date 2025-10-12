@@ -1,1 +1,13 @@
 node_modules
+.env
+.env.local
+.env.*.local
+deno.env
+*.env
+dist
+.vite
+.DS_Store
+Thumbs.db
+*.log
+.temp
+.cache
