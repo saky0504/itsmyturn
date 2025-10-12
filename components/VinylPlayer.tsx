@@ -1254,13 +1254,13 @@ export function VinylPlayer() {
                   }}
                 >
                   <img 
-                    src={currentTrack?.cover || './images/duck-fallback.svg'}
+                    src={currentTrack?.cover || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K'}
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
                     className="w-full h-full object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       console.log('🦆 Image failed, using duck fallback');
-                      target.src = './images/duck-fallback.svg';
+                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K';
                     }}
                   />
                 </motion.div>
@@ -1572,13 +1572,13 @@ export function VinylPlayer() {
                   }}
                 >
                   <img 
-                    src={currentTrack?.cover || './images/duck-fallback.svg'}
+                    src={currentTrack?.cover || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K'}
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
                     className="w-full h-full object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       console.log('🦆 Image failed, using duck fallback');
-                      target.src = './images/duck-fallback.svg';
+                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K';
                     }}
                   />
                 </motion.div>
