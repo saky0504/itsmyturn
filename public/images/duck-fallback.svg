@@ -1,0 +1,39 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="600" height="600" fill="white"/>
+  
+  <!-- 오리 몸체 -->
+  <ellipse cx="300" cy="400" rx="120" ry="80" fill="#f5f5f5" stroke="#333" stroke-width="4"/>
+  
+  <!-- 오리 목 -->
+  <ellipse cx="300" cy="280" rx="60" ry="100" fill="#f5f5f5" stroke="#333" stroke-width="4"/>
+  
+  <!-- 오리 머리 -->
+  <circle cx="300" cy="180" r="70" fill="#f5f5f5" stroke="#333" stroke-width="4"/>
+  
+  <!-- 부리 -->
+  <ellipse cx="300" cy="150" rx="25" ry="15" fill="#ffd700" stroke="#333" stroke-width="3"/>
+  <line x1="295" y1="145" x2="295" y2="155" stroke="#333" stroke-width="2"/>
+  <line x1="305" y1="145" x2="305" y2="155" stroke="#333" stroke-width="2"/>
+  
+  <!-- 눈 -->
+  <circle cx="280" cy="160" r="12" fill="#333"/>
+  <circle cx="320" cy="160" r="12" fill="#333"/>
+  <circle cx="282" cy="158" r="3" fill="white"/>
+  <circle cx="322" cy="158" r="3" fill="white"/>
+  
+  <!-- 머리 깃털 -->
+  <path d="M250 140 Q280 120 300 140 Q320 120 350 140" stroke="#333" stroke-width="3" fill="none"/>
+  
+  <!-- 손/날개 (오른쪽) -->
+  <ellipse cx="420" cy="350" rx="40" ry="80" fill="#f5f5f5" stroke="#333" stroke-width="4" transform="rotate(30 420 350)"/>
+  
+  <!-- 손가락 -->
+  <ellipse cx="450" cy="320" rx="8" ry="25" fill="#f5f5f5" stroke="#333" stroke-width="2" transform="rotate(45 450 320)"/>
+  <ellipse cx="460" cy="340" rx="8" ry="20" fill="#f5f5f5" stroke="#333" stroke-width="2" transform="rotate(60 460 340)"/>
+  <ellipse cx="465" cy="360" rx="8" ry="15" fill="#f5f5f5" stroke="#333" stroke-width="2" transform="rotate(75 465 360)"/>
+  
+  <!-- 텍스트 -->
+  <text x="300" y="520" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#333">
+    🎵 Music Loading 🎵
+  </text>
+</svg>
