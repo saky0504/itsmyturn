@@ -1,0 +1,11 @@
+refs/heads/main
+refs/heads/migration-complete
+refs/remotes/origin/main
+refs/remotes/origin/main
+refs/remotes/origin/master
+refs/remotes/origin/migration-complete
+refs/stash
+refs/tags/v0.1.0-migration-wip
+refs/tags/v0.2.0-stable
+refs/tags/v2025-10-12-1846-duck-cover-autoplay-fix
+refs/tags/v2025-10-12-1909-genre-selection-feature
