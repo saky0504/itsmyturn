@@ -151,10 +151,14 @@ export function VinylPlayer() {
       const audioFile = mp3Files[0];
       const streamingUrl = `https://archive.org/download/${identifier}/${audioFile.name}`;
       
+      // Internet Archive의 커버 이미지 URL (항목마다 고유)
+      const coverUrl = `https://archive.org/services/img/${identifier}`;
+      
       console.log(`✅ Streaming URL found: ${audioFile.name}`);
       
       return {
         streamingUrl,
+        coverUrl,
         duration: audioFile.length ? parseInt(audioFile.length) * 1000 : 180000, // length in seconds
         fileSize: audioFile.size
       };
@@ -208,14 +212,14 @@ export function VinylPlayer() {
         try {
           console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`);
           
-          const { streamingUrl, duration } = await getStreamingUrl(item.identifier);
+          const { streamingUrl, coverUrl, duration } = await getStreamingUrl(item.identifier);
           
           const track: Track = {
             id: item.identifier,
             title: item.title || 'Unknown Title',
             artist: item.creator || 'Unknown Artist',
             album: item.identifier,
-            cover: `https://images.unsplash.com/photo-${1507838153414 + i}?w=600&h=600&fit=crop`, // 랜덤 커버
+            cover: coverUrl, // Internet Archive 커버 사용
             preview_url: streamingUrl,
             duration: duration,
             spotify_url: `https://open.spotify.com/search/${encodeURIComponent(item.title || '')}`,
@@ -226,16 +230,13 @@ export function VinylPlayer() {
           archiveTracks.push(track);
           console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`);
           
-          // 첫 번째 트랙이 로드되면 즉시 자동재생
+          // 첫 번째 트랙이 로드되면 즉시 자동재생 (메시지 없음)
           if (i === 0) {
             setTracks([track]);
             setCurrentTrackIndex(0);
             shouldAutoPlayRef.current = true;
             setHasUserInteracted(true);
             console.log('🎵 First track loaded - Auto-playing immediately...');
-            toast.success(`Track 1 loaded! Auto-playing...`, {
-              duration: 2000
-            });
           }
           
           // 각 트랙 로딩 간격 (너무 빠르면 서버 부하)
@@ -548,22 +549,26 @@ export function VinylPlayer() {
             await waitForLoad;
             if (audioRef.current) {
               try {
-                audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
                 // 음소거 상태로 먼저 재생 시도 (브라우저 정책 우회)
                 audioRef.current.muted = true;
                 await audioRef.current.play();
-                // 재생 성공 후 음소거 해제
-                audioRef.current.muted = false;
+                // 재생 성공 후 즉시 음소거 해제
+                setTimeout(() => {
+                  if (audioRef.current) {
+                    audioRef.current.muted = false;
+                    audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
+                  }
+                }, 100);
                 console.log('🎵 Auto-playing:', currentTrack.title);
+                setIsPlaying(true);
               } catch (playError) {
-                console.warn('Audio play failed:', playError);
-                throw playError;
+                console.warn('Audio play failed, will try on user interaction:', playError);
+                setIsPlaying(false);
               }
             }
           } catch (error) {
             console.error('❌ Auto-play error:', error);
             setIsPlaying(false);
-            toast.error('Auto-play blocked. Please click the play button.');
           }
         }
       } catch (error) {
