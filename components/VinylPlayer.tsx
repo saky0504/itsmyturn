@@ -347,16 +347,24 @@ export function VinylPlayer() {
       console.log('VinylPlayer Started - Ready to play music');
     }, 500);
 
-    // 브라우저 자동재생 정책 우회를 위한 사용자 상호작용 시뮬레이션
+    // 브라우저 자동재생 정책 우회를 위한 사용자 상호작용 감지
     const enableAutoplay = () => {
       setHasUserInteracted(true);
-      console.log('🎵 User interaction enabled for autoplay');
+      console.log('🎵 User interaction detected - autoplay enabled');
     };
 
-    // 페이지 로드 시 사용자 상호작용 활성화
-    document.addEventListener('click', enableAutoplay, { once: true });
-    document.addEventListener('keydown', enableAutoplay, { once: true });
-    document.addEventListener('touchstart', enableAutoplay, { once: true });
+    // 페이지 로드 시 사용자 상호작용 감지 (CSP 안전)
+    const safeEventListeners = () => {
+      try {
+        document.addEventListener('click', enableAutoplay, { once: true, passive: true });
+        document.addEventListener('keydown', enableAutoplay, { once: true, passive: true });
+        document.addEventListener('touchstart', enableAutoplay, { once: true, passive: true });
+      } catch (error) {
+        console.warn('Event listener setup failed:', error);
+      }
+    };
+
+    safeEventListeners();
     
     const initializeApp = async () => {
       try {
@@ -636,7 +644,7 @@ export function VinylPlayer() {
                     audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
                     console.log('🔊 Unmuted - Now playing:', currentTrack.title);
                   }
-                }, 50);
+                }, 100);
                 
               } catch (playError) {
                 console.warn('⚠️ Auto-play failed, will wait for user interaction:', playError);
