@@ -289,11 +289,11 @@ export function VinylPlayer() {
       
       // 나머지 트랙들을 플레이리스트에 추가
       if (archiveTracks.length > 1) {
-        setTracks(prevTracks => {
+      setTracks(prevTracks => {
           const remainingTracks = archiveTracks.slice(1); // 첫 번째는 이미 추가됨
           const newTracks = remainingTracks.filter((newTrack: Track) => 
-            !prevTracks.some(existingTrack => existingTrack.id === newTrack.id)
-          );
+          !prevTracks.some(existingTrack => existingTrack.id === newTrack.id)
+        );
           return [...prevTracks, ...newTracks];
         });
         
@@ -365,7 +365,7 @@ export function VinylPlayer() {
         
         // Internet Archive 음원은 서버 체크 불필요
         // 바로 음원 로드
-        await loadRecommendations();
+          await loadRecommendations();
         
         console.log('✅ Music player initialized successfully!');
       } catch (error) {
@@ -597,15 +597,15 @@ export function VinylPlayer() {
               console.log('⚡ Preloaded audio - instant play');
               resolve();
             } else {
-              const handleCanPlay = () => {
-                audioRef.current?.removeEventListener('canplay', handleCanPlay);
-                resolve();
-              };
-              
-              if (audioRef.current.readyState >= 2) {
-                resolve();
-              } else {
-                audioRef.current.addEventListener('canplay', handleCanPlay);
+            const handleCanPlay = () => {
+              audioRef.current?.removeEventListener('canplay', handleCanPlay);
+              resolve();
+            };
+            
+            if (audioRef.current.readyState >= 2) {
+              resolve();
+            } else {
+              audioRef.current.addEventListener('canplay', handleCanPlay);
               }
             }
           });
@@ -695,18 +695,18 @@ export function VinylPlayer() {
     try {
       if ((isPlaying && !isLoading) || isInitialLoading) {
         console.log('🎵 Starting LP rotation animation');
-        spinControls.start({
-          rotate: [0, 360],
-          transition: {
-            duration: 4,
-            repeat: Infinity,
-            ease: "linear"
-          }
-        });
+      spinControls.start({
+        rotate: [0, 360],
+        transition: {
+          duration: 4,
+          repeat: Infinity,
+          ease: "linear"
+        }
+      });
       } else if (spinControls) {
         console.log('⏸️ Stopping LP rotation animation');
-        spinControls.stop();
-      }
+      spinControls.stop();
+    }
     } catch (error) {
       console.warn('LP animation control error:', error);
     }
@@ -1254,7 +1254,7 @@ export function VinylPlayer() {
                   }}
                 >
                   <img 
-                    src="./images/duck-fallback.svg"
+                    src={currentTrack?.cover || './images/duck-fallback.svg'}
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
                     className="w-full h-full object-contain"
                     onError={(e) => {
@@ -1572,7 +1572,7 @@ export function VinylPlayer() {
                   }}
                 >
                   <img 
-                    src="./images/duck-fallback.svg"
+                    src={currentTrack?.cover || './images/duck-fallback.svg'}
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
                     className="w-full h-full object-contain"
                     onError={(e) => {
