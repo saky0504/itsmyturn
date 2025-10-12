@@ -1253,20 +1253,12 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  {currentTrack?.cover && !isInitialLoading ? (
-                    <ImageWithFallback
-                      key={`mobile-cover-${currentTrack.id}`}
-                      src={currentTrack.cover}
-                      alt={`${currentTrack.album} cover`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img 
-                      src="/images/duck-fallback.svg" 
-                      alt="Music Loading" 
-                      className="w-full h-full object-contain animate-pulse"
-                    />
-                  )}
+                  <ImageWithFallback
+                    key={`mobile-cover-${currentTrack?.id || 'default'}`}
+                    src={currentTrack?.cover || '/images/duck-fallback.svg'}
+                    alt={`${currentTrack?.album || 'Music Loading'} cover`}
+                    className="w-full h-full object-cover"
+                  />
                 </motion.div>
 
                 {/* 재생/일시정지 오버레이 */}
@@ -1302,7 +1294,7 @@ export function VinylPlayer() {
               </h2>
               
               {/* 아티스트 */}
-              <p className="text-gray-600 leading-tight" style={{ fontSize: '1.125rem' }}>
+              <p className="text-gray-600 leading-tight" style={{ fontSize: '1.125rem', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 {currentTrack?.artist || 'Load tracks to start playing'}
               </p>
             </div>
@@ -1575,20 +1567,12 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  {currentTrack?.cover && !isInitialLoading ? (
-                    <ImageWithFallback
-                      key={`desktop-cover-${currentTrack.id}`}
-                      src={currentTrack.cover}
-                      alt={`${currentTrack.album} cover`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img 
-                      src="/images/duck-fallback.svg" 
-                      alt="Music Loading" 
-                      className="w-full h-full object-contain animate-pulse"
-                    />
-                  )}
+                  <ImageWithFallback
+                    key={`desktop-cover-${currentTrack?.id || 'default'}`}
+                    src={currentTrack?.cover || '/images/duck-fallback.svg'}
+                    alt={`${currentTrack?.album || 'Music Loading'} cover`}
+                    className="w-full h-full object-cover"
+                  />
                 </motion.div>
 
                 {/* 재생/일시정지 오버레이 */}
@@ -1620,10 +1604,10 @@ export function VinylPlayer() {
                 <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '1.75rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {currentTrack?.title || 'No Track Selected'}
                 </h2>
-                <p className="text-gray-600 mb-0.5 leading-tight" style={{ fontSize: '1.25rem' }}>
+                <p className="text-gray-600 mb-0.5 leading-tight" style={{ fontSize: '1.25rem', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {currentTrack?.artist || 'Load tracks to start playing'}
                 </p>
-                <p className="text-gray-500 leading-tight" style={{ fontSize: '1rem' }}>
+                <p className="text-gray-500 leading-tight" style={{ fontSize: '1rem', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {currentTrack?.album || 'Click the music button to load Spotify playlist'}
                 </p>
               </div>
@@ -1818,8 +1802,8 @@ export function VinylPlayer() {
               />
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{currentTrack.title}</h3>
-                <p className="text-lg text-gray-600 mb-1" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>{currentTrack.artist}</p>
-                <p className="text-gray-500 mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>{currentTrack.album}</p>
+                <p className="text-lg text-gray-600 mb-1" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{currentTrack.artist}</p>
+                <p className="text-gray-500 mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{currentTrack.album}</p>
                 {currentTrack.genre && (
                   <span className="inline-block bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {currentTrack.genre}
