@@ -37,6 +37,7 @@ export function VinylPlayer() {
   const [hasUserInteracted, setHasUserInteracted] = useState(false); // 자동재생 사용 여부
   const [showLyrics, setShowLyrics] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [preloadedTracks, setPreloadedTracks] = useState<Map<string, HTMLAudioElement>>(new Map());
   const spinControls = useAnimationControls();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -303,12 +304,14 @@ export function VinylPlayer() {
       
       // 첫 로딩 완료 플래그 업데이트
       setIsFirstLoad(false);
+      setIsInitialLoading(false);
       
     } catch (error) {
       console.error('❌ Failed to load tracks:', error);
       toast.error(`Failed to load tracks: ${(error as Error).message}`);
     } finally {
       setIsLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -690,7 +693,7 @@ export function VinylPlayer() {
   // LP 회전 애니메이션 컨트롤러
   useEffect(() => {
     try {
-      if (isPlaying && !isLoading && spinControls) {
+      if ((isPlaying && !isLoading) || isInitialLoading) {
         console.log('🎵 Starting LP rotation animation');
         spinControls.start({
           rotate: [0, 360],
@@ -707,7 +710,7 @@ export function VinylPlayer() {
     } catch (error) {
       console.warn('LP animation control error:', error);
     }
-  }, [isPlaying, isLoading, spinControls, currentTrackIndex]);
+  }, [isPlaying, isLoading, isInitialLoading, spinControls, currentTrackIndex]);
 
   // 재생 진행률 업데이트 - 부드러운 진행 표시
   useEffect(() => {
@@ -1293,8 +1296,8 @@ export function VinylPlayer() {
           <div className="flex-1 px-6 pb-6 flex flex-col justify-between">
             {/* 트랙 정보 */}
             <div className="text-center mb-2 px-4">
-              {/* 제목 - 한 줄로 자동 줄바꿈*/}
-              <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '1.75rem' }}>
+              {/* 제목 - 2줄 넘으면 ... 처리 */}
+              <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '1.5rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 {currentTrack?.title || 'No Track Selected'}
               </h2>
               
@@ -1614,7 +1617,7 @@ export function VinylPlayer() {
             <div className="space-y-8">
               {/* 트랙 정보 */}
               <div className="text-center lg:text-left">
-                <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '2rem' }}>
+                <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '1.75rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {currentTrack?.title || 'No Track Selected'}
                 </h2>
                 <p className="text-gray-600 mb-0.5 leading-tight" style={{ fontSize: '1.25rem' }}>
@@ -1814,7 +1817,7 @@ export function VinylPlayer() {
                 }}
               />
               <div className="flex-1">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>{currentTrack.title}</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{currentTrack.title}</h3>
                 <p className="text-lg text-gray-600 mb-1" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>{currentTrack.artist}</p>
                 <p className="text-gray-500 mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>{currentTrack.album}</p>
                 {currentTrack.genre && (
