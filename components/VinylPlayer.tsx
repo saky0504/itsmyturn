@@ -245,13 +245,16 @@ export function VinylPlayer() {
         );
         const updatedTracks = [...prevTracks, ...newTracks];
         
-        // 첫 번째 트랙이 추가된 경우 자동으로 재생 준비
+        // 첫 번째 트랙이 추가된 경우 로드만 (자동 재생은 사용자 클릭 필요)
         if (prevTracks.length === 0 && newTracks.length > 0) {
           setTimeout(() => {
             setCurrentTrackIndex(0);
-            shouldAutoPlayRef.current = true; // 자동 재생 활성화
-            setHasUserInteracted(true); // 자동 재생 허용
-            console.log('🎵 Auto-playing first track enabled');
+            // 브라우저 정책상 사용자 인터랙션 후에만 재생 가능
+            // shouldAutoPlayRef는 Play 버튼 클릭 후 활성화
+            console.log('🎵 First track loaded - Click Play to start');
+            toast.success('Music loaded! Click Play to start', {
+              duration: 3000
+            });
           }, 500);
         }
         
@@ -303,26 +306,18 @@ export function VinylPlayer() {
     const initializeApp = async () => {
       try {
         setTracksLoading(true);
-        const isHealthy = await checkServerHealth();
-        if (isHealthy) {
-          await loadRecommendations();
-        } else {
-          // If health check fails, show toast and retry after 3 seconds
-          console.log('Server health check failed');
-          toast.error('Server connection failed', {
-            duration: 3000,
-            description: 'Retrying automatically in 3 seconds'
-          });
-          setTimeout(() => {
-            console.log('Reconnecting to server...');
-            initializeApp(); // Retry
-          }, 3000);
-        }
+        console.log('🎵 Initializing music player...');
+        
+        // Internet Archive 음원은 서버 체크 불필요
+        // 바로 음원 로드
+        await loadRecommendations();
+        
+        console.log('✅ Music player initialized successfully!');
       } catch (error) {
-        console.error('App initialization error:', error);
-        toast.error('App initialization failed', {
+        console.error('❌ App initialization error:', error);
+        toast.error('Failed to load music tracks', {
           duration: 4000,
-          description: 'Please try again later'
+          description: 'Please refresh the page'
         });
       } finally {
         setTracksLoading(false);
