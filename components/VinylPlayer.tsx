@@ -524,8 +524,8 @@ export function VinylPlayer() {
         
         console.log('🎵 Setting up track:', currentTrack.title, currentTrack.preview_url);
         
-        // 자동 재생이 필요한 경우 (사용자가 재생 요청했고 유효한 URL인 경우)
-        if (shouldAutoPlayRef.current && audioRef.current && isValidPreviewUrl(currentTrack.preview_url) && hasUserInteracted) {
+        // 자동 재생이 필요한 경우 (유효한 URL인 경우 무조건 시도)
+        if (shouldAutoPlayRef.current && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
           shouldAutoPlayRef.current = false;
           
           // 오디오 로딩 대기
@@ -549,7 +549,11 @@ export function VinylPlayer() {
             if (audioRef.current) {
               try {
                 audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
+                // 음소거 상태로 먼저 재생 시도 (브라우저 정책 우회)
+                audioRef.current.muted = true;
                 await audioRef.current.play();
+                // 재생 성공 후 음소거 해제
+                audioRef.current.muted = false;
                 console.log('🎵 Auto-playing:', currentTrack.title);
               } catch (playError) {
                 console.warn('Audio play failed:', playError);
