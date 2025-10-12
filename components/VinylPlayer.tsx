@@ -1169,13 +1169,11 @@ export function VinylPlayer() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-yellow-100 flex items-center justify-center">
-                      <img 
-                        src="/images/duck-fallback.svg" 
-                        alt="Music Loading" 
-                        className="w-full h-full object-contain animate-pulse"
-                      />
-                    </div>
+                    <img 
+                      src="/images/duck-fallback.svg" 
+                      alt="Music Loading" 
+                      className="w-full h-full object-contain animate-pulse"
+                    />
                   )}
                 </motion.div>
 
@@ -1496,13 +1494,11 @@ export function VinylPlayer() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-yellow-100 flex items-center justify-center">
-                      <img 
-                        src="/images/duck-fallback.svg" 
-                        alt="Music Loading" 
-                        className="w-full h-full object-contain animate-pulse"
-                      />
-                    </div>
+                    <img 
+                      src="/images/duck-fallback.svg" 
+                      alt="Music Loading" 
+                      className="w-full h-full object-contain animate-pulse"
+                    />
                   )}
                 </motion.div>
 
