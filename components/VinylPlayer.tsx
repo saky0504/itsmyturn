@@ -158,7 +158,7 @@ export function VinylPlayer() {
   };
 
   // Internet Archive Metadata API로 실제 스트리밍 URL 추출
-  const getStreamingUrl = async (identifier: string) => {
+  const getStreamingUrl = async (identifier: string, item?: any) => {
     try {
       console.log(`🎵 Getting metadata for: ${identifier}`);
       
@@ -189,11 +189,72 @@ export function VinylPlayer() {
       // Internet Archive의 커버 이미지 URL (항목마다 고유)
       const coverUrl = `https://archive.org/services/img/${identifier}`;
       
+      // Internet Archive 커버 이미지 URL (일단 기본 URL 사용)
+      let finalCoverUrl = coverUrl;
+      
+      // Internet Archive 기본 이미지 감지 (CORS 에러 방지)
+      const checkIfDefaultImage = async (url: string) => {
+        try {
+          // no-cors 모드로 CORS 에러 방지
+          const response = await fetch(url, { 
+            method: 'HEAD',
+            mode: 'no-cors'
+          });
+          
+          // no-cors 모드에서는 opaque response이므로 헤더 접근 불가
+          // 대신 이미지를 로드해서 크기 확인
+          return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              // 180x45 픽셀 긴 사각형 이미지 체크
+              const isDefaultSize = (img.naturalWidth === 180 && img.naturalHeight === 45);
+              resolve({ 
+                isDefault: isDefaultSize, 
+                width: img.naturalWidth, 
+                height: img.naturalHeight,
+                type: 'image' 
+              });
+            };
+            img.onerror = () => {
+              resolve({ isDefault: false, width: 0, height: 0, type: 'error' });
+            };
+            img.src = url;
+          });
+        } catch (error) {
+          console.warn('Failed to check image:', error);
+          return { isDefault: false, width: 0, height: 0, type: 'error' };
+        }
+      };
+      
+      // 기본 이미지인지 확인하고 오리로 대체
+      const { isDefault, width, height, type } = await checkIfDefaultImage(coverUrl);
+      
+      console.log(`🔍 Image analysis for ${identifier}:`, {
+        isDefault,
+        dimensions: `${width}x${height}`,
+        type,
+        itemTitle: item?.title
+      });
+      
+      // 기본 이미지이거나 특정 조건에서 오리 사용
+      const shouldUseDuck = isDefault || 
+                           identifier.includes('dragnet') || 
+                           item?.title?.toLowerCase().includes('radio') ||
+                           item?.title?.toLowerCase().includes('episode') ||
+                           item?.creator?.toLowerCase().includes('radio');
+      
+      if (shouldUseDuck) {
+        finalCoverUrl = '/images/hi.png';
+        console.log(`🦆 Using duck fallback for ${identifier} (isDefault: ${isDefault})`);
+      } else {
+        console.log(`🎨 Using custom cover for ${identifier}`);
+      }
+      
       console.log(`✅ Streaming URL found: ${audioFile.name}`);
       
       return {
         streamingUrl,
-        coverUrl,
+        coverUrl: finalCoverUrl,
         duration: audioFile.length ? parseInt(audioFile.length) * 1000 : 180000, // length in seconds
         fileSize: audioFile.size
       };
@@ -247,7 +308,7 @@ export function VinylPlayer() {
         try {
           console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`);
           
-          const { streamingUrl, coverUrl, duration } = await getStreamingUrl(item.identifier);
+          const { streamingUrl, coverUrl, duration } = await getStreamingUrl(item.identifier, item);
           
           const track: Track = {
             id: item.identifier,
@@ -591,8 +652,14 @@ export function VinylPlayer() {
         
         console.log('🎵 Setting up track:', currentTrack.title, currentTrack.preview_url);
         
-        // 첫 로딩이 아니거나 shouldAutoPlayRef가 true인 경우 자동 재생 시도
-        if ((!isFirstLoad || shouldAutoPlayRef.current) && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
+        // 첫 곡 로딩 완료 시 isFirstLoad 상태 업데이트
+        if (isFirstLoad && currentTrackIndex === 0) {
+          setIsFirstLoad(false);
+          console.log('🎵 First track loaded, autoplay enabled for subsequent tracks');
+        }
+        
+        // 첫 곡은 자동재생하지 않음, 두 번째 곡부터만 자동재생
+        if (!isFirstLoad && currentTrackIndex > 0 && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
           // 사전 로딩된 오디오인지 확인
           const preloadedAudio = preloadedTracks.get(currentTrack.id);
           
@@ -701,20 +768,21 @@ export function VinylPlayer() {
   // LP 회전 애니메이션 컨트롤러
   useEffect(() => {
     try {
-      if ((isPlaying && !isLoading) || isInitialLoading) {
+      // 첫 곡 로딩 중이거나 실제 재생 중일 때만 회전
+      if ((isPlaying && !isLoading) || (isInitialLoading && currentTrackIndex > 0)) {
         console.log('🎵 Starting LP rotation animation');
-      spinControls.start({
-        rotate: [0, 360],
-        transition: {
-          duration: 4,
-          repeat: Infinity,
-          ease: "linear"
-        }
-      });
+        spinControls.start({
+          rotate: [0, 360],
+          transition: {
+            duration: 4,
+            repeat: Infinity,
+            ease: "linear"
+          }
+        });
       } else if (spinControls) {
         console.log('⏸️ Stopping LP rotation animation');
-      spinControls.stop();
-    }
+        spinControls.stop();
+      }
     } catch (error) {
       console.warn('LP animation control error:', error);
     }
