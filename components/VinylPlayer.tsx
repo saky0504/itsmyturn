@@ -226,15 +226,13 @@ export function VinylPlayer() {
           archiveTracks.push(track);
           console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`);
           
-          // 첫 번째 트랙이 로드되면 즉시 UI에 반영
+          // 첫 번째 트랙이 로드되면 UI에 반영 (자동재생 없음)
           if (i === 0) {
             setTracks([track]);
             setCurrentTrackIndex(0);
-            shouldAutoPlayRef.current = true;
-            setHasUserInteracted(true);
-            console.log('🎵 First track loaded - Auto-playing immediately...');
-            toast.success(`Track 1 loaded! Auto-playing...`, {
-              duration: 2000
+            console.log('🎵 First track loaded - Click Play to start');
+            toast.success(`Track 1 loaded! Click Play to start`, {
+              duration: 3000
             });
           }
           
@@ -308,16 +306,16 @@ export function VinylPlayer() {
       console.log('VinylPlayer Started - Ready to play music');
     }, 500);
 
-    // 브라우저 자동재생 정책 우회를 위한 사용자 상호작용 시뮬레이션
-    const enableAutoplay = () => {
+    // 사용자 상호작용 감지 (수동 재생을 위해)
+    const enableUserInteraction = () => {
       setHasUserInteracted(true);
-      console.log('🎵 User interaction enabled for autoplay');
+      console.log('🎵 User interaction detected');
     };
 
-    // 페이지 로드 시 사용자 상호작용 활성화
-    document.addEventListener('click', enableAutoplay, { once: true });
-    document.addEventListener('keydown', enableAutoplay, { once: true });
-    document.addEventListener('touchstart', enableAutoplay, { once: true });
+    // 사용자 상호작용 감지 이벤트
+    document.addEventListener('click', enableUserInteraction, { once: true });
+    document.addEventListener('keydown', enableUserInteraction, { once: true });
+    document.addEventListener('touchstart', enableUserInteraction, { once: true });
     
     const initializeApp = async () => {
       try {
