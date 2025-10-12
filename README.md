@@ -1,183 +1,262 @@
-# Supabase CLI
+# 🎵 It's My Turn
 
-[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
-](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
+**Premium LP Turntable Music Player with Spotify Integration**
 
-[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
+A beautiful, interactive vinyl turntable UI built with React, TypeScript, and modern web technologies.
 
-This repository contains all the functionality for Supabase CLI.
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-- [x] Running Supabase locally
-- [x] Managing database migrations
-- [x] Creating and deploying Supabase Functions
-- [x] Generating types directly from your database schema
-- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
+---
 
-## Getting started
+## ✨ Features
 
-### Install the CLI
+- 🎨 **Premium 5-layer vinyl groove pattern system**
+- 💿 **Interactive LP turntable** with realistic animations
+- 📱 **Touch/swipe/click controls** for mobile & desktop
+- 🌈 **Beautiful gradient UI** with smooth rotations
+- 🔊 **Hardware volume key support** with elegant toasts
+- 🎧 **Complete Spotify API integration** ready
+- 📱 **Mobile-optimized** responsive design
 
-Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
+---
 
-```bash
-npm i supabase --save-dev
-```
+## 🚀 Quick Start
 
-To install the beta release channel:
-
-```bash
-npm i supabase@beta --save-dev
-```
-
-When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
-
-```
-NODE_OPTIONS=--no-experimental-fetch yarn add supabase
-```
-
-> **Note**
-For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
-
-<details>
-  <summary><b>macOS</b></summary>
-
-  Available via [Homebrew](https://brew.sh). To install:
-
-  ```sh
-  brew install supabase/tap/supabase
-  ```
-
-  To install the beta release channel:
-  
-  ```sh
-  brew install supabase/tap/supabase-beta
-  brew link --overwrite supabase-beta
-  ```
-  
-  To upgrade:
-
-  ```sh
-  brew upgrade supabase
-  ```
-</details>
-
-<details>
-  <summary><b>Windows</b></summary>
-
-  Available via [Scoop](https://scoop.sh). To install:
-
-  ```powershell
-  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-  scoop install supabase
-  ```
-
-  To upgrade:
-
-  ```powershell
-  scoop update supabase
-  ```
-</details>
-
-<details>
-  <summary><b>Linux</b></summary>
-
-  Available via [Homebrew](https://brew.sh) and Linux packages.
-
-  #### via Homebrew
-
-  To install:
-
-  ```sh
-  brew install supabase/tap/supabase
-  ```
-
-  To upgrade:
-
-  ```sh
-  brew upgrade supabase
-  ```
-
-  #### via Linux packages
-
-  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
-
-  ```sh
-  sudo apk add --allow-untrusted <...>.apk
-  ```
-
-  ```sh
-  sudo dpkg -i <...>.deb
-  ```
-
-  ```sh
-  sudo rpm -i <...>.rpm
-  ```
-
-  ```sh
-  sudo pacman -U <...>.pkg.tar.zst
-  ```
-</details>
-
-<details>
-  <summary><b>Other Platforms</b></summary>
-
-  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
-
-  ```sh
-  go install github.com/supabase/cli@latest
-  ```
-
-  Add a symlink to the binary in `$PATH` for easier access:
-
-  ```sh
-  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
-  ```
-
-  This works on other non-standard Linux distros.
-</details>
-
-<details>
-  <summary><b>Community Maintained Packages</b></summary>
-
-  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
-  To install in your working directory:
-
-  ```bash
-  pkgx install supabase
-  ```
-
-  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
-</details>
-
-### Run the CLI
+### Option 1: Docker (Recommended for portability)
 
 ```bash
-supabase bootstrap
+# 1. Clone the repository
+git clone https://github.com/saky0504/itsmyturn.git
+cd itsmyturn
+
+# 2. Set up environment variables
+cp env.example .env
+# Edit .env with your Supabase credentials
+
+# 3. Start with Docker
+docker-compose up
+
+# 4. Open browser
+# http://localhost:3000
 ```
 
-Or using npx:
+### Option 2: Local Development
 
 ```bash
-npx supabase bootstrap
+# 1. Clone the repository
+git clone https://github.com/saky0504/itsmyturn.git
+cd itsmyturn
+
+# 2. Install dependencies
+npm install
+
+# 3. Set up environment variables
+cp env.example .env
+# Edit .env with your Supabase credentials
+
+# 4. Run development server
+npm run dev
+
+# 5. Open browser
+# http://localhost:3000
 ```
 
-The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+---
 
-## Docs
+## 🔧 Tech Stack
 
-Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+- **Frontend:**
+  - React 18.2
+  - TypeScript 5.2
+  - Vite 5.0
+  - Tailwind CSS v4 (next)
+  - Motion 10.16 (Framer Motion)
+  - shadcn/ui component library
 
-## Breaking changes
+- **Backend:**
+  - Supabase (BaaS)
+  - Supabase Edge Functions (Deno)
+  - Spotify Web API
 
-We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+- **DevOps:**
+  - Docker & Docker Compose
+  - Vercel / Netlify deployment
+  - GitHub Actions (CI/CD ready)
 
-However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+---
 
-## Developing
+## 📁 Project Structure
 
-To run from source:
-
-```sh
-# Go >= 1.22
-go run . help
 ```
+itsmyturn/
+├── src/
+│   ├── App.tsx              # Main application component
+│   └── main.tsx             # React entry point
+├── components/
+│   ├── VinylPlayer.tsx      # Main turntable component
+│   └── ui/                  # Shadcn UI components
+├── supabase/
+│   └── functions/           # Edge Functions
+├── styles/
+│   └── globals.css          # Global styles & Tailwind
+├── docker-compose.yml       # Docker orchestration
+├── Dockerfile               # Container definition
+└── DOCKER_GUIDE.md          # Detailed Docker instructions
+```
+
+---
+
+## 🐳 Docker Development
+
+Perfect for working across multiple locations (home ↔️ office ↔️ café).
+
+**Benefits:**
+- ✅ Consistent Node.js environment
+- ✅ No dependency conflicts
+- ✅ 5-minute setup on new machines
+- ✅ Team-ready development environment
+
+**See [DOCKER_GUIDE.md](./DOCKER_GUIDE.md) for detailed instructions.**
+
+---
+
+## 🌐 Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+Get your Supabase credentials from: https://app.supabase.com
+
+---
+
+## 📜 Available Scripts
+
+```bash
+# Development
+npm run dev          # Start dev server (http://localhost:3000)
+
+# Build
+npm run build        # Production build
+npm run preview      # Preview production build
+
+# Code Quality
+npm run lint         # Run ESLint
+npm run lint:fix     # Fix ESLint errors
+npm run type-check   # TypeScript type checking
+
+# Deployment
+npm run deploy       # Deploy to GitHub Pages
+```
+
+---
+
+## 🚢 Deployment
+
+### Vercel (Recommended)
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+```
+
+### Netlify
+
+```bash
+# Install Netlify CLI
+npm i -g netlify-cli
+
+# Deploy
+netlify deploy --prod
+```
+
+### GitHub Pages
+
+```bash
+npm run deploy
+```
+
+---
+
+## 📱 Mobile Development
+
+Test on real devices:
+
+```bash
+# Find your local IP
+ipconfig  # Windows
+ifconfig  # Mac/Linux
+
+# Access from mobile
+http://<your-ip>:3000
+
+# With Docker
+docker-compose up
+# Automatically exposes 0.0.0.0:3000
+```
+
+---
+
+## 🎯 Roadmap
+
+- [x] Premium vinyl turntable UI
+- [x] Touch/swipe controls
+- [x] Spotify API integration
+- [x] Docker development environment
+- [ ] Playlist management
+- [ ] Social sharing features
+- [ ] User authentication
+- [ ] Favorite tracks system
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+---
+
+## 📚 Documentation
+
+- [Docker Guide](./DOCKER_GUIDE.md) - Complete Docker setup and usage
+- [Migration Guide](./MIGRATION_GUIDE.md) - Figma Make to Vite migration
+- [Backup Guide](./BACKUP_GUIDE.md) - Backup and restore procedures
+
+---
+
+## 🙏 Acknowledgments
+
+- [Supabase](https://supabase.com) - Backend infrastructure
+- [Spotify](https://spotify.com) - Music API
+- [shadcn/ui](https://ui.shadcn.com) - UI components
+- [Tailwind CSS](https://tailwindcss.com) - Styling framework
+- [Motion](https://motion.dev) - Animations
+
+---
+
+## 📧 Contact
+
+Project Link: [https://github.com/saky0504/itsmyturn](https://github.com/saky0504/itsmyturn)
+
+---
+
+Made with ❤️ by the Vinyl Player Team

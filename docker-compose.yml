@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: itsmyturn-app
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+    networks:
+      - vinyl-network
+    command: npm run dev -- --host 0.0.0.0
+    restart: unless-stopped
+
+  # Supabase Local (Optional - for full local development)
+  # Uncomment if you want to run Supabase locally
+  # supabase-db:
+  #   image: supabase/postgres:15.1.0.117
+  #   container_name: itsmyturn-db
+  #   ports:
+  #     - "54322:5432"
+  #   environment:
+  #     POSTGRES_PASSWORD: postgres
+  #   volumes:
+  #     - supabase-db:/var/lib/postgresql/data
+  #   networks:
+  #     - vinyl-network
+
+networks:
+  vinyl-network:
+    driver: bridge
+
+# volumes:
+#   supabase-db:
+
