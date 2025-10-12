@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, PanInfo, useAnimationControls } from 'framer-motion';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+// ImageWithFallback 제거 (직접 이미지 처리로 변경)
 import { Play, Pause, SkipBack, SkipForward, Search, Music, FileText } from 'lucide-react';
 import { Button } from './ui/button';
 import { useIsMobile } from './ui/use-mobile';
 import { toast } from 'sonner';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+// Supabase 관련 import 제거 (Internet Archive 직접 사용으로 불필요)
 
 interface Track {
   id: string;
@@ -31,19 +31,27 @@ export function VinylPlayer() {
   const [isLoading, setIsLoading] = useState(false);
   const [tracksLoading, setTracksLoading] = useState(true);
   const [isDemoMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+  // 검색 관련 상태 제거 (장르 선택으로 대체됨)
   const [showSearch, setShowSearch] = useState(false);
-  const [hasUserInteracted, setHasUserInteracted] = useState(false); // 자동재생 사용 여부
+  // hasUserInteracted 상태 제거 (첫 곡 수동 재생으로 단순화)
   const [showLyrics, setShowLyrics] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isAudioReady, setIsAudioReady] = useState(false); // 오디오 준비 상태 추가
+  const [blurIntensity, setBlurIntensity] = useState(16); // blur 강도 (기본값 16px)
   const [preloadedTracks, setPreloadedTracks] = useState<Map<string, HTMLAudioElement>>(new Map());
   const spinControls = useAnimationControls();
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const shouldAutoPlayRef = useRef<boolean>(false);
+  const playTokenRef = useRef<number>(0); // 재생 요청 토큰 (레이스 컨디션 방지)
   const isMobile = useIsMobile();
+
+  // 모바일/데스크톱에 따라 blur 강도 조정 (더 약하게)
+  useEffect(() => {
+    const initialBlur = isMobile ? 6 : 8;
+    setBlurIntensity(initialBlur);
+  }, [isMobile]);
 
   const currentTrack = tracks[currentTrackIndex];
 
@@ -103,37 +111,7 @@ export function VinylPlayer() {
   }, [tracks]);
 
   // 음악 Spotify API 호출 함수
-  const searchTracks = async (query: string) => {
-    try {
-      setIsSearching(true);
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-f3afc2d2/spotify/search?q=${encodeURIComponent(query)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to search tracks');
-      }
-      
-      const data = await response.json();
-      if (data.tracks && data.tracks.length > 0) {
-        setTracks(data.tracks.filter((track: Track) => track.preview_url));
-        setCurrentTrackIndex(0);
-        console.log(`Found ${data.tracks.length} tracks`);
-      } else {
-        toast.error('No tracks found with preview');
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-      toast.error('Failed to search tracks');
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  // searchTracks 함수 제거 (장르 선택으로 대체됨)
 
   // 장르별 검색 쿼리 생성
   const getGenreSearchQueries = (genre: string) => {
@@ -240,7 +218,7 @@ export function VinylPlayer() {
       const checkIfDefaultImage = async (url: string) => {
         try {
           // no-cors 모드로 CORS 에러 방지
-          const response = await fetch(url, { 
+          await fetch(url, { 
             method: 'HEAD',
             mode: 'no-cors'
           });
@@ -264,14 +242,15 @@ export function VinylPlayer() {
             };
             img.src = url;
           });
-        } catch (error) {
+    } catch (error) {
           console.warn('Failed to check image:', error);
           return { isDefault: false, width: 0, height: 0, type: 'error' };
         }
       };
       
       // 기본 이미지인지 확인하고 오리로 대체
-      const { isDefault, width, height, type } = await checkIfDefaultImage(coverUrl);
+      const imageInfo = await checkIfDefaultImage(coverUrl);
+      const { width, height } = imageInfo as { width: number; height: number };
       
       // 180x45 픽셀만 정확하게 체크
       const isDefaultSize = (width === 180 && height === 45);
@@ -336,8 +315,11 @@ export function VinylPlayer() {
       
       // 턴테이블에 적합한 음악만 필터링
       const musicItems = uniqueItems.filter(item => {
-        const title = (item.title || '').toLowerCase();
-        const creator = (item.creator || '').toLowerCase();
+        // 안전한 문자열 변환 (creator가 배열일 수 있음)
+        const title = String(item.title || '').toLowerCase();
+        const creator = Array.isArray(item.creator) 
+          ? item.creator.join(', ').toLowerCase()
+          : String(item.creator || '').toLowerCase();
         
         // 오디오북, 라디오 드라마, 팟캐스트 등 제외 키워드
         const excludeKeywords = [
@@ -401,16 +383,19 @@ export function VinylPlayer() {
           archiveTracks.push(track);
           // console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`); // 로그 정리
           
-          // 첫 번째 트랙이 로드되면 UI에 반영 (첫 로딩에서는 자동재생 안함)
+          // 첫 번째 트랙이 로드되면 UI에 반영하고 완전히 준비될 때까지 대기
           if (i === 0) {
             setTracks([track]);
             setCurrentTrackIndex(0);
-            setTracksLoading(false); // 첫 트랙 로딩 완료 시 즉시 로딩 화면 종료
+            // setTracksLoading(false) 제거 - blur 효과 완료 시까지 로딩 인디케이터 유지
             console.log('🎵 First track loaded - Ready to play (manual start)');
+            
+            // 첫 번째 트랙 로딩 완료 - 오디오 재생 준비 대기
+            console.log('✅ First track loaded - waiting for audio ready');
+          } else {
+            // 나머지 트랙들은 짧은 간격으로 로딩
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
-          
-          // 각 트랙 로딩 간격 (너무 빠르면 서버 부하)
-          await new Promise(resolve => setTimeout(resolve, 500));
           
         } catch (error) {
           console.warn(`❌ Failed to process item ${item.identifier}:`, error);
@@ -452,30 +437,71 @@ export function VinylPlayer() {
     }
   };
 
-
-  // 서버 상태 체크
-  const checkServerHealth = async () => {
+  // 안전한 재생 함수 (레이스 컨디션 방지)
+  const safePlay = async (): Promise<boolean> => {
+    if (!audioRef.current) return false;
+    
+    const token = ++playTokenRef.current;
     try {
-      console.log('Checking server health...');
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-f3afc2d2/spotify/health`,
-        {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`
-          }
-        }
-      );
-      
-      const data = await response.json();
-      console.log('Server health check:', data);
-      
+      await audioRef.current.play();
+      // 토큰이 여전히 최신인지 확인
+      if (playTokenRef.current !== token) {
+        console.log('🎵 Play request was superseded by newer request');
+        return false;
+      }
       return true;
-    } catch (error) {
-      console.error('Health check failed:', error);
-      toast.error('Server connection failed');
+    } catch (error: any) {
+      if (playTokenRef.current !== token) {
+        console.log('🎵 Play request was superseded by newer request');
+        return false;
+      }
+      
+      if (error.name === 'AbortError') {
+        console.log('🎵 Play request was aborted (normal behavior)');
+        return false;
+      }
+      
+      console.warn('🎵 Play failed:', error.name, error.message);
       return false;
     }
   };
+
+  // Blur 효과 점진적 제거 함수
+  const startBlurFadeOut = useRef(false); // 중복 실행 방지
+  
+  const startBlurFadeOutFunction = () => {
+    if (startBlurFadeOut.current) {
+      console.log('🎨 Blur fade out already in progress');
+      return;
+    }
+    
+    startBlurFadeOut.current = true;
+    
+    const fadeOutDuration = 800; // 0.8초 동안 fade out (더 빠르게)
+    const steps = 20; // 20단계로 나누어 점진적 제거
+    const stepDuration = fadeOutDuration / steps;
+    const initialBlur = isMobile ? 6 : 8; // 초기 blur 값 (모바일: 6px, 데스크톱: 8px)
+    const blurStep = initialBlur / steps;
+
+    let currentStep = 0;
+    
+    const fadeOutInterval = setInterval(() => {
+      currentStep++;
+      const newBlurIntensity = Math.max(0, initialBlur - (blurStep * currentStep));
+      setBlurIntensity(newBlurIntensity);
+      
+      if (currentStep >= steps) {
+        clearInterval(fadeOutInterval);
+        setBlurIntensity(0);
+        setTracksLoading(false); // blur 효과 완료 시 로딩 인디케이터 숨김
+        startBlurFadeOut.current = false; // 완료 시 플래그 리셋
+        console.log('🎨 Blur effect completely removed - loading indicator hidden');
+      }
+    }, stepDuration);
+  };
+
+  // 서버 상태 체크
+  // checkServerHealth 함수 제거 (Internet Archive 직접 사용으로 불필요)
 
   // Load tracks from Spotify API with retry
   useEffect(() => {
@@ -484,24 +510,7 @@ export function VinylPlayer() {
       console.log('VinylPlayer Started - Ready to play music');
     }, 500);
 
-    // 브라우저 자동재생 정책 우회를 위한 사용자 상호작용 감지
-    const enableAutoplay = () => {
-      setHasUserInteracted(true);
-      console.log('🎵 User interaction detected - autoplay enabled');
-    };
-
-    // 페이지 로드 시 사용자 상호작용 감지 (CSP 안전)
-    const safeEventListeners = () => {
-      try {
-        document.addEventListener('click', enableAutoplay, { once: true, passive: true });
-        document.addEventListener('keydown', enableAutoplay, { once: true, passive: true });
-        document.addEventListener('touchstart', enableAutoplay, { once: true, passive: true });
-      } catch (error) {
-        console.warn('Event listener setup failed:', error);
-      }
-    };
-
-    safeEventListeners();
+    // 첫 곡은 수동 재생이므로 자동재생 이벤트 리스너 불필요
     
     const initializeApp = async () => {
       try {
@@ -526,6 +535,15 @@ export function VinylPlayer() {
     
     initializeApp();
   }, []);
+
+  // 오디오가 재생 준비 완료되면 blur 효과 시작
+  useEffect(() => {
+    console.log('🎵 useEffect triggered - isAudioReady:', isAudioReady, 'blurIntensity:', blurIntensity);
+    if (isAudioReady && blurIntensity > 0) {
+      console.log('🎵 Audio ready - starting blur fade out');
+      startBlurFadeOutFunction();
+    }
+  }, [isAudioReady]); // blurIntensity 의존성 제거 (무한 루프 방지)
 
   // Volume toast indicator (smooth tone)
   const showVolumeIndicator = (newVolume: number) => {
@@ -554,11 +572,13 @@ export function VinylPlayer() {
     const handleLoadStart = () => {
       console.log('Loading audio...');
       setIsLoading(true);
+      setIsAudioReady(false); // 새 트랙 로딩 시작 시 준비 상태 초기화
     };
     
     const handleCanPlay = () => {
       console.log('Audio can play');
       setIsLoading(false);
+      setIsAudioReady(true); // 오디오가 재생 준비 완료
     };
     
     const handleLoadedData = () => {
@@ -566,6 +586,7 @@ export function VinylPlayer() {
       if (audio.duration && !isNaN(audio.duration)) {
         setDuration(audio.duration);
       }
+      setIsAudioReady(true); // 메타데이터 로드 완료
     };
     
     const handleEnded = () => {
@@ -640,7 +661,14 @@ export function VinylPlayer() {
       setIsLoading(false);
       // LP 회전 시작 (안전하게)
       try {
-        spinControls.start();
+        spinControls.start({
+          rotate: [0, 360],
+          transition: {
+            duration: 4,
+            repeat: Infinity,
+            ease: "linear"
+          }
+        });
       } catch (error) {
         console.warn('LP rotation start failed:', error);
       }
@@ -703,8 +731,10 @@ export function VinylPlayer() {
         setDuration(0);
         
         if (audioRef.current) {
+          // 이전 재생을 확실히 중단하고 토큰 무효화
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
+          playTokenRef.current++; // 이전 재생 요청 무효화
           
           // 사전 로딩된 오디오가 있는지 확인
           const preloadedAudio = preloadedTracks.get(currentTrack.id);
@@ -728,19 +758,22 @@ export function VinylPlayer() {
         
         console.log('🎵 Setting up track:', currentTrack.title, currentTrack.preview_url);
         
+        // 새 트랙 설정 시 오디오 준비 상태 초기화
+        setIsAudioReady(false);
+        
         // 첫 곡 로딩 완료 시 isFirstLoad 상태 업데이트
         if (isFirstLoad && currentTrackIndex === 0) {
           setIsFirstLoad(false);
-          console.log('🎵 First track loaded, autoplay enabled for subsequent tracks');
+          console.log('🎵 First track loaded, ready for manual play');
         }
         
-        // 첫 곡은 자동재생하지 않음, 두 번째 곡부터만 자동재생
+        // 두 번째 곡부터만 자동재생 (첫 곡은 수동 재생)
         if (!isFirstLoad && currentTrackIndex > 0 && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
           // 사전 로딩된 오디오인지 확인
           const preloadedAudio = preloadedTracks.get(currentTrack.id);
           
-          // 오디오 로딩 대기 (사전 로딩된 경우 즉시 재생)
-          const waitForLoad = new Promise<void>((resolve) => {
+          // 오디오 로딩 대기 (타임아웃 포함)
+          const waitForLoad = new Promise<void>((resolve, reject) => {
             if (!audioRef.current) return resolve();
             
             if (preloadedAudio) {
@@ -752,11 +785,25 @@ export function VinylPlayer() {
               audioRef.current?.removeEventListener('canplay', handleCanPlay);
               resolve();
             };
+              
+              const handleError = () => {
+                audioRef.current?.removeEventListener('error', handleError);
+                reject(new Error('Audio loading failed'));
+              };
+              
+              // 로딩 타임아웃 (12초)
+              const timeoutId = setTimeout(() => {
+                audioRef.current?.removeEventListener('canplay', handleCanPlay);
+                audioRef.current?.removeEventListener('error', handleError);
+                reject(new Error('Audio loading timeout'));
+              }, 12000);
             
             if (audioRef.current.readyState >= 2) {
+                clearTimeout(timeoutId);
               resolve();
             } else {
               audioRef.current.addEventListener('canplay', handleCanPlay);
+                audioRef.current.addEventListener('error', handleError);
               }
             }
           });
@@ -775,7 +822,14 @@ export function VinylPlayer() {
                 setIsPlaying(true);
                 // LP 회전 시작 (안전하게)
                 try {
-                  spinControls.start();
+                  spinControls.start({
+          rotate: [0, 360],
+          transition: {
+            duration: 4,
+            repeat: Infinity,
+            ease: "linear"
+          }
+        });
                 } catch (error) {
                   console.warn('LP rotation start failed:', error);
                 }
@@ -844,21 +898,21 @@ export function VinylPlayer() {
   // LP 회전 애니메이션 컨트롤러
   useEffect(() => {
     try {
-      // 첫 곡 로딩 중이거나 실제 재생 중일 때만 회전
-      if ((isPlaying && !isLoading) || (isInitialLoading && currentTrackIndex > 0)) {
+      // 실제 재생 중일 때만 회전 (첫 곡 로딩 중에는 회전하지 않음)
+      if (isPlaying && !isLoading) {
         console.log('🎵 Starting LP rotation animation');
-        spinControls.start({
-          rotate: [0, 360],
-          transition: {
-            duration: 4,
-            repeat: Infinity,
-            ease: "linear"
-          }
-        });
+      spinControls.start({
+        rotate: [0, 360],
+        transition: {
+          duration: 4,
+          repeat: Infinity,
+          ease: "linear"
+        }
+      });
       } else if (spinControls) {
         console.log('⏸️ Stopping LP rotation animation');
-        spinControls.stop();
-      }
+      spinControls.stop();
+    }
     } catch (error) {
       console.warn('LP animation control error:', error);
     }
@@ -960,10 +1014,7 @@ export function VinylPlayer() {
       return;
     }
 
-    // 첫 번째 사용자 상호작용 기록
-    if (!hasUserInteracted) {
-      setHasUserInteracted(true);
-    }
+    // 첫 곡 수동 재생으로 단순화
 
     try {
       if (isPlaying) {
@@ -976,21 +1027,28 @@ export function VinylPlayer() {
           toast.error('No tracks available. Please load some tracks first.');
           return;
         }
+        
+        // 오디오가 준비되지 않았으면 재생하지 않음
+        if (!isAudioReady) {
+          console.log('⏳ Audio not ready yet, please wait...');
+          toast.error('Audio is still loading, please wait a moment');
+          return;
+        }
+        
         console.log('▶️ Attempting to play:', currentTrack.title);
         setIsLoading(true);
         audioRef.current.volume = volume / 100;
         
-        // 짧은 타임아웃으로 로딩 시간 제한
-        const playPromise = Promise.race([
-          audioRef.current.play(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Load timeout')), 10000)
-          )
-        ]);
-        
-        await playPromise;
-        console.log('🎵 Playing started');
-        // 상태는 handlePlay에서 업데이트됨
+        // 안전한 재생 시도
+        const playSuccess = await safePlay();
+        if (playSuccess) {
+          console.log('🎵 Playing started successfully');
+          // 상태는 handlePlay에서 업데이트됨
+        } else {
+          console.log('🎵 Play request failed or was superseded');
+          setIsLoading(false);
+          setIsPlaying(false);
+        }
       }
     } catch (error: any) {
       console.error('❌ Play/pause error:', {
@@ -1006,16 +1064,19 @@ export function VinylPlayer() {
       
       if (error.name === 'NotAllowedError') {
         toast.error('Click to allow audio playback');
-      } else if (error.message === 'Load timeout') {
-        toast.error('Track loading timeout');
+      } else if (error.message === 'Load timeout' || error.message === 'Audio loading timeout') {
+        toast.error('Track loading timeout - trying next track');
         // 타임아웃 시 다음 재생 트랙으로 넘어가기
         const nextIndex = findNextPlayableTrack(currentTrackIndex);
         if (nextIndex !== -1) {
           setCurrentTrackIndex(nextIndex);
+        } else {
+          toast.error('No more tracks available');
         }
       } else if (error.name === 'AbortError') {
-        // AbortError는 사용자가 의도적으로 중단한 경우이므로 토스트를 표시하지 않음
-        console.log('Audio playback was interrupted (normal behavior)');
+        // AbortError는 트랙 변경 시 정상적인 동작이므로 무시
+        console.log('🎵 Audio playback was interrupted (normal behavior)');
+        // AbortError는 토스트나 상태 변경 없이 조용히 처리
       } else if (error.name === 'NotSupportedError') {
         toast.error('Audio format not supported');
         // 지원되지 않는 형식인 경우 다음 재생 가능한 트랙으로
@@ -1032,7 +1093,7 @@ export function VinylPlayer() {
   const handlePreviousTrack = () => {
     if (tracks.length === 0) return;
     
-    const wasPlaying = isPlaying && hasUserInteracted;
+    const wasPlaying = isPlaying;
     shouldAutoPlayRef.current = wasPlaying;
     setIsPlaying(false);
     
@@ -1053,7 +1114,7 @@ export function VinylPlayer() {
   const handleNextTrack = () => {
     if (tracks.length === 0) return;
     
-    const wasPlaying = isPlaying && hasUserInteracted;
+    const wasPlaying = isPlaying;
     shouldAutoPlayRef.current = wasPlaying;
     setIsPlaying(false);
     
@@ -1115,7 +1176,7 @@ export function VinylPlayer() {
   // Show loading state while tracks are being loaded
   if (tracksLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 relative z-50">
         {/* 음악이 포함된 로딩 인디케이터 */}
         <div className="relative w-20 h-20 mb-6">
           {/* 음표 아이콘 */}
@@ -1202,7 +1263,18 @@ export function VinylPlayer() {
   };
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden bg-gradient-to-b from-gray-50 via-white to-gray-100 ${isMobile ? 'pt-0' : 'p-8 justify-center items-center'}`}>
+    <div className={`flex flex-col h-screen overflow-hidden relative ${isMobile ? 'pt-0' : 'p-8 justify-center items-center'}`}>
+      {/* 배경 레이어 (blur 적용) */}
+      <div 
+        className={`absolute inset-0 bg-gradient-to-b from-gray-50 via-white to-gray-100 z-0`}
+        style={blurIntensity > 0 ? { 
+          filter: `blur(${blurIntensity}px)`,
+          transition: 'filter 0.2s ease-out'
+        } : {}}
+      />
+      
+      {/* 콘텐츠 레이어 (blur 없음) */}
+      <div className="relative z-10 w-full h-full flex flex-col">
       {/* Demo mode indicator */}
       {isDemoMode && (
         <div className="fixed top-4 left-4 z-50 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
@@ -1225,9 +1297,11 @@ export function VinylPlayer() {
                 onDragEnd={handleDragEnd}
                 dragElastic={0.1}
                 onTouchStart={(e) => {
-                  // 브라우저 기본 스크롤 방지 (passive: false로 설정됨)
+                  // 모바일에서 터치 이벤트 처리 (passive 경고 방지)
                   if (isMobile) {
-                    e.preventDefault();
+                    // passive 이벤트 리스너에서는 preventDefault 호출하지 않음
+                    // 대신 터치 동작을 다른 방식으로 처리
+                    e.stopPropagation();
                   }
                 }}
                 whileHover={{ scale: 1.01 }}
@@ -1904,7 +1978,7 @@ export function VinylPlayer() {
             <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
               <div className="text-center mb-6">
                 <h3 className="text-xl font-medium text-gray-900 mb-2">Select Genre</h3>
-                <p className="text-sm text-gray-500">Choose your preferred music genre for the turntable</p>
+                <p className="text-sm text-gray-500">Select your favorite music genre</p>
               </div>
               
               <div className="space-y-3 mb-6">
@@ -1955,7 +2029,7 @@ export function VinylPlayer() {
                   <div className="font-medium text-gray-900">Folk</div>
                   <div className="text-xs text-gray-500">Acoustic & Traditional</div>
                 </button>
-              </div>
+                    </div>
             </div>
           </motion.div>
         </motion.div>
@@ -2060,6 +2134,7 @@ export function VinylPlayer() {
           }
         }}
       />
+      </div> {/* 콘텐츠 레이어 닫기 */}
     </div>
   );
 }
