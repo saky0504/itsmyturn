@@ -13,9 +13,6 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-    headers: {
-      'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: wss:; media-src 'self' data: https: blob:;"
-    }
   },
   define: {
     global: 'globalThis',

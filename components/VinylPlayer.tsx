@@ -453,11 +453,15 @@ export function VinylPlayer() {
       console.log('🎵 Audio started playing');
       setIsPlaying(true);
       setIsLoading(false);
+      // LP 회전 시작
+      spinControls.start();
     };
 
     const handlePause = () => {
       console.log('🎵 Audio paused');
       setIsPlaying(false);
+      // LP 회전 중지
+      spinControls.stop();
     };
 
     // 모든 이벤트 리스너 등록
@@ -550,6 +554,12 @@ export function VinylPlayer() {
                 console.log('🎵 Attempting auto-play (muted)...');
                 await audioRef.current.play();
                 console.log('✅ Auto-play successful!');
+                
+                // 즉시 상태 업데이트
+                setIsPlaying(true);
+                // LP 회전 시작
+                spinControls.start();
+                
                 // 재생 성공 후 즉시 음소거 해제
                 setTimeout(() => {
                   if (audioRef.current) {
@@ -557,8 +567,8 @@ export function VinylPlayer() {
                     audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
                     console.log('🔊 Unmuted - Now playing:', currentTrack.title);
                   }
-                }, 100);
-                setIsPlaying(true);
+                }, 50);
+                
               } catch (playError) {
                 console.warn('⚠️ Auto-play failed, will wait for user interaction:', playError);
                 setIsPlaying(false);
