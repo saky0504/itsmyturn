@@ -243,15 +243,17 @@ export function VinylPlayer() {
         );
         const updatedTracks = [...prevTracks, ...newTracks];
         
-        // 첫 번째 트랙이 추가된 경우 로드만 (자동 재생은 사용자 클릭 필요)
+        // 첫 번째 트랙이 추가된 경우 자동 재생 시도
         if (prevTracks.length === 0 && newTracks.length > 0) {
           setTimeout(() => {
             setCurrentTrackIndex(0);
-            console.log('🎵 First track loaded - Click Play to start');
-            toast.success(`${newTracks.length} tracks loaded! Click Play to start`, {
-              duration: 3000
+            shouldAutoPlayRef.current = true;
+            setHasUserInteracted(true);
+            console.log('🎵 First track loaded - Auto-playing...');
+            toast.success(`${newTracks.length} tracks loaded! Auto-playing...`, {
+              duration: 2000
             });
-          }, 500);
+          }, 1000);
         }
         
         return updatedTracks;
@@ -298,6 +300,17 @@ export function VinylPlayer() {
     setTimeout(() => {
       console.log('VinylPlayer Started - Ready to play music');
     }, 500);
+
+    // 브라우저 자동재생 정책 우회를 위한 사용자 상호작용 시뮬레이션
+    const enableAutoplay = () => {
+      setHasUserInteracted(true);
+      console.log('🎵 User interaction enabled for autoplay');
+    };
+
+    // 페이지 로드 시 사용자 상호작용 활성화
+    document.addEventListener('click', enableAutoplay, { once: true });
+    document.addEventListener('keydown', enableAutoplay, { once: true });
+    document.addEventListener('touchstart', enableAutoplay, { once: true });
     
     const initializeApp = async () => {
       try {
