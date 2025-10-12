@@ -135,6 +135,50 @@ export function VinylPlayer() {
     }
   };
 
+  // 장르별 검색 쿼리 생성
+  const getGenreSearchQueries = (genre: string) => {
+    const baseQueries = [
+      `collection:78rpm AND mediatype:audio`,
+      `collection:netlabels AND mediatype:audio`,
+      `collection:etree AND mediatype:audio`
+    ];
+
+    switch (genre) {
+      case 'jazz':
+        return [
+          ...baseQueries.map(q => `${q} AND subject:(jazz OR swing OR big band)`),
+          'collection:78rpm AND mediatype:audio AND (title:(jazz OR swing) OR creator:(jazz OR swing))'
+        ];
+      case 'classical':
+        return [
+          ...baseQueries.map(q => `${q} AND subject:(classical OR symphony OR orchestra)`),
+          'collection:78rpm AND mediatype:audio AND (title:(classical OR symphony) OR creator:(classical OR symphony))'
+        ];
+      case 'blues':
+        return [
+          ...baseQueries.map(q => `${q} AND subject:(blues OR rhythm)`),
+          'collection:78rpm AND mediatype:audio AND (title:(blues OR rhythm) OR creator:(blues OR rhythm))'
+        ];
+      case 'swing':
+        return [
+          ...baseQueries.map(q => `${q} AND subject:(swing OR big band OR dance)`),
+          'collection:78rpm AND mediatype:audio AND (title:(swing OR dance) OR creator:(swing OR dance))'
+        ];
+      case 'folk':
+        return [
+          `collection:netlabels AND mediatype:audio AND subject:(folk OR acoustic)`,
+          `collection:etree AND mediatype:audio AND subject:(folk OR acoustic)`
+        ];
+      case 'all':
+      default:
+        return [
+          'collection:78rpm AND mediatype:audio',
+          'collection:netlabels AND mediatype:audio',
+          'collection:etree AND mediatype:audio'
+        ];
+    }
+  };
+
   // Internet Archive Search API로 실제 음원 검색
   const searchInternetArchive = async (query: string, rows: number = 50) => {
     try {
@@ -229,15 +273,11 @@ export function VinylPlayer() {
       // 기본 이미지인지 확인하고 오리로 대체
       const { isDefault, width, height, type } = await checkIfDefaultImage(coverUrl);
       
-      console.log(`🔍 Image analysis for ${identifier}:`, {
-        isDefault,
-        dimensions: `${width}x${height}`,
-        type,
-        itemTitle: item?.title
-      });
+      // 180x45 픽셀만 정확하게 체크
+      const isDefaultSize = (width === 180 && height === 45);
       
-      // 기본 이미지이거나 특정 조건에서 오리 사용
-      const shouldUseDuck = isDefault || 
+      // 기본 이미지(180x45)이거나 특정 조건에서 오리 사용
+      const shouldUseDuck = isDefaultSize || 
                            identifier.includes('dragnet') || 
                            item?.title?.toLowerCase().includes('radio') ||
                            item?.title?.toLowerCase().includes('episode') ||
@@ -245,12 +285,11 @@ export function VinylPlayer() {
       
       if (shouldUseDuck) {
         finalCoverUrl = '/images/hi.png';
-        console.log(`🦆 Using duck fallback for ${identifier} (isDefault: ${isDefault})`);
-      } else {
-        console.log(`🎨 Using custom cover for ${identifier}`);
+        console.log(`🦆 Using duck fallback for ${identifier} (${width}x${height})`);
       }
+      // 오리 사용하지 않는 경우는 로그 출력하지 않음
       
-      console.log(`✅ Streaming URL found: ${audioFile.name}`);
+      // console.log(`✅ Streaming URL found: ${audioFile.name}`); // 로그 정리
       
       return {
         streamingUrl,
@@ -264,18 +303,19 @@ export function VinylPlayer() {
     }
   };
 
+  // 초기 트랙 로딩 (기본 장르 믹스)
   const loadRecommendations = async () => {
+    await loadTracksByGenre('all');
+  };
+
+  // 장르별 트랙 로딩 함수
+  const loadTracksByGenre = async (genre: string = 'all') => {
     try {
       setIsLoading(true);
-      console.log('🎵 Loading tracks from Internet Archive Search API...');
+      console.log(`🎵 Loading ${genre} tracks from Internet Archive...`);
       
-      // Internet Archive에서 인기 음원 검색
-      const searchQueries = [
-        '(collection:78rpm OR collection:netlabels) AND mediatype:audio',
-        'collection:78rpm AND mediatype:audio',
-        'collection:netlabels AND mediatype:audio',
-        'mediatype:audio AND (jazz OR classical OR blues OR folk)'
-      ];
+      // 선택된 장르에 따른 검색 쿼리 생성
+      const searchQueries = getGenreSearchQueries(genre);
       
       let allItems: any[] = [];
       
@@ -289,15 +329,50 @@ export function VinylPlayer() {
         }
       }
       
-      // 중복 제거 및 랜덤 선택
+      // 중복 제거 및 음악 필터링
       const uniqueItems = allItems.filter((item, index, self) => 
         index === self.findIndex(t => t.identifier === item.identifier)
       );
       
-      console.log(`📚 Total unique items found: ${uniqueItems.length}`);
+      // 턴테이블에 적합한 음악만 필터링
+      const musicItems = uniqueItems.filter(item => {
+        const title = (item.title || '').toLowerCase();
+        const creator = (item.creator || '').toLowerCase();
+        
+        // 오디오북, 라디오 드라마, 팟캐스트 등 제외 키워드
+        const excludeKeywords = [
+          'audiobook', 'podcast', 'radio drama', 'lecture', 'speech', 
+          'story', 'book', 'reading', 'narration', 'episode', 'season',
+          'part 1', 'part 2', 'chapter', 'series', 'broadcast',
+          'interview', 'conversation', 'discussion', 'talk', 'show',
+          'news', 'documentary', 'educational', 'instructional'
+        ];
+        
+        // 제외 키워드가 포함된 경우 필터링
+        const hasExcludeKeyword = excludeKeywords.some(keyword => 
+          title.includes(keyword) || creator.includes(keyword)
+        );
+        
+        // 턴테이블에 적합한 음악 키워드가 있는지 확인
+        const musicKeywords = [
+          'song', 'music', 'jazz', 'blues', 'classical', 'swing',
+          'band', 'orchestra', 'singer', 'vocal', 'instrumental',
+          'album', 'single', 'recording', 'performance', 'concert'
+        ];
+        
+        const hasMusicKeyword = musicKeywords.some(keyword => 
+          title.includes(keyword) || creator.includes(keyword)
+        );
+        
+        // 제외 키워드가 없고, 음악 키워드가 있거나 78 RPM 컬렉션이면 포함
+        return !hasExcludeKeyword && (hasMusicKeyword || item.identifier.includes('78rpm'));
+      });
       
-      // 랜덤하게 5개 선택
-      const shuffledItems = [...uniqueItems].sort(() => Math.random() - 0.5);
+      console.log(`📊 Found ${uniqueItems.length} total items, ${musicItems.length} music items from Internet Archive`);
+      
+      // 음악 아이템이 있으면 음악만 사용, 없으면 전체 사용
+      const itemsToUse = musicItems.length > 0 ? musicItems : uniqueItems;
+      const shuffledItems = [...itemsToUse].sort(() => Math.random() - 0.5);
       const selectedItems = shuffledItems.slice(0, 5);
       
       const archiveTracks: Track[] = [];
@@ -306,7 +381,7 @@ export function VinylPlayer() {
       for (let i = 0; i < selectedItems.length; i++) {
         const item = selectedItems[i];
         try {
-          console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`);
+          // console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`); // 로그 정리
           
           const { streamingUrl, coverUrl, duration } = await getStreamingUrl(item.identifier, item);
           
@@ -324,12 +399,13 @@ export function VinylPlayer() {
           };
           
           archiveTracks.push(track);
-          console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`);
+          // console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`); // 로그 정리
           
           // 첫 번째 트랙이 로드되면 UI에 반영 (첫 로딩에서는 자동재생 안함)
           if (i === 0) {
             setTracks([track]);
             setCurrentTrackIndex(0);
+            setTracksLoading(false); // 첫 트랙 로딩 완료 시 즉시 로딩 화면 종료
             console.log('🎵 First track loaded - Ready to play (manual start)');
           }
           
@@ -1003,12 +1079,29 @@ export function VinylPlayer() {
   };
 
 
-  // 검색 핸들러
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      await searchTracks(searchQuery.trim());
-      setShowSearch(false);
+  // 장르 선택 핸들러
+  const handleGenreSelect = async (genre: string) => {
+    try {
+      setShowSearch(false); // 모달 닫기
+      
+      // 선택된 장르로 트랙 로딩
+      await loadTracksByGenre(genre);
+      
+      // 장르명 표시
+      const genreNames: { [key: string]: string } = {
+        'all': 'All Genres',
+        'jazz': 'Jazz',
+        'classical': 'Classical',
+        'blues': 'Blues',
+        'swing': 'Swing',
+        'folk': 'Folk'
+      };
+      
+      toast.success(`Loading ${genreNames[genre]} tracks...`);
+      
+    } catch (error) {
+      console.error('Genre selection failed:', error);
+      toast.error('Failed to load genre tracks');
     }
   };
 
@@ -1808,38 +1901,62 @@ export function VinylPlayer() {
             className="flex flex-col items-center space-y-6"
             onClick={e => e.stopPropagation()}
           >
-            <form onSubmit={handleSearch} className="flex flex-col items-center space-y-6">
-              <div className="relative">
-                <Search className="absolute left-0 top-1/2 transform -translate-y-1/2 text-gray-300 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search music..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoFocus
-                  className="bg-transparent border-0 border-b-2 border-gray-300 text-white placeholder-gray-300 text-xl text-center pl-8 pr-2 py-3 w-80 focus:outline-none focus:border-white transition-colors"
-                />
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-medium text-gray-900 mb-2">Select Genre</h3>
+                <p className="text-sm text-gray-500">Choose your preferred music genre for the turntable</p>
               </div>
               
-              {searchQuery.trim() && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  type="submit"
-                  disabled={isSearching}
-                  className="bg-white/10 backdrop-blur-sm border border-white/20 text-white px-8 py-3 rounded-full hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              <div className="space-y-3 mb-6">
+                <button
+                  onClick={() => handleGenreSelect('all')}
+                  className="w-full p-3 text-left border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
                 >
-                  {isSearching ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Searching...</span>
-                    </div>
-                  ) : (
-                    'Search'
-                  )}
-                </motion.button>
-              )}
-            </form>
+                  <div className="font-medium text-gray-900">All Genres</div>
+                  <div className="text-xs text-gray-500">Mixed selection</div>
+                </button>
+                
+                <button
+                  onClick={() => handleGenreSelect('jazz')}
+                  className="w-full p-3 text-left border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+                >
+                  <div className="font-medium text-gray-900">Jazz</div>
+                  <div className="text-xs text-gray-500">Swing & Big Band</div>
+                </button>
+                
+                <button
+                  onClick={() => handleGenreSelect('classical')}
+                  className="w-full p-3 text-left border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+                >
+                  <div className="font-medium text-gray-900">Classical</div>
+                  <div className="text-xs text-gray-500">Symphony & Orchestra</div>
+                </button>
+                
+                <button
+                  onClick={() => handleGenreSelect('blues')}
+                  className="w-full p-3 text-left border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+                >
+                  <div className="font-medium text-gray-900">Blues</div>
+                  <div className="text-xs text-gray-500">Rhythm & Soul</div>
+                </button>
+                
+                <button
+                  onClick={() => handleGenreSelect('swing')}
+                  className="w-full p-3 text-left border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+                >
+                  <div className="font-medium text-gray-900">Swing</div>
+                  <div className="text-xs text-gray-500">Big Band & Dance</div>
+                </button>
+                
+                <button
+                  onClick={() => handleGenreSelect('folk')}
+                  className="w-full p-3 text-left border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
+                >
+                  <div className="font-medium text-gray-900">Folk</div>
+                  <div className="text-xs text-gray-500">Acoustic & Traditional</div>
+                </button>
+              </div>
+            </div>
           </motion.div>
         </motion.div>
       )}
