@@ -1253,11 +1253,15 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  <ImageWithFallback
-                    key={`mobile-cover-${currentTrack?.id || 'default'}`}
-                    src={currentTrack?.cover || '/images/duck-fallback.svg'}
+                  <img 
+                    src="./images/duck-fallback.svg"
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      console.log('🦆 Image failed, using duck fallback');
+                      target.src = './images/duck-fallback.svg';
+                    }}
                   />
                 </motion.div>
 
@@ -1567,11 +1571,15 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  <ImageWithFallback
-                    key={`desktop-cover-${currentTrack?.id || 'default'}`}
-                    src={currentTrack?.cover || '/images/duck-fallback.svg'}
+                  <img 
+                    src="./images/duck-fallback.svg"
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      console.log('🦆 Image failed, using duck fallback');
+                      target.src = './images/duck-fallback.svg';
+                    }}
                   />
                 </motion.div>
 
