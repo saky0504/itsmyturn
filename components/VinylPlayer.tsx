@@ -1253,7 +1253,7 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  {currentTrack?.cover ? (
+                  {currentTrack?.cover && !isInitialLoading ? (
                     <ImageWithFallback
                       key={`mobile-cover-${currentTrack.id}`}
                       src={currentTrack.cover}
@@ -1575,7 +1575,7 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  {currentTrack?.cover ? (
+                  {currentTrack?.cover && !isInitialLoading ? (
                     <ImageWithFallback
                       key={`desktop-cover-${currentTrack.id}`}
                       src={currentTrack.cover}
