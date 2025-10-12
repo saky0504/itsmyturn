@@ -15,5 +15,7 @@
     "tailwindCSS.experimental.classRegex": [
       ["cn\\(([^)]*)\\)", "'([^']*)'"],
       ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
-    ]
+    ],
+    "css.validate": false,
+    "css.lint.unknownAtRules": "ignore"
   }

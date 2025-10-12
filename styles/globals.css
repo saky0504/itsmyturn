@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+/* 
+ * This file uses Tailwind CSS v4 syntax (@theme, @apply)
+ * These are valid Tailwind v4 directives and should not be flagged as errors
+ * stylelint-disable at-rule-no-unknown
+ */
 
 :root {
   --font-size: 16px;

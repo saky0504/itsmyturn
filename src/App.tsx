@@ -20,39 +20,6 @@ export default function App() {
             backdropFilter: 'blur(2px)',
             fontWeight: '400',
           },
-          success: {
-            style: {
-              background: 'rgba(255, 255, 255, 0.95)',
-              color: '#6b7280',
-              border: '1px solid rgba(0, 0, 0, 0.03)',
-            },
-            iconTheme: {
-              primary: '#6b7280',
-              secondary: 'rgba(255, 255, 255, 0.95)',
-            },
-          },
-          error: {
-            style: {
-              background: 'rgba(255, 255, 255, 0.95)',
-              color: '#6b7280',
-              border: '1px solid rgba(0, 0, 0, 0.03)',
-            },
-            iconTheme: {
-              primary: '#6b7280',
-              secondary: 'rgba(255, 255, 255, 0.95)',
-            },
-          },
-          info: {
-            style: {
-              background: 'rgba(255, 255, 255, 0.95)',
-              color: '#6b7280',
-              border: '1px solid rgba(0, 0, 0, 0.03)',
-            },
-            iconTheme: {
-              primary: '#6b7280',
-              secondary: 'rgba(255, 255, 255, 0.95)',
-            },
-          },
         }}
       />
     </div>

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "🎵 It's My Turn - Premium LP Turntable Music Player with Spotify Integration",
+  "description": "It's My Turn - Premium LP Turntable Music Player with Spotify Integration",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
