@@ -490,15 +490,23 @@ export function VinylPlayer() {
       console.log('🎵 Audio started playing');
       setIsPlaying(true);
       setIsLoading(false);
-      // LP 회전 시작
-      spinControls.start();
+      // LP 회전 시작 (안전하게)
+      try {
+        spinControls.start();
+      } catch (error) {
+        console.warn('LP rotation start failed:', error);
+      }
     };
 
     const handlePause = () => {
       console.log('🎵 Audio paused');
       setIsPlaying(false);
-      // LP 회전 중지
-      spinControls.stop();
+      // LP 회전 중지 (안전하게)
+      try {
+        spinControls.stop();
+      } catch (error) {
+        console.warn('LP rotation stop failed:', error);
+      }
     };
 
     // 모든 이벤트 리스너 등록
@@ -611,8 +619,12 @@ export function VinylPlayer() {
                 
                 // 즉시 상태 업데이트
                 setIsPlaying(true);
-                // LP 회전 시작
-                spinControls.start();
+                // LP 회전 시작 (안전하게)
+                try {
+                  spinControls.start();
+                } catch (error) {
+                  console.warn('LP rotation start failed:', error);
+                }
                 
                 // 재생 성공 후 즉시 음소거 해제
                 setTimeout(() => {
@@ -677,19 +689,23 @@ export function VinylPlayer() {
 
   // LP 회전 애니메이션 컨트롤러
   useEffect(() => {
-    if (isPlaying && !isLoading) {
-      console.log('🎵 Starting LP rotation animation');
-      spinControls.start({
-        rotate: [0, 360],
-        transition: {
-          duration: 4,
-          repeat: Infinity,
-          ease: "linear"
-        }
-      });
-    } else {
-      console.log('⏸️ Stopping LP rotation animation');
-      spinControls.stop();
+    try {
+      if (isPlaying && !isLoading && spinControls) {
+        console.log('🎵 Starting LP rotation animation');
+        spinControls.start({
+          rotate: [0, 360],
+          transition: {
+            duration: 4,
+            repeat: Infinity,
+            ease: "linear"
+          }
+        });
+      } else if (spinControls) {
+        console.log('⏸️ Stopping LP rotation animation');
+        spinControls.stop();
+      }
+    } catch (error) {
+      console.warn('LP animation control error:', error);
     }
   }, [isPlaying, isLoading, spinControls, currentTrackIndex]);
 
@@ -796,8 +812,9 @@ export function VinylPlayer() {
 
     try {
       if (isPlaying) {
+        console.log('⏸️ Pausing...');
         audioRef.current.pause();
-        console.log('⏸️ Paused');
+        // 상태는 handlePause에서 업데이트됨
       } else {
         // 재생하려고 하는데 트랙이 없는 경우
         if (!currentTrack) {
@@ -818,6 +835,7 @@ export function VinylPlayer() {
         
         await playPromise;
         console.log('🎵 Playing started');
+        // 상태는 handlePlay에서 업데이트됨
       }
     } catch (error: any) {
       console.error('❌ Play/pause error:', {
