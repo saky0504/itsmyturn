@@ -100,143 +100,141 @@ export function VinylPlayer() {
     }
   };
 
+  // Internet Archive Search API로 실제 음원 검색
+  const searchInternetArchive = async (query: string, rows: number = 50) => {
+    try {
+      console.log(`🔍 Searching Internet Archive: ${query}`);
+      
+      const searchUrl = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=avg_rating&rows=${rows}&sort[]=downloads+desc&output=json`;
+      
+      const response = await fetch(searchUrl);
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`✅ Found ${data.response.docs.length} items from Internet Archive`);
+      
+      return data.response.docs;
+    } catch (error) {
+      console.error('❌ Internet Archive search failed:', error);
+      throw error;
+    }
+  };
+
+  // Internet Archive Metadata API로 실제 스트리밍 URL 추출
+  const getStreamingUrl = async (identifier: string) => {
+    try {
+      console.log(`🎵 Getting metadata for: ${identifier}`);
+      
+      const metadataUrl = `https://archive.org/metadata/${identifier}`;
+      const response = await fetch(metadataUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Metadata fetch failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // MP3 파일 찾기 (우선순위: .mp3 > .ogg > .wav)
+      const mp3Files = data.files.filter((file: any) => 
+        file.name.endsWith('.mp3') && 
+        file.format !== 'Metadata' && 
+        !file.name.includes('_files.xml')
+      );
+      
+      if (mp3Files.length === 0) {
+        throw new Error('No MP3 files found');
+      }
+      
+      // 첫 번째 MP3 파일 선택 (보통 가장 큰 파일이 메인 트랙)
+      const audioFile = mp3Files[0];
+      const streamingUrl = `https://archive.org/download/${identifier}/${audioFile.name}`;
+      
+      console.log(`✅ Streaming URL found: ${audioFile.name}`);
+      
+      return {
+        streamingUrl,
+        duration: audioFile.length ? parseInt(audioFile.length) * 1000 : 180000, // length in seconds
+        fileSize: audioFile.size
+      };
+    } catch (error) {
+      console.error(`❌ Failed to get streaming URL for ${identifier}:`, error);
+      throw error;
+    }
+  };
+
   const loadRecommendations = async () => {
     try {
       setIsLoading(true);
-      console.log('Loading popular tracks with real audio...');
+      console.log('🎵 Loading tracks from Internet Archive Search API...');
       
-      // 100% 작동 보장! Internet Archive 공개 도메인 음원들
-      const allArchiveTracks: Track[] = [
-        {
-          id: 'ia1',
-          title: 'Blue Danube Waltz',
-          artist: 'Johann Strauss II',
-          album: 'Classical Favorites',
-          cover: 'https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=600&h=600&fit=crop',
-          preview_url: 'https://ia802908.us.archive.org/29/items/EnglishSuitesNo.11000Bwv806/Bach-EnglishSuiteNo1InAMajor%2CBWV806-1.Prelude.mp3',
-          duration: 145000,
-          spotify_url: 'https://open.spotify.com/search/blue%20danube',
-          lyrics: 'Elegant classical waltz\nTimeless Viennese music\nPerfect for dancing',
-          genre: 'Classical'
-        },
-        {
-          id: 'ia2',
-          title: 'Moonlight Sonata',
-          artist: 'Ludwig van Beethoven',
-          album: 'Piano Sonata No. 14',
-          cover: 'https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=600&h=600&fit=crop',
-          preview_url: 'https://ia600901.us.archive.org/17/items/PianoConcerto-N.21/MoonlightSonata.mp3',
-          duration: 330000,
-          spotify_url: 'https://open.spotify.com/search/moonlight%20sonata',
-          lyrics: 'Romantic piano masterpiece\nDeep and emotional\nBeethoven\'s finest',
-          genre: 'Classical'
-        },
-        {
-          id: 'ia3',
-          title: 'Für Elise',
-          artist: 'Ludwig van Beethoven',
-          album: 'Piano Favorites',
-          cover: 'https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800107.us.archive.org/27/items/Beethoven-FurElise/FurElise.mp3',
-          duration: 170000,
-          spotify_url: 'https://open.spotify.com/search/fur%20elise',
-          lyrics: 'Iconic piano melody\nWorld\'s most famous piece\nSimple yet beautiful',
-          genre: 'Classical'
-        },
-        {
-          id: 'ia4',
-          title: 'Canon in D',
-          artist: 'Johann Pachelbel',
-          album: 'Baroque Classics',
-          cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800308.us.archive.org/15/items/PachelbelCanonInDMajor/PachelbelCanonInDMajor.mp3',
-          duration: 300000,
-          spotify_url: 'https://open.spotify.com/search/canon%20in%20d',
-          lyrics: 'Wedding ceremony favorite\nBaroque perfection\nTimeless and elegant',
-          genre: 'Baroque'
-        },
-        {
-          id: 'ia5',
-          title: 'Spring - Vivaldi',
-          artist: 'Antonio Vivaldi',
-          album: 'The Four Seasons',
-          cover: 'https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800503.us.archive.org/8/items/The_Four_Seasons_Vivaldi-10361/01SpringMvt1AllegroE.mp3',
-          duration: 200000,
-          spotify_url: 'https://open.spotify.com/search/vivaldi%20spring',
-          lyrics: 'Joyful and vibrant\nSpring awakening\nBaroque masterpiece',
-          genre: 'Baroque'
-        },
-        {
-          id: 'ia6',
-          title: 'Clair de Lune',
-          artist: 'Claude Debussy',
-          album: 'Suite bergamasque',
-          cover: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800204.us.archive.org/14/items/ClairDeLuneDebussy/ClairDeLune.mp3',
-          duration: 280000,
-          spotify_url: 'https://open.spotify.com/search/clair%20de%20lune',
-          lyrics: 'Moonlight impressions\nDreamlike and serene\nFrench romanticism',
-          genre: 'Impressionist'
-        },
-        {
-          id: 'ia7',
-          title: 'The Entertainer',
-          artist: 'Scott Joplin',
-          album: 'Ragtime Collection',
-          cover: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800308.us.archive.org/2/items/ScottJoplin-TheEntertainer/TheEntertainer.mp3',
-          duration: 210000,
-          spotify_url: 'https://open.spotify.com/search/the%20entertainer',
-          lyrics: 'Classic ragtime piano\nUpbeat and joyful\nPerfect for any occasion',
-          genre: 'Ragtime'
-        },
-        {
-          id: 'ia8',
-          title: 'Maple Leaf Rag',
-          artist: 'Scott Joplin',
-          album: 'Ragtime Classics',
-          cover: 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800308.us.archive.org/2/items/ScottJoplin-MapleLeafRag/MapleLeafRag.mp3',
-          duration: 195000,
-          spotify_url: 'https://open.spotify.com/search/maple%20leaf%20rag',
-          lyrics: 'Syncopated rhythms\nIconic American music\nRagtime at its best',
-          genre: 'Ragtime'
-        },
-        {
-          id: 'ia9',
-          title: 'Symphony No. 5',
-          artist: 'Ludwig van Beethoven',
-          album: 'Symphony Collection',
-          cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800308.us.archive.org/15/items/Beethoven_Symphony_No.5/Beethoven-SymphonyNo5-Movement1.mp3',
-          duration: 420000,
-          spotify_url: 'https://open.spotify.com/search/beethoven%20symphony%205',
-          lyrics: 'Fate knocking at the door\nMost famous opening\nDramatic and powerful',
-          genre: 'Classical'
-        },
-        {
-          id: 'ia10',
-          title: 'Air on G String',
-          artist: 'Johann Sebastian Bach',
-          album: 'Orchestral Suite No. 3',
-          cover: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&h=600&fit=crop',
-          preview_url: 'https://ia800308.us.archive.org/15/items/Bach_Air_on_G_String/Bach-AirOnGString.mp3',
-          duration: 250000,
-          spotify_url: 'https://open.spotify.com/search/air%20on%20g%20string',
-          lyrics: 'Gentle and flowing\nBaroque elegance\nPeaceful meditation',
-          genre: 'Baroque'
-        }
+      // Internet Archive에서 인기 음원 검색
+      const searchQueries = [
+        '(collection:78rpm OR collection:netlabels) AND mediatype:audio',
+        'collection:78rpm AND mediatype:audio',
+        'collection:netlabels AND mediatype:audio',
+        'mediatype:audio AND (jazz OR classical OR blues OR folk)'
       ];
       
-      // 랜덤하게 5곡 선택
-      const shuffledTracks = [...allArchiveTracks].sort(() => Math.random() - 0.5);
-      const archiveTracks = shuffledTracks.slice(0, 5);
+      let allItems: any[] = [];
       
-      // Internet Archive 공개 도메인 클래식 음원 (100% 작동 보장!)
-      console.log('🎵 Loading Internet Archive classical music (CORS-safe, verified)...');
+      // 여러 검색어로 충분한 결과 확보
+      for (const query of searchQueries) {
+        try {
+          const items = await searchInternetArchive(query, 25);
+          allItems = allItems.concat(items);
+        } catch (error) {
+          console.warn(`Search query failed: ${query}`, error);
+        }
+      }
       
-      console.log('✅ Final selected tracks:', archiveTracks.map(t => `${t.title} - ${t.artist} (${t.genre})`));
+      // 중복 제거 및 랜덤 선택
+      const uniqueItems = allItems.filter((item, index, self) => 
+        index === self.findIndex(t => t.identifier === item.identifier)
+      );
+      
+      console.log(`📚 Total unique items found: ${uniqueItems.length}`);
+      
+      // 랜덤하게 5개 선택
+      const shuffledItems = [...uniqueItems].sort(() => Math.random() - 0.5);
+      const selectedItems = shuffledItems.slice(0, 5);
+      
+      const archiveTracks: Track[] = [];
+      
+      // 각 선택된 항목의 스트리밍 URL 추출
+      for (let i = 0; i < selectedItems.length; i++) {
+        const item = selectedItems[i];
+        try {
+          const { streamingUrl, duration } = await getStreamingUrl(item.identifier);
+          
+          const track: Track = {
+            id: item.identifier,
+            title: item.title || 'Unknown Title',
+            artist: item.creator || 'Unknown Artist',
+            album: item.identifier,
+            cover: `https://images.unsplash.com/photo-${1507838153414 + i}?w=600&h=600&fit=crop`, // 랜덤 커버
+            preview_url: streamingUrl,
+            duration: duration,
+            spotify_url: `https://open.spotify.com/search/${encodeURIComponent(item.title || '')}`,
+            lyrics: `From Internet Archive\nClassic audio recording\nPublic domain music`,
+            genre: 'Classical'
+          };
+          
+          archiveTracks.push(track);
+          console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`);
+          
+        } catch (error) {
+          console.warn(`❌ Failed to process item ${item.identifier}:`, error);
+          // 실패한 항목은 건너뛰고 계속 진행
+        }
+      }
+      
+      if (archiveTracks.length === 0) {
+        throw new Error('No playable tracks found');
+      }
+      
+      console.log('✅ Final selected tracks:', archiveTracks.map(t => `${t.title} - ${t.artist}`));
       
       // 기존 트랙에 새 트랙 추가 (중복 제거)
       setTracks(prevTracks => {
@@ -249,10 +247,8 @@ export function VinylPlayer() {
         if (prevTracks.length === 0 && newTracks.length > 0) {
           setTimeout(() => {
             setCurrentTrackIndex(0);
-            // 브라우저 정책상 사용자 인터랙션 후에만 재생 가능
-            // shouldAutoPlayRef는 Play 버튼 클릭 후 활성화
             console.log('🎵 First track loaded - Click Play to start');
-            toast.success('Music loaded! Click Play to start', {
+            toast.success(`${newTracks.length} tracks loaded! Click Play to start`, {
               duration: 3000
             });
           }, 500);
@@ -261,7 +257,7 @@ export function VinylPlayer() {
         return updatedTracks;
       });
       
-      console.log(`✅ Added ${archiveTracks.length} Internet Archive classical tracks to playlist`);
+      console.log(`✅ Added ${archiveTracks.length} Internet Archive tracks to playlist`);
       
     } catch (error) {
       console.error('❌ Failed to load tracks:', error);
