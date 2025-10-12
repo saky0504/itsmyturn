@@ -230,13 +230,11 @@ export function VinylPlayer() {
           archiveTracks.push(track);
           console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`);
           
-          // 첫 번째 트랙이 로드되면 즉시 자동재생 (메시지 없음)
+          // 첫 번째 트랙이 로드되면 UI에 반영 (자동재생은 useEffect에서 처리)
           if (i === 0) {
             setTracks([track]);
             setCurrentTrackIndex(0);
-            shouldAutoPlayRef.current = true;
-            setHasUserInteracted(true);
-            console.log('🎵 First track loaded - Auto-playing immediately...');
+            console.log('🎵 First track loaded - Will auto-play...');
           }
           
           // 각 트랙 로딩 간격 (너무 빠르면 서버 부하)
@@ -525,10 +523,8 @@ export function VinylPlayer() {
         
         console.log('🎵 Setting up track:', currentTrack.title, currentTrack.preview_url);
         
-        // 자동 재생이 필요한 경우 (유효한 URL인 경우 무조건 시도)
-        if (shouldAutoPlayRef.current && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
-          shouldAutoPlayRef.current = false;
-          
+        // 항상 자동 재생 시도 (유효한 URL인 경우)
+        if (audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
           // 오디오 로딩 대기
           const waitForLoad = new Promise<void>((resolve) => {
             if (!audioRef.current) return resolve();
@@ -551,18 +547,20 @@ export function VinylPlayer() {
               try {
                 // 음소거 상태로 먼저 재생 시도 (브라우저 정책 우회)
                 audioRef.current.muted = true;
+                console.log('🎵 Attempting auto-play (muted)...');
                 await audioRef.current.play();
+                console.log('✅ Auto-play successful!');
                 // 재생 성공 후 즉시 음소거 해제
                 setTimeout(() => {
                   if (audioRef.current) {
                     audioRef.current.muted = false;
                     audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
+                    console.log('🔊 Unmuted - Now playing:', currentTrack.title);
                   }
                 }, 100);
-                console.log('🎵 Auto-playing:', currentTrack.title);
                 setIsPlaying(true);
               } catch (playError) {
-                console.warn('Audio play failed, will try on user interaction:', playError);
+                console.warn('⚠️ Auto-play failed, will wait for user interaction:', playError);
                 setIsPlaying(false);
               }
             }
