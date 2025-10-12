@@ -36,6 +36,8 @@ export function VinylPlayer() {
   const [showSearch, setShowSearch] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false); // 자동재생 사용 여부
   const [showLyrics, setShowLyrics] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [preloadedTracks, setPreloadedTracks] = useState<Map<string, HTMLAudioElement>>(new Map());
   const spinControls = useAnimationControls();
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -66,6 +68,38 @@ export function VinylPlayer() {
       });
     }
   }, [tracks, currentTrackIndex, currentTrack?.cover]);
+
+  // 음원 사전 로딩
+  const preloadAudio = (track: Track) => {
+    if (!track.preview_url || !isValidPreviewUrl(track.preview_url)) return;
+    
+    const audio = new Audio();
+    audio.src = track.preview_url;
+    audio.preload = 'auto';
+    audio.crossOrigin = 'anonymous';
+    
+    // 로딩 완료 시 Map에 저장
+    audio.addEventListener('canplaythrough', () => {
+      setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
+      console.log(`🎵 Preloaded: ${track.title}`);
+    });
+    
+    // 에러 처리
+    audio.addEventListener('error', (e) => {
+      console.warn(`❌ Failed to preload: ${track.title}`, e);
+    });
+  };
+
+  // 모든 트랙 사전 로딩
+  useEffect(() => {
+    if (tracks.length > 0) {
+      tracks.forEach(track => {
+        if (!preloadedTracks.has(track.id)) {
+          preloadAudio(track);
+        }
+      });
+    }
+  }, [tracks]);
 
   // 음악 Spotify API 호출 함수
   const searchTracks = async (query: string) => {
@@ -230,11 +264,11 @@ export function VinylPlayer() {
           archiveTracks.push(track);
           console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`);
           
-          // 첫 번째 트랙이 로드되면 UI에 반영 (자동재생은 useEffect에서 처리)
+          // 첫 번째 트랙이 로드되면 UI에 반영 (첫 로딩에서는 자동재생 안함)
           if (i === 0) {
             setTracks([track]);
             setCurrentTrackIndex(0);
-            console.log('🎵 First track loaded - Will auto-play...');
+            console.log('🎵 First track loaded - Ready to play (manual start)');
           }
           
           // 각 트랙 로딩 간격 (너무 빠르면 서버 부하)
@@ -266,6 +300,9 @@ export function VinylPlayer() {
       }
       
       console.log(`✅ Total ${archiveTracks.length} Internet Archive tracks in playlist`);
+      
+      // 첫 로딩 완료 플래그 업데이트
+      setIsFirstLoad(false);
       
     } catch (error) {
       console.error('❌ Failed to load tracks:', error);
@@ -513,8 +550,16 @@ export function VinylPlayer() {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
           
-          // 새 트랙 URL 설정 (유효성 검증 포함)
-          if (isValidPreviewUrl(currentTrack.preview_url)) {
+          // 사전 로딩된 오디오가 있는지 확인
+          const preloadedAudio = preloadedTracks.get(currentTrack.id);
+          
+          if (preloadedAudio) {
+            console.log('✅ Using preloaded audio for:', currentTrack.title);
+            // 사전 로딩된 오디오의 속성을 현재 오디오에 복사
+            audioRef.current.src = preloadedAudio.src;
+            audioRef.current.currentTime = 0;
+            // 사전 로딩된 오디오는 이미 로드되어 있음
+          } else if (isValidPreviewUrl(currentTrack.preview_url)) {
             console.log('✅ Setting valid preview URL:', currentTrack.preview_url);
             audioRef.current.src = currentTrack.preview_url!;
             audioRef.current.load(); // 강제로 오디오 로드
@@ -527,21 +572,30 @@ export function VinylPlayer() {
         
         console.log('🎵 Setting up track:', currentTrack.title, currentTrack.preview_url);
         
-        // 항상 자동 재생 시도 (유효한 URL인 경우)
-        if (audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
-          // 오디오 로딩 대기
+        // 첫 로딩이 아니거나 shouldAutoPlayRef가 true인 경우 자동 재생 시도
+        if ((!isFirstLoad || shouldAutoPlayRef.current) && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
+          // 사전 로딩된 오디오인지 확인
+          const preloadedAudio = preloadedTracks.get(currentTrack.id);
+          
+          // 오디오 로딩 대기 (사전 로딩된 경우 즉시 재생)
           const waitForLoad = new Promise<void>((resolve) => {
             if (!audioRef.current) return resolve();
             
-            const handleCanPlay = () => {
-              audioRef.current?.removeEventListener('canplay', handleCanPlay);
-              resolve();
-            };
-            
-            if (audioRef.current.readyState >= 2) {
+            if (preloadedAudio) {
+              // 사전 로딩된 오디오는 즉시 재생 가능
+              console.log('⚡ Preloaded audio - instant play');
               resolve();
             } else {
-              audioRef.current.addEventListener('canplay', handleCanPlay);
+              const handleCanPlay = () => {
+                audioRef.current?.removeEventListener('canplay', handleCanPlay);
+                resolve();
+              };
+              
+              if (audioRef.current.readyState >= 2) {
+                resolve();
+              } else {
+                audioRef.current.addEventListener('canplay', handleCanPlay);
+              }
             }
           });
           
@@ -1284,11 +1338,8 @@ export function VinylPlayer() {
                 size="icon"
                 onClick={handlePlayPause}
                 className="text-gray-600 hover:text-gray-900 w-10 h-10 justify-self-center"
-                disabled={isLoading}
               >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                ) : isPlaying ? (
+                {isPlaying ? (
                   <Pause className="w-5 h-5" />
                 ) : (
                   <Play className="w-5 h-5 ml-0.5" />
@@ -1606,11 +1657,8 @@ export function VinylPlayer() {
                   size="icon"
                   onClick={handlePlayPause}
                   className="text-gray-600 hover:text-gray-900 w-12 h-12"
-                  disabled={isLoading}
                 >
-                  {isLoading ? (
-                    <div className="w-6 h-6 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                  ) : isPlaying ? (
+                  {isPlaying ? (
                     <Pause className="w-6 h-6" />
                   ) : (
                     <Play className="w-6 h-6 ml-0.5" />
