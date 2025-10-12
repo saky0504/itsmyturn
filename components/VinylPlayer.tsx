@@ -202,10 +202,12 @@ export function VinylPlayer() {
       
       const archiveTracks: Track[] = [];
       
-      // 각 선택된 항목의 스트리밍 URL 추출
+      // 각 선택된 항목의 스트리밍 URL 추출 (순차적으로)
       for (let i = 0; i < selectedItems.length; i++) {
         const item = selectedItems[i];
         try {
+          console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`);
+          
           const { streamingUrl, duration } = await getStreamingUrl(item.identifier);
           
           const track: Track = {
@@ -224,6 +226,21 @@ export function VinylPlayer() {
           archiveTracks.push(track);
           console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`);
           
+          // 첫 번째 트랙이 로드되면 즉시 UI에 반영
+          if (i === 0) {
+            setTracks([track]);
+            setCurrentTrackIndex(0);
+            shouldAutoPlayRef.current = true;
+            setHasUserInteracted(true);
+            console.log('🎵 First track loaded - Auto-playing immediately...');
+            toast.success(`Track 1 loaded! Auto-playing...`, {
+              duration: 2000
+            });
+          }
+          
+          // 각 트랙 로딩 간격 (너무 빠르면 서버 부하)
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
         } catch (error) {
           console.warn(`❌ Failed to process item ${item.identifier}:`, error);
           // 실패한 항목은 건너뛰고 계속 진행
@@ -236,30 +253,20 @@ export function VinylPlayer() {
       
       console.log('✅ Final selected tracks:', archiveTracks.map(t => `${t.title} - ${t.artist}`));
       
-      // 기존 트랙에 새 트랙 추가 (중복 제거)
-      setTracks(prevTracks => {
-        const newTracks = archiveTracks.filter((newTrack: Track) => 
-          !prevTracks.some(existingTrack => existingTrack.id === newTrack.id)
-        );
-        const updatedTracks = [...prevTracks, ...newTracks];
+      // 나머지 트랙들을 플레이리스트에 추가
+      if (archiveTracks.length > 1) {
+        setTracks(prevTracks => {
+          const remainingTracks = archiveTracks.slice(1); // 첫 번째는 이미 추가됨
+          const newTracks = remainingTracks.filter((newTrack: Track) => 
+            !prevTracks.some(existingTrack => existingTrack.id === newTrack.id)
+          );
+          return [...prevTracks, ...newTracks];
+        });
         
-        // 첫 번째 트랙이 추가된 경우 자동 재생 시도
-        if (prevTracks.length === 0 && newTracks.length > 0) {
-          setTimeout(() => {
-            setCurrentTrackIndex(0);
-            shouldAutoPlayRef.current = true;
-            setHasUserInteracted(true);
-            console.log('🎵 First track loaded - Auto-playing...');
-            toast.success(`${newTracks.length} tracks loaded! Auto-playing...`, {
-              duration: 2000
-            });
-          }, 1000);
-        }
-        
-        return updatedTracks;
-      });
+        console.log(`✅ Added ${archiveTracks.length - 1} more tracks to playlist`);
+      }
       
-      console.log(`✅ Added ${archiveTracks.length} Internet Archive tracks to playlist`);
+      console.log(`✅ Total ${archiveTracks.length} Internet Archive tracks in playlist`);
       
     } catch (error) {
       console.error('❌ Failed to load tracks:', error);
@@ -599,7 +606,8 @@ export function VinylPlayer() {
 
   // LP 회전 애니메이션 컨트롤러
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && !isLoading) {
+      console.log('🎵 Starting LP rotation animation');
       spinControls.start({
         rotate: [0, 360],
         transition: {
@@ -609,9 +617,10 @@ export function VinylPlayer() {
         }
       });
     } else {
+      console.log('⏸️ Stopping LP rotation animation');
       spinControls.stop();
     }
-  }, [isPlaying, spinControls, currentTrackIndex]);
+  }, [isPlaying, isLoading, spinControls, currentTrackIndex]);
 
   // 재생 진행률 업데이트 - 부드러운 진행 표시
   useEffect(() => {
@@ -955,7 +964,7 @@ export function VinylPlayer() {
                 onDragEnd={handleDragEnd}
                 dragElastic={0.1}
                 onTouchStart={(e) => {
-                  // 브라우저 기본 스크롤 방지
+                  // 브라우저 기본 스크롤 방지 (passive: false로 설정됨)
                   if (isMobile) {
                     e.preventDefault();
                   }
@@ -1152,12 +1161,20 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  <ImageWithFallback
-                    key={`mobile-cover-${currentTrack.id}`}
-                    src={currentTrack.cover}
-                    alt={`${currentTrack.album} cover`}
-                    className="w-full h-full object-cover"
-                  />
+                  {currentTrack?.cover ? (
+                    <ImageWithFallback
+                      key={`mobile-cover-${currentTrack.id}`}
+                      src={currentTrack.cover}
+                      alt={`${currentTrack.album} cover`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-gray-400 rounded-full animate-pulse flex items-center justify-center">
+                        <Music className="w-8 h-8 text-gray-600" />
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
 
                 {/* 재생/일시정지 오버레이 */}
@@ -1469,12 +1486,20 @@ export function VinylPlayer() {
                     `
                   }}
                 >
-                  <ImageWithFallback
-                    key={`desktop-cover-${currentTrack.id}`}
-                    src={currentTrack.cover}
-                    alt={`${currentTrack.album} cover`}
-                    className="w-full h-full object-cover"
-                  />
+                  {currentTrack?.cover ? (
+                    <ImageWithFallback
+                      key={`desktop-cover-${currentTrack.id}`}
+                      src={currentTrack.cover}
+                      alt={`${currentTrack.album} cover`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                      <div className="w-20 h-20 bg-gray-400 rounded-full animate-pulse flex items-center justify-center">
+                        <Music className="w-10 h-10 text-gray-600" />
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
 
                 {/* 재생/일시정지 오버레이 */}
