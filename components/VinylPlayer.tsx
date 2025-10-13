@@ -31,18 +31,9 @@ export function VinylPlayer() {
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [tracksLoading, setTracksLoading] = useState(true);
-  const [isDemoMode] = useState(false);
-  // 검색 관련 상태 제거 (장르 선택으로 대체됨)
   const [showSearch, setShowSearch] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
-  // localStorage를 사용해 최초 방문 여부 확인 (최초 방문 시에만 수동 재생)
-  const [isFirstVisit, setIsFirstVisit] = useState(() => {
-    try {
-      return localStorage.getItem('vinylplayer_visited') !== 'true';
-    } catch {
-      return true; // localStorage 사용 불가 시 최초 방문으로 간주
-    }
-  });
+  // localStorage를 사용해 방문 기록 저장 (자동재생 비활성화로 단순화)
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAudioReady, setIsAudioReady] = useState(false); // 오디오 준비 상태 추가
@@ -53,8 +44,11 @@ export function VinylPlayer() {
   const shouldAutoPlayRef = useRef<boolean>(false);
   const playTokenRef = useRef<number>(0); // 재생 요청 토큰 (레이스 컨디션 방지)
   const isMobile = useIsMobile();
+  
+  // 🎵 단순하고 안정적인 프리로딩 (브라우저 기본 캐시 의존)
 
   const currentTrack = tracks[currentTrackIndex];
+
 
   // 커버 이미지 미리 로딩
   useEffect(() => {
@@ -79,65 +73,109 @@ export function VinylPlayer() {
     }
   }, [tracks, currentTrackIndex, currentTrack?.cover]);
 
-  // 현재 트랙과 다음 2개 트랙만 순차적으로 사전 로딩 (경쟁 조건 방지)
+  // 🎵 개선된 병렬 프리로딩 (더 빠른 로딩)
   useEffect(() => {
     if (tracks.length > 0) {
-      // 현재 트랙부터 순차적으로 최대 3개까지만 사전 로딩
+      // 현재 트랙부터 최대 10개까지 병렬로 사전 로딩
       const loadNextTracks = async () => {
-        for (let i = 0; i < Math.min(3, tracks.length); i++) {
+        const tracksToPreload = [];
+        for (let i = 0; i < Math.min(10, tracks.length); i++) {
           const trackIndex = (currentTrackIndex + i) % tracks.length;
           const track = tracks[trackIndex];
           
           if (track && !preloadedTracks.has(track.id)) {
-            // 순차적으로 하나씩 로딩 (첫 번째 트랙 우선)
-            await new Promise<void>((resolve) => {
-              if (preloadedTracks.has(track.id)) {
-                resolve();
-                return;
-              }
-              
-              const audio = new Audio();
-              audio.src = track.preview_url;
-              audio.preload = 'auto';
-              audio.crossOrigin = 'anonymous';
-              
-              const handleCanPlay = () => {
-                setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-                console.log(`🎵 Preloaded [${i + 1}/3]: ${track.title}`);
-                audio.removeEventListener('canplaythrough', handleCanPlay);
-                audio.removeEventListener('error', handleError);
-                resolve();
-              };
-              
-              const handleError = (e: any) => {
-                console.warn(`❌ Failed to preload: ${track.title}`, e);
-                audio.removeEventListener('canplaythrough', handleCanPlay);
-                audio.removeEventListener('error', handleError);
-                resolve(); // 에러가 나도 다음 트랙 로딩 계속
-              };
-              
-              audio.addEventListener('canplaythrough', handleCanPlay);
-              audio.addEventListener('error', handleError);
-              
-              // 타임아웃 설정 (빠른 로딩을 위해 5초로 단축)
-              setTimeout(() => {
-                if (!preloadedTracks.has(track.id)) {
-                  console.warn(`⏱️ Preload timeout: ${track.title}`);
-                  audio.removeEventListener('canplaythrough', handleCanPlay);
-                  audio.removeEventListener('error', handleError);
-                  resolve();
-                }
-              }, 5000);
-            });
-            
-            // 각 트랙 사이에 약간의 간격 (빠른 로딩을 위해 단축)
-            if (i === 0) {
-              await new Promise(resolve => setTimeout(resolve, 100)); // 첫 트랙 빠르게
-            } else {
-              await new Promise(resolve => setTimeout(resolve, 50));
-            }
+            tracksToPreload.push({ track, index: i });
           }
         }
+        
+        console.log(`🚀 Starting parallel preload for ${tracksToPreload.length} tracks`);
+        
+        // 우선순위별로 로딩 (첫 3개는 즉시, 나머지는 순차적으로)
+        const immediateTracks = tracksToPreload.slice(0, 3);
+        const backgroundTracks = tracksToPreload.slice(3);
+        
+        // 즉시 로딩할 트랙들 (첫 3개)
+        const immediatePromises = immediateTracks.map(({ track, index }) => 
+          new Promise<void>((resolve) => {
+            const audio = new Audio();
+            audio.src = track.preview_url;
+            audio.preload = 'auto'; // 전체 로딩
+            audio.crossOrigin = 'anonymous';
+            
+            const handleCanPlay = () => {
+              setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
+              console.log(`🎵 Immediate preload [${index + 1}/3]: ${track.title}`);
+              audio.removeEventListener('canplay', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              resolve();
+            };
+            
+            const handleError = (e: any) => {
+              console.warn(`❌ Failed immediate preload: ${track.title}`, e);
+              audio.removeEventListener('canplay', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              resolve();
+            };
+            
+            audio.addEventListener('canplay', handleCanPlay);
+            audio.addEventListener('error', handleError);
+            
+            setTimeout(() => {
+              if (!preloadedTracks.has(track.id)) {
+                console.warn(`⏱️ Immediate preload timeout: ${track.title}`);
+                audio.removeEventListener('canplay', handleCanPlay);
+                audio.removeEventListener('error', handleError);
+                resolve();
+              }
+            }, 3000);
+          })
+        );
+        
+        // 백그라운드 로딩할 트랙들 (나머지)
+        const backgroundPromises = backgroundTracks.map(({ track, index }) => 
+          new Promise<void>((resolve) => {
+            const audio = new Audio();
+            audio.src = track.preview_url;
+            audio.preload = 'metadata'; // 메타데이터만
+            audio.crossOrigin = 'anonymous';
+            
+            const handleCanPlay = () => {
+              setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
+              console.log(`🎵 Background preload [${index + 4}/${tracksToPreload.length}]: ${track.title}`);
+              audio.removeEventListener('canplay', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              resolve();
+            };
+            
+            const handleError = (e: any) => {
+              console.warn(`❌ Failed background preload: ${track.title}`, e);
+              audio.removeEventListener('canplay', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              resolve();
+            };
+            
+            audio.addEventListener('canplay', handleCanPlay);
+            audio.addEventListener('error', handleError);
+            
+            setTimeout(() => {
+              if (!preloadedTracks.has(track.id)) {
+                console.warn(`⏱️ Background preload timeout: ${track.title}`);
+                audio.removeEventListener('canplay', handleCanPlay);
+                audio.removeEventListener('error', handleError);
+                resolve();
+              }
+            }, 5000); // 백그라운드는 더 긴 타임아웃
+          })
+        );
+        
+        // 즉시 로딩 완료 대기
+        await Promise.all(immediatePromises);
+        console.log(`✅ Immediate preload completed for ${immediateTracks.length} tracks`);
+        
+        // 백그라운드 로딩은 기다리지 않고 백그라운드에서 진행
+        Promise.all(backgroundPromises).then(() => {
+          console.log(`✅ Background preload completed for ${backgroundTracks.length} tracks`);
+        });
       };
       
       loadNextTracks();
@@ -600,11 +638,17 @@ export function VinylPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // 시간 업데이트 핸들러 (동기화 개선)
+    // 시간 업데이트 핸들러 (동기화 개선 + 디버깅)
     const handleTimeUpdate = () => {
       const time = audio.currentTime;
       if (!isNaN(time) && isFinite(time)) {
+        console.log(`🎵 TimeUpdate: ${time.toFixed(2)}s (duration: ${audio.duration?.toFixed(2)}s)`);
         setCurrentTime(time);
+        
+        // 🚨 timeupdate 이벤트가 발생하면 duration도 함께 업데이트
+        if (audio.duration && !isNaN(audio.duration)) {
+          setDuration(audio.duration);
+        }
       }
     };
     
@@ -625,6 +669,18 @@ export function VinylPlayer() {
       console.log('Audio can play');
       setIsLoading(false);
       setIsAudioReady(true); // 오디오가 재생 준비 완료
+      
+      // 🚀 음원 다운로드 완료 시 자동재생 (사용자 요청) - 조건 단순화
+      if (audio && !isPlaying && audio.readyState >= 2) {
+        console.log('🎵 Audio ready - attempting smart auto-play');
+        audio.play().then(() => {
+          console.log('✅ Smart auto-play successful');
+          setIsPlaying(true);
+        }).catch((error: any) => {
+          console.log('⚠️ Smart auto-play failed (normal):', error.name);
+          // 자동재생 실패는 정상적인 동작 (사용자 상호작용 필요)
+        });
+      }
     };
     
     const handleLoadedData = () => {
@@ -705,6 +761,44 @@ export function VinylPlayer() {
       console.log('🎵 Audio started playing');
       setIsPlaying(true);
       setIsLoading(false);
+      
+      // 🚨 재생 시작 즉시 강제 시간 업데이트 (무조건)
+      if (audio) {
+        const currentTime = audio.currentTime || 0;
+        console.log(`🚀 GUARANTEED Play start - forcing time update: ${currentTime.toFixed(2)}s`);
+        setCurrentTime(currentTime);
+        
+        // duration도 강제 업데이트
+        if (audio.duration && !isNaN(audio.duration)) {
+          setDuration(audio.duration);
+        }
+        
+        // 연속으로 3번 강제 업데이트 (확실하게)
+        setTimeout(() => {
+          if (audio && !audio.paused) {
+            const time = audio.currentTime || 0;
+            setCurrentTime(time);
+            console.log(`🚀 GUARANTEED Update 1: ${time.toFixed(2)}s`);
+          }
+        }, 100);
+        
+        setTimeout(() => {
+          if (audio && !audio.paused) {
+            const time = audio.currentTime || 0;
+            setCurrentTime(time);
+            console.log(`🚀 GUARANTEED Update 2: ${time.toFixed(2)}s`);
+          }
+        }, 200);
+        
+        setTimeout(() => {
+          if (audio && !audio.paused) {
+            const time = audio.currentTime || 0;
+            setCurrentTime(time);
+            console.log(`🚀 GUARANTEED Update 3: ${time.toFixed(2)}s`);
+          }
+        }, 300);
+      }
+      
       // LP 회전은 useEffect에서 자동 처리됨
     };
 
@@ -725,6 +819,36 @@ export function VinylPlayer() {
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
 
+    // 🚨 완전히 조건 없는 타임라인 타이머
+    let mainTimer: NodeJS.Timeout | null = null;
+    
+    // 무조건 타이머 시작 (모든 조건 제거)
+    console.log('🚀 Starting ABSOLUTE GUARANTEED timeline timer');
+    mainTimer = setInterval(() => {
+      // 오디오가 있든 없든 무조건 실행
+      if (audio) {
+        const currentAudioTime = audio.currentTime || 0;
+        const audioDuration = audio.duration || 0;
+        const isPlaying = !audio.paused && !audio.ended;
+        
+        // 무조건 시간 업데이트 (모든 조건 제거)
+        setCurrentTime(currentAudioTime);
+        setDuration(audioDuration);
+        
+        // 재생 중일 때는 더 자주 로그 출력
+        if (isPlaying) {
+          console.log(`⏰ ABSOLUTE Timer (PLAYING): ${currentAudioTime.toFixed(2)}s / ${audioDuration.toFixed(2)}s (readyState: ${audio.readyState})`);
+        } else {
+          console.log(`⏰ ABSOLUTE Timer (PAUSED): ${currentAudioTime.toFixed(2)}s / ${audioDuration.toFixed(2)}s (readyState: ${audio.readyState})`);
+        }
+      } else {
+        // 오디오가 없어도 0으로 설정
+        setCurrentTime(0);
+        setDuration(0);
+        console.log('⏰ No audio - setting time to 0');
+      }
+    }, 50); // 50ms로 더 빠르게 (재생 중일 때 더 부드럽게)
+
     return () => {
       // 클린업 강화 - 모든 리스너 제거
       audio.removeEventListener('timeupdate', handleTimeUpdate);
@@ -736,8 +860,39 @@ export function VinylPlayer() {
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
+      
+      // 🚨 메인 타이머도 반드시 해제
+      if (mainTimer) {
+        clearInterval(mainTimer);
+      }
     };
-  }, [currentTrackIndex]);
+  }, [currentTrackIndex, isPlaying]); // isPlaying 추가 - 타이머 제어용
+
+  // 🚨 컴포넌트 마운트 시 타임라인 강제 시작
+  useEffect(() => {
+    console.log('🚀 Component mounted - forcing timeline start');
+    
+    // 마운트 시 즉시 타임라인 상태 초기화
+    setCurrentTime(0);
+    setDuration(0);
+    
+    // 500ms 후에도 강제로 타임라인 체크
+    const forceTimelineCheck = setTimeout(() => {
+      if (audioRef.current) {
+        const time = audioRef.current.currentTime || 0;
+        const duration = audioRef.current.duration || 0;
+        setCurrentTime(time);
+        setDuration(duration);
+        console.log(`🚀 Force timeline check: ${time.toFixed(2)}s / ${duration.toFixed(2)}s`);
+      } else {
+        console.log('🚀 Force timeline check: No audio element');
+      }
+    }, 500);
+    
+    return () => {
+      clearTimeout(forceTimelineCheck);
+    };
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
 
   // 볼륨 업데이트 - 안전한 처리
   useEffect(() => {
@@ -750,171 +905,214 @@ export function VinylPlayer() {
     }
   }, [volume]);
 
-  // 트랙 변경 시 자동 재생 처리
+  // 트랙 변경 시 자동 재생 처리 (네트워크 오류 재시도 로직 포함)
   useEffect(() => {
     if (!currentTrack) return;
 
     const setupNewTrack = async () => {
-      try {
-        setIsLoading(true);
-        setCurrentTime(0);
-        setDuration(0);
-        
-        if (audioRef.current) {
-          // 이전 재생을 확실히 중단하고 토큰 무효화
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-          playTokenRef.current++; // 이전 재생 요청 무효화
+      const MAX_RETRIES = 2; // 최대 2번 재시도
+      let retryCount = 0;
+      
+      while (retryCount <= MAX_RETRIES) {
+        try {
+          setIsLoading(true);
+          setCurrentTime(0);
+          setDuration(0);
           
-          // 사전 로딩된 오디오가 있는지 확인
-          const preloadedAudio = preloadedTracks.get(currentTrack.id);
-          
-          if (preloadedAudio) {
-            console.log('✅ Using preloaded audio for:', currentTrack.title);
-            // 사전 로딩된 오디오의 속성을 현재 오디오에 복사
-            audioRef.current.src = preloadedAudio.src;
+          if (audioRef.current) {
+            // 이전 재생을 확실히 중단하고 토큰 무효화
+            audioRef.current.pause();
             audioRef.current.currentTime = 0;
-            // 사전 로딩된 오디오는 이미 로드되어 있음
-          } else if (isValidPreviewUrl(currentTrack.preview_url)) {
-            console.log('✅ Setting valid preview URL:', currentTrack.preview_url);
-            audioRef.current.src = currentTrack.preview_url!;
-            audioRef.current.load(); // 강제로 오디오 로드
-          } else {
-            console.log('⚠️ Invalid preview URL, removing audio source:', currentTrack.preview_url);
-            audioRef.current.removeAttribute('src');
-            audioRef.current.load();
-          }
-        }
-        
-        console.log('🎵 Setting up track:', currentTrack.title, currentTrack.preview_url);
-        
-        // 새 트랙 설정 시 오디오 준비 상태 초기화
-        setIsAudioReady(false);
-        
-        // 자동재생 여부 결정
-        let shouldAutoPlay = false;
-        
-        // 1. shouldAutoPlayRef가 true면 무조건 자동재생 (이전에 재생 중이었음)
-        if (shouldAutoPlayRef.current) {
-          shouldAutoPlay = true;
-          shouldAutoPlayRef.current = false; // 사용 후 리셋
-          console.log('🎵 Auto-play enabled (was playing before track change)');
-        }
-        // 2. 첫 곡 로딩 시
-        else if (isFirstLoad && currentTrackIndex === 0) {
-          // 최초 방문이 아니면 자동재생
-          if (!isFirstVisit) {
-            shouldAutoPlay = true;
-            console.log('🎵 Returning visit - First track will auto-play');
-          } else {
-            console.log('🎵 First visit - First track ready for manual play');
-          }
-          
-          // isFirstLoad 플래그 업데이트
-          setIsFirstLoad(false);
-          
-          // localStorage에 방문 기록 저장
-          try {
-            localStorage.setItem('vinylplayer_visited', 'true');
-            setIsFirstVisit(false);
-          } catch (error) {
-            console.warn('Failed to save visit record:', error);
-          }
-        }
-        
-        // 자동재생 시도
-        if (shouldAutoPlay && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
-          // 사전 로딩된 오디오인지 확인
-          const preloadedAudio = preloadedTracks.get(currentTrack.id);
-          
-          // 오디오 로딩 대기 (타임아웃 포함)
-          const waitForLoad = new Promise<void>((resolve, reject) => {
-            if (!audioRef.current) return resolve();
+            playTokenRef.current++; // 이전 재생 요청 무효화
+            
+            // 사전 로딩된 오디오가 있는지 확인
+            const preloadedAudio = preloadedTracks.get(currentTrack.id);
             
             if (preloadedAudio) {
-              // 사전 로딩된 오디오는 즉시 재생 가능
-              console.log('⚡ Preloaded audio - instant play');
-              resolve();
+              console.log('✅ Using preloaded audio for:', currentTrack.title);
+              // 사전 로딩된 오디오의 속성을 현재 오디오에 복사
+              audioRef.current.src = preloadedAudio.src;
+              audioRef.current.currentTime = 0;
+              // 사전 로딩된 오디오는 이미 로드되어 있음
+            } else if (isValidPreviewUrl(currentTrack.preview_url)) {
+              console.log('✅ Setting preview URL:', currentTrack.preview_url);
+              audioRef.current.src = currentTrack.preview_url!;
+              audioRef.current.load(); // 강제로 오디오 로드
             } else {
-            const handleCanPlay = () => {
-              audioRef.current?.removeEventListener('canplay', handleCanPlay);
-              resolve();
-            };
-              
-              const handleError = () => {
-                audioRef.current?.removeEventListener('error', handleError);
-                reject(new Error('Audio loading failed'));
-              };
-              
-              // 로딩 타임아웃 (12초)
-              const timeoutId = setTimeout(() => {
-                audioRef.current?.removeEventListener('canplay', handleCanPlay);
-                audioRef.current?.removeEventListener('error', handleError);
-                reject(new Error('Audio loading timeout'));
-              }, 12000);
-            
-            if (audioRef.current.readyState >= 2) {
-                clearTimeout(timeoutId);
-              resolve();
-            } else {
-              audioRef.current.addEventListener('canplay', handleCanPlay);
-                audioRef.current.addEventListener('error', handleError);
-              }
+              console.log('⚠️ Invalid preview URL, removing audio source:', currentTrack.preview_url);
+              audioRef.current.removeAttribute('src');
+              audioRef.current.load();
             }
-          });
+          }
           
-          try {
-            await waitForLoad;
-            if (audioRef.current) {
-              try {
-                // 음소거 상태로 먼저 재생 시도 (브라우저 정책 우회)
-                audioRef.current.muted = true;
-                console.log('🎵 Attempting auto-play (muted)...');
-                await audioRef.current.play();
-                console.log('✅ Auto-play successful!');
+          console.log(`🎵 Setting up track: ${currentTrack.title} (시도 ${retryCount + 1}/${MAX_RETRIES + 1})`);
+          
+          // 새 트랙 설정 시 오디오 준비 상태 초기화
+          setIsAudioReady(false);
+          
+          // 자동재생 여부 결정
+          let shouldAutoPlay = false;
+          
+          // 1. shouldAutoPlayRef가 true면 무조건 자동재생 (이전에 재생 중이었음)
+          if (shouldAutoPlayRef.current) {
+            shouldAutoPlay = true;
+            shouldAutoPlayRef.current = false; // 사용 후 리셋
+            console.log('🎵 Auto-play enabled (was playing before track change)');
+          }
+          // 2. 첫 곡 로딩 시 - 자동재생 비활성화 (사용자 요청)
+          else if (isFirstLoad && currentTrackIndex === 0) {
+            // 첫 트랙은 항상 수동 재생으로 시작
+            shouldAutoPlay = false;
+            console.log('🎵 First track loaded - ready for manual play (auto-play disabled)');
+            
+            // isFirstLoad 플래그 업데이트
+            setIsFirstLoad(false);
+            
+            // 방문 기록 저장 (선택사항)
+            try {
+              localStorage.setItem('vinylplayer_visited', 'true');
+            } catch (error) {
+              console.warn('Failed to save visit record:', error);
+            }
+          }
+          
+          // 자동재생 시도
+          if (shouldAutoPlay && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
+            // 사전 로딩된 오디오인지 확인
+            const preloadedAudio = preloadedTracks.get(currentTrack.id);
+            
+            // 오디오 로딩 대기 (타임아웃 포함)
+            const waitForLoad = new Promise<void>((resolve, reject) => {
+              if (!audioRef.current) return resolve();
+              
+              if (preloadedAudio) {
+                // 사전 로딩된 오디오는 즉시 재생 가능
+                console.log('⚡ Preloaded audio - instant play');
+                resolve();
+              } else {
+              const handleCanPlay = () => {
+                audioRef.current?.removeEventListener('canplay', handleCanPlay);
+                resolve();
+              };
                 
-                // 즉시 상태 업데이트 (LP 회전은 useEffect에서 자동 처리됨)
-                setIsPlaying(true);
+                const handleError = () => {
+                  audioRef.current?.removeEventListener('error', handleError);
+                  reject(new Error('Audio loading failed'));
+                };
                 
-                // 재생 성공 후 즉시 음소거 해제
-                setTimeout(() => {
+                // 로딩 타임아웃 (12초)
+                const timeoutId = setTimeout(() => {
+                  audioRef.current?.removeEventListener('canplay', handleCanPlay);
+                  audioRef.current?.removeEventListener('error', handleError);
+                  reject(new Error('Audio loading timeout'));
+                }, 12000);
+              
+              if (audioRef.current.readyState >= 2) {
+                  clearTimeout(timeoutId);
+                resolve();
+              } else {
+                audioRef.current.addEventListener('canplay', handleCanPlay);
+                  audioRef.current.addEventListener('error', handleError);
+                }
+              }
+            });
+            
+            try {
+              await waitForLoad;
+              if (audioRef.current) {
+                try {
+                  // 음소거 상태로 먼저 재생 시도 (브라우저 정책 우회)
+                  audioRef.current.muted = true;
+                  console.log('🎵 Attempting auto-play (muted)...');
+                  await audioRef.current.play();
+                  console.log('✅ Auto-play successful!');
+                  
+                  // 즉시 상태 업데이트 (LP 회전은 useEffect에서 자동 처리됨)
+                  setIsPlaying(true);
+                  
+                  // 🚨 자동재생 성공 시 즉시 시간 업데이트 (첫 트랙 문제 해결)
+                  if (audioRef.current && !isNaN(audioRef.current.currentTime)) {
+                    console.log(`🚀 Auto-play success - immediate time update: ${audioRef.current.currentTime.toFixed(2)}s`);
+                    setCurrentTime(audioRef.current.currentTime);
+                  }
+                  
+                  // 재생 성공 후 즉시 음소거 해제
+                  setTimeout(() => {
+                    if (audioRef.current) {
+                      audioRef.current.muted = false;
+                      audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
+                      console.log('🔊 Unmuted - Now playing:', currentTrack.title);
+                    }
+                  }, 100);
+                  
+                  // 성공했으므로 재시도 루프 탈출
+                  return;
+                  
+                } catch (playError: any) {
+                  // AbortError는 정상적인 중단이므로 조용히 처리
+                  if (playError.name === 'AbortError') {
+                    console.log('🎵 Auto-play was aborted (normal behavior during track change)');
+                    return;
+                  } else {
+                    console.warn('⚠️ Auto-play failed:', playError.name, playError.message);
+                    // 재생 실패 시 사용자에게 알림 (토스트는 표시하지 않음 - 재생 버튼으로 유도)
+                  }
+                  setIsPlaying(false);
+                  // 음소거 해제
                   if (audioRef.current) {
                     audioRef.current.muted = false;
-                    audioRef.current.volume = Math.max(0, Math.min(1, (volume || 75) / 100));
-                    console.log('🔊 Unmuted - Now playing:', currentTrack.title);
                   }
-                }, 100);
-                
-              } catch (playError: any) {
-                // AbortError는 정상적인 중단이므로 조용히 처리
-                if (playError.name === 'AbortError') {
-                  console.log('🎵 Auto-play was aborted (normal behavior during track change)');
-                } else {
-                  console.warn('⚠️ Auto-play failed:', playError.name, playError.message);
-                  // 재생 실패 시 사용자에게 알림 (토스트는 표시하지 않음 - 재생 버튼으로 유도)
-                }
-                setIsPlaying(false);
-                // 음소거 해제
-                if (audioRef.current) {
-                  audioRef.current.muted = false;
+                  return;
                 }
               }
+            } catch (error: any) {
+              // 로딩 실패는 로그만 남김 (타임아웃은 정상적인 동작일 수 있음)
+              if (error.message !== 'Audio loading timeout') {
+                console.error('❌ Auto-play error:', error);
+              } else {
+                console.warn('⏱️ Auto-play loading timeout - track may still be loading');
+              }
+              setIsPlaying(false);
+              return;
             }
-          } catch (error: any) {
-            // 로딩 실패는 로그만 남김 (타임아웃은 정상적인 동작일 수 있음)
-            if (error.message !== 'Audio loading timeout') {
-              console.error('❌ Auto-play error:', error);
-            } else {
-              console.warn('⏱️ Auto-play loading timeout - track may still be loading');
-            }
+          }
+          
+          // 여기까지 도달하면 성공적으로 로딩됨
+          return;
+          
+        } catch (error: any) {
+          retryCount++;
+          console.error(`❌ Track loading failed (시도 ${retryCount}/${MAX_RETRIES + 1}):`, error.message);
+          
+          // 네트워크 오류인지 확인
+          const isNetworkError = error.message.includes('ERR_CONNECTION_RESET') || 
+                                error.message.includes('ERR_NETWORK_CHANGED') ||
+                                error.message.includes('ERR_INTERNET_DISCONNECTED') ||
+                                error.message.includes('Failed to fetch') ||
+                                error.message.includes('Audio loading failed');
+          
+          if (retryCount <= MAX_RETRIES && isNetworkError) {
+            console.log(`🔄 네트워크 오류 감지 - ${1000 * retryCount}ms 후 재시도...`);
+            // 재시도 전 대기 (지수 백오프)
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          } else {
+            // 최대 재시도 횟수를 초과하거나 네트워크 오류가 아닌 경우
+            console.error('❌ 최대 재시도 횟수 초과 또는 치명적 오류');
             setIsPlaying(false);
+            break;
+          }
+        } finally {
+          if (retryCount > MAX_RETRIES) {
+            setIsLoading(false);
           }
         }
-      } catch (error) {
-        console.error('❌ Track setup error:', error);
-        setIsPlaying(false);
-      } finally {
-        setIsLoading(false);
+      }
+      
+      // 모든 재시도가 실패한 경우
+      if (retryCount > MAX_RETRIES) {
+        console.error('❌ 모든 재시도 실패 - 다음 트랙으로 넘어가거나 사용자에게 알림');
+        // 선택적: 사용자에게 알림
+        // toast.error('네트워크 연결 오류로 음원 재생에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
     };
 
@@ -1148,13 +1346,70 @@ export function VinylPlayer() {
           }
         }
         
-        // 안전한 재생 시도
-        const playSuccess = await safePlay();
-        if (playSuccess) {
-          console.log('🎵 Playing started successfully');
-          // 상태는 handlePlay에서 업데이트됨
-        } else {
-          console.log('🎵 Play request failed or was superseded');
+        // 재시도 로직이 포함된 안전한 재생 시도
+        const MAX_RETRIES = 2;
+        let retryCount = 0;
+        let playSuccess = false;
+        
+        while (retryCount <= MAX_RETRIES && !playSuccess) {
+          try {
+            console.log(`🎵 Attempting play (시도 ${retryCount + 1}/${MAX_RETRIES + 1})`);
+            playSuccess = await safePlay();
+            
+            if (playSuccess) {
+              console.log('🎵 Playing started successfully');
+              
+              // 🚨 수동 재생 성공 시 GUARANTEED 시간 업데이트
+              if (audioRef.current) {
+                const currentTime = audioRef.current.currentTime || 0;
+                console.log(`🚀 GUARANTEED Manual play - forcing time update: ${currentTime.toFixed(2)}s`);
+                setCurrentTime(currentTime);
+                
+                // duration도 강제 업데이트
+                if (audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+                  setDuration(audioRef.current.duration);
+                }
+                
+                // 연속으로 5번 강제 업데이트 (수동 재생은 더 확실하게)
+                for (let i = 1; i <= 5; i++) {
+                  setTimeout(() => {
+                    if (audioRef.current && !audioRef.current.paused) {
+                      const time = audioRef.current.currentTime || 0;
+                      setCurrentTime(time);
+                      console.log(`🚀 GUARANTEED Manual Update ${i}: ${time.toFixed(2)}s`);
+                    }
+                  }, i * 100); // 100ms, 200ms, 300ms, 400ms, 500ms
+                }
+              }
+              
+              // 상태는 handlePlay에서 업데이트됨
+              break;
+            } else {
+              console.log('🎵 Play request failed or was superseded');
+              break;
+            }
+          } catch (playError: any) {
+            retryCount++;
+            console.error(`❌ Play attempt ${retryCount} failed:`, playError.message);
+            
+            // 네트워크 오류인지 확인
+            const isNetworkError = playError.message.includes('ERR_CONNECTION_RESET') || 
+                                  playError.message.includes('ERR_NETWORK_CHANGED') ||
+                                  playError.message.includes('ERR_INTERNET_DISCONNECTED') ||
+                                  playError.message.includes('Failed to fetch');
+            
+            if (retryCount <= MAX_RETRIES && isNetworkError) {
+              console.log(`🔄 네트워크 오류 감지 - ${1000 * retryCount}ms 후 재시도...`);
+              // 재시도 전 대기 (지수 백오프)
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            } else {
+              // 최대 재시도 횟수를 초과하거나 네트워크 오류가 아닌 경우
+              throw playError;
+            }
+          }
+        }
+        
+        if (!playSuccess) {
           setIsLoading(false);
           setIsPlaying(false);
         }
@@ -1356,12 +1611,6 @@ export function VinylPlayer() {
       {/* Main player content */}
       {!tracksLoading && currentTrack && (
         <>
-          {/* Demo mode indicator */}
-          {isDemoMode && (
-            <div className="fixed top-4 left-4 z-50 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-              Demo Mode 활성
-            </div>
-          )}
       
       {/* 모바일에서는 LP가 화면 상단 60% 차지 */}
       {isMobile ? (
