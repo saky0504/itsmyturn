@@ -46,7 +46,6 @@ export function VinylPlayer() {
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAudioReady, setIsAudioReady] = useState(false); // 오디오 준비 상태 추가
-  const [blurIntensity, setBlurIntensity] = useState(16); // blur 강도 (기본값 16px)
   const [preloadedTracks, setPreloadedTracks] = useState<Map<string, HTMLAudioElement>>(new Map());
   const spinControls = useAnimationControls();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,12 +53,6 @@ export function VinylPlayer() {
   const shouldAutoPlayRef = useRef<boolean>(false);
   const playTokenRef = useRef<number>(0); // 재생 요청 토큰 (레이스 컨디션 방지)
   const isMobile = useIsMobile();
-
-  // 모바일/데스크톱에 따라 blur 강도 조정 (더 약하게)
-  useEffect(() => {
-    const initialBlur = isMobile ? 6 : 8;
-    setBlurIntensity(initialBlur);
-  }, [isMobile]);
 
   const currentTrack = tracks[currentTrackIndex];
 
@@ -126,7 +119,7 @@ export function VinylPlayer() {
               audio.addEventListener('canplaythrough', handleCanPlay);
               audio.addEventListener('error', handleError);
               
-              // 타임아웃 설정 (10초)
+              // 타임아웃 설정 (빠른 로딩을 위해 5초로 단축)
               setTimeout(() => {
                 if (!preloadedTracks.has(track.id)) {
                   console.warn(`⏱️ Preload timeout: ${track.title}`);
@@ -134,14 +127,14 @@ export function VinylPlayer() {
                   audio.removeEventListener('error', handleError);
                   resolve();
                 }
-              }, 10000);
+              }, 5000);
             });
             
-            // 각 트랙 사이에 약간의 간격 (첫 번째 트랙 우선 처리)
+            // 각 트랙 사이에 약간의 간격 (빠른 로딩을 위해 단축)
             if (i === 0) {
-              await new Promise(resolve => setTimeout(resolve, 500)); // 첫 트랙 완전 로딩 대기
+              await new Promise(resolve => setTimeout(resolve, 100)); // 첫 트랙 빠르게
             } else {
-              await new Promise(resolve => setTimeout(resolve, 200));
+              await new Promise(resolve => setTimeout(resolve, 50));
             }
           }
         }
@@ -363,10 +356,10 @@ export function VinylPlayer() {
       
       let allItems: any[] = [];
       
-      // 여러 검색어로 충분한 결과 확보
+      // 여러 검색어로 충분한 결과 확보 (빠른 로딩을 위해 15개로 축소)
       for (const query of searchQueries) {
         try {
-          const items = await searchInternetArchive(query, 25);
+          const items = await searchInternetArchive(query, 15);
           allItems = allItems.concat(items);
         } catch (error) {
           console.warn(`Search query failed: ${query}`, error);
@@ -435,10 +428,10 @@ export function VinylPlayer() {
       
       console.log(`📊 Found ${uniqueItems.length} total items, ${musicItems.length} music items from Internet Archive`);
       
-      // 음악 아이템이 있으면 음악만 사용, 없으면 전체 사용
+      // 음악 아이템이 있으면 음악만 사용, 없으면 전체 사용 (빠른 로딩을 위해 3개만)
       const itemsToUse = musicItems.length > 0 ? musicItems : uniqueItems;
       const shuffledItems = [...itemsToUse].sort(() => Math.random() - 0.5);
-      const selectedItems = shuffledItems.slice(0, 5);
+      const selectedItems = shuffledItems.slice(0, 3);
       
       const archiveTracks: Track[] = [];
       
@@ -471,7 +464,6 @@ export function VinylPlayer() {
           if (i === 0) {
             setTracks([track]);
             setCurrentTrackIndex(0);
-            // setTracksLoading(false) 제거 - blur 효과 완료 시까지 로딩 인디케이터 유지
             console.log('🎵 First track loaded - Ready to play (manual start)');
             
             // 첫 번째 트랙 로딩 완료 - 오디오 재생 준비 대기
@@ -550,39 +542,6 @@ export function VinylPlayer() {
     }
   };
 
-  // Blur 효과 점진적 제거 함수
-  const startBlurFadeOut = useRef(false); // 중복 실행 방지
-  
-  const startBlurFadeOutFunction = () => {
-    if (startBlurFadeOut.current) {
-      console.log('🎨 Blur fade out already in progress');
-      return;
-    }
-    
-    startBlurFadeOut.current = true;
-    
-    const fadeOutDuration = 800; // 0.8초 동안 fade out (더 빠르게)
-    const steps = 20; // 20단계로 나누어 점진적 제거
-    const stepDuration = fadeOutDuration / steps;
-    const initialBlur = isMobile ? 6 : 8; // 초기 blur 값 (모바일: 6px, 데스크톱: 8px)
-    const blurStep = initialBlur / steps;
-
-    let currentStep = 0;
-    
-    const fadeOutInterval = setInterval(() => {
-      currentStep++;
-      const newBlurIntensity = Math.max(0, initialBlur - (blurStep * currentStep));
-      setBlurIntensity(newBlurIntensity);
-      
-      if (currentStep >= steps) {
-        clearInterval(fadeOutInterval);
-        setBlurIntensity(0);
-        setTracksLoading(false); // blur 효과 완료 시 로딩 인디케이터 숨김
-        startBlurFadeOut.current = false; // 완료 시 플래그 리셋
-        console.log('🎨 Blur effect completely removed - loading indicator hidden');
-      }
-    }, stepDuration);
-  };
 
   // 서버 상태 체크
   // checkServerHealth 함수 제거 (Internet Archive 직접 사용으로 불필요)
@@ -620,14 +579,13 @@ export function VinylPlayer() {
     initializeApp();
   }, []);
 
-  // 오디오가 재생 준비 완료되면 blur 효과 시작
+  // 오디오가 재생 준비되면 로딩 완료
   useEffect(() => {
-    console.log('🎵 useEffect triggered - isAudioReady:', isAudioReady, 'blurIntensity:', blurIntensity);
-    if (isAudioReady && blurIntensity > 0) {
-      console.log('🎵 Audio ready - starting blur fade out');
-      startBlurFadeOutFunction();
+    if (isAudioReady) {
+      console.log('🎵 Audio ready - hiding loading indicator');
+      setTracksLoading(false);
     }
-  }, [isAudioReady]); // blurIntensity 의존성 제거 (무한 루프 방지)
+  }, [isAudioReady]);
 
   // Volume toast indicator (smooth tone)
   const showVolumeIndicator = (newVolume: number) => {
@@ -1347,16 +1305,10 @@ export function VinylPlayer() {
 
   return (
     <div className={`flex flex-col h-screen overflow-hidden relative ${isMobile ? 'pt-0' : 'p-8 justify-center items-center'}`}>
-      {/* 배경 레이어 (blur 적용) */}
-      <div 
-        className={`absolute inset-0 bg-gradient-to-b from-gray-50 via-white to-gray-100 z-0`}
-        style={blurIntensity > 0 ? { 
-          filter: `blur(${blurIntensity}px)`,
-          transition: 'filter 0.2s ease-out'
-        } : {}}
-      />
+      {/* 배경 레이어 */}
+      <div className="absolute inset-0 bg-gradient-to-b from-gray-50 via-white to-gray-100 z-0" />
       
-      {/* 콘텐츠 레이어 (blur 없음) */}
+      {/* 콘텐츠 레이어 */}
       <div className="relative z-10 w-full h-full flex flex-col">
       
       {/* Show loading state while tracks are being loaded */}
