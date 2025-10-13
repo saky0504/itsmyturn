@@ -600,7 +600,13 @@ export function VinylPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // updateTime 함수 제거 - requestAnimationFrame으로 대체
+    // 시간 업데이트 핸들러 (동기화 개선)
+    const handleTimeUpdate = () => {
+      const time = audio.currentTime;
+      if (!isNaN(time) && isFinite(time)) {
+        setCurrentTime(time);
+      }
+    };
     
     const updateDuration = () => {
       if (audio.duration && !isNaN(audio.duration)) {
@@ -708,7 +714,8 @@ export function VinylPlayer() {
       // LP 회전은 useEffect에서 자동 처리됨
     };
 
-    // 모든 이벤트 리스너 등록 (timeupdate 제외 - requestAnimationFrame으로 대체)
+    // 모든 이벤트 리스너 등록 (timeupdate 추가 - 동기화 개선)
+    audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('loadeddata', handleLoadedData);
     audio.addEventListener('loadstart', handleLoadStart);
@@ -719,6 +726,8 @@ export function VinylPlayer() {
     audio.addEventListener('pause', handlePause);
 
     return () => {
+      // 클린업 강화 - 모든 리스너 제거
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('loadeddata', handleLoadedData);
       audio.removeEventListener('loadstart', handleLoadStart);
@@ -969,32 +978,18 @@ export function VinylPlayer() {
     }
   }, [isPlaying, isLoading, isInitialLoading, spinControls, currentTrackIndex]);
 
-  // 재생 진행률 업데이트 - 부드러운 진행 표시
+  // 트랙 변경 시 진행상황 강제 초기화 (동기화 개선)
   useEffect(() => {
-    let animationFrameId: number;
-    
-    const updateProgress = () => {
-      if (audioRef.current && !audioRef.current.paused) {
-        setCurrentTime(audioRef.current.currentTime);
-        animationFrameId = requestAnimationFrame(updateProgress);
-      }
-    };
-    
-    // 재생 중이거나 로딩 중일 때 진행상황 업데이트 시작
-    if (isPlaying || isLoading) {
-      animationFrameId = requestAnimationFrame(updateProgress);
-    }
-    
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-  }, [isPlaying, isLoading]);
-
-  // 트랙 변경 시 진행상황 초기화
-  useEffect(() => {
+    console.log('🔄 Track changed - resetting progress');
     setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+    
+    // 오디오 엘리먼트도 강제 초기화
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.pause();
+    }
   }, [currentTrackIndex]);
 
   // 에러 토스트 표시 (훅은 최상위 레벨에서 호출)
@@ -1249,8 +1244,9 @@ export function VinylPlayer() {
   const handleSeek = (newTime: number) => {
     if (!audioRef.current || !duration) return;
     
-    audioRef.current.currentTime = newTime;
+    // 즉각적으로 UI 업데이트 (timeupdate 이벤트 기다리지 않음)
     setCurrentTime(newTime);
+    audioRef.current.currentTime = newTime;
   };
 
 
