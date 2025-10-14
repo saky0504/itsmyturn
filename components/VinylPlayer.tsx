@@ -429,6 +429,12 @@ export function VinylPlayer() {
           ? item.creator.join(', ').toLowerCase()
           : String(item.creator || '').toLowerCase();
         
+        // 2-1. .com이 포함된 트랙 제외 (광고성 트랙 필터링)
+        if (title.includes('.com')) {
+          console.log(`⚠️ Skipping ${item.identifier} - Contains .com in title: ${title}`);
+          return false;
+        }
+        
         // 3. 오디오북, 라디오 드라마, 팟캐스트 등 제외 키워드
         const excludeKeywords = [
           'audiobook', 'podcast', 'radio drama', 'lecture', 'speech', 
@@ -2373,7 +2379,7 @@ export function VinylPlayer() {
           >
             {/* Header */}
             <div className="text-center mb-6">
-              <h3 className="text-xl font-medium text-gray-900 mb-2">Track Info</h3>
+              <h3 className="text-xl font-medium text-gray-900 mb-2">Track info / Donation</h3>
             </div>
 
             {/* Album cover and track info - 좌우 배치 */}
@@ -2428,15 +2434,37 @@ export function VinylPlayer() {
               </div>
             </div>
 
-            {/* Donate button */}
-            <div className="flex gap-2 mt-4 mb-4">
+            {/* Donate buttons */}
+            <div className="flex flex-col gap-2 mt-4 mb-4">
               <a
                 href="https://archive.org/donate"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-3 rounded-lg text-center text-sm font-medium transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-center text-sm font-medium transition-colors"
               >
                 💝 Donate to Internet Archive
+              </a>
+              <a
+                href="https://buymeacoffee.com/mtfbwy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full overflow-hidden rounded-lg hover:opacity-80 transition-opacity block"
+              >
+                <img 
+                  src="/images/bymeacoffee.jpg" 
+                  alt="Donation to bk."
+                  className="w-full h-auto object-contain"
+                  onError={(e) => {
+                    // 이미지 로드 실패 시 텍스트 버튼으로 폴백
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.classList.add('bg-blue-600', 'hover:bg-blue-700', 'text-white', 'py-2', 'px-3', 'text-center', 'text-sm', 'font-medium');
+                      parent.innerHTML = '💝 Donation to bk.';
+                    }
+                  }}
+                />
               </a>
             </div>
 
