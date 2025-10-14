@@ -472,20 +472,26 @@ export function VinylPlayer() {
       
       console.log(`📊 Found ${uniqueItems.length} total items, ${musicItems.length} music items from Internet Archive`);
       
-      // 음악 아이템이 있으면 음악만 사용, 없으면 전체 사용 (빠른 로딩을 위해 3개만)
+      // 음악 아이템이 있으면 음악만 사용, 없으면 전체 사용 (7분 이상 필터링 고려하여 6개 선택)
       const itemsToUse = musicItems.length > 0 ? musicItems : uniqueItems;
       const shuffledItems = [...itemsToUse].sort(() => Math.random() - 0.5);
-      const selectedItems = shuffledItems.slice(0, 3);
+      const selectedItems = shuffledItems.slice(0, 6);
       
       const archiveTracks: Track[] = [];
       
-      // 각 선택된 항목의 스트리밍 URL 추출 (순차적으로)
-      for (let i = 0; i < selectedItems.length; i++) {
+      // 각 선택된 항목의 스트리밍 URL 추출 (순차적으로, 3개까지만)
+      for (let i = 0; i < selectedItems.length && archiveTracks.length < 3; i++) {
         const item = selectedItems[i];
         try {
           // console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`); // 로그 정리
           
           const { streamingUrl, coverUrl, duration } = await getStreamingUrl(item.identifier, item);
+          
+          // 7분(420초) 이상인 긴 트랙 제외 (로딩 시간 단축)
+          if (duration > 420000) { // duration은 밀리초 단위 (420초 = 7분)
+            console.log(`⚠️ Skipping long track (${Math.floor(duration/60000)}분): ${item.title}`);
+            continue;
+          }
           
           const track: Track = {
             id: item.identifier,
@@ -505,7 +511,7 @@ export function VinylPlayer() {
           // console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`); // 로그 정리
           
           // 첫 번째 트랙이 로드되면 UI에 반영하고 완전히 준비될 때까지 대기
-          if (i === 0) {
+          if (archiveTracks.length === 1) {
             setTracks([track]);
             setCurrentTrackIndex(0);
             console.log('🎵 First track loaded - Ready to play (manual start)');
