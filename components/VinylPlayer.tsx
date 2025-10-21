@@ -481,8 +481,8 @@ export function VinylPlayer() {
       
       const archiveTracks: Track[] = [];
       
-      // 각 선택된 항목의 스트리밍 URL 추출 (순차적으로, 20개까지)
-      for (let i = 0; i < selectedItems.length && archiveTracks.length < 20; i++) {
+      // 1단계: 먼저 3개 트랙만 빠르게 로딩
+      for (let i = 0; i < selectedItems.length && archiveTracks.length < 3; i++) {
         const item = selectedItems[i];
         try {
           // console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`); // 로그 정리
@@ -551,6 +551,52 @@ export function VinylPlayer() {
       }
       
       console.log(`✅ Total ${archiveTracks.length} Internet Archive tracks in playlist`);
+      
+      // 2단계: 3개 트랙 로딩 완료 후 백그라운드에서 추가 트랙 로딩
+      if (archiveTracks.length >= 3) {
+        console.log('🚀 Starting background loading of additional tracks...');
+        
+        // 백그라운드에서 추가 트랙 로딩 (비동기)
+        setTimeout(async () => {
+          const additionalTracks: Track[] = [];
+          
+          // 나머지 항목들로 추가 트랙 로딩 (최대 17개 더)
+          for (let i = 3; i < selectedItems.length && additionalTracks.length < 17; i++) {
+            const item = selectedItems[i];
+            try {
+              const { streamingUrl, coverUrl, duration } = await getStreamingUrl(item.identifier, item);
+              
+              // 7분(420초) 이상인 긴 트랙 제외
+              if (duration > 420000) {
+                console.log(`⚠️ Skipping long track (${Math.floor(duration/60000)}분): ${item.title}`);
+                continue;
+              }
+              
+              const track: Track = {
+                id: item.identifier,
+                title: item.title || 'Unknown Title',
+                artist: item.creator?.[0] || 'Unknown Artist',
+                cover: coverUrl,
+                audioUrl: streamingUrl,
+                duration: Math.floor(duration / 1000),
+                license: item.licenseurl || 'Public Domain'
+              };
+              
+              additionalTracks.push(track);
+              console.log(`🎵 Background loaded: ${track.title} - ${track.artist}`);
+              
+            } catch (error) {
+              console.log(`❌ Failed to load additional track: ${item.title}`);
+            }
+          }
+          
+          // 추가 트랙들을 플레이리스트에 추가
+          if (additionalTracks.length > 0) {
+            setTracks(prevTracks => [...prevTracks, ...additionalTracks]);
+            console.log(`✅ Added ${additionalTracks.length} additional tracks to playlist`);
+          }
+        }, 2000); // 2초 후 시작
+      }
       
       // 첫 로딩 완료 플래그 업데이트
       setIsFirstLoad(false);
