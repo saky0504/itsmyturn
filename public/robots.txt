@@ -2,5 +2,8 @@ User-agent: *
 Allow: /
 Disallow: /admin.html
 
-Sitemap: https://yourdomain.com/sitemap.xml
+# Sitemap
+Sitemap: https://itsmyturn.app/sitemap.xml
 
+# Crawl-delay (optional)
+Crawl-delay: 1
