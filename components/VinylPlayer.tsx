@@ -1626,15 +1626,22 @@ export function VinylPlayer() {
       {!tracksLoading && currentTrack && (
         <>
       
-      {/* Community Board Button - Fixed position */}
+      {/* Community Board Button - Desktop: aligned with content, Mobile: fixed top-right */}
       <button
         onClick={() => setShowBoard(true)}
-        className="fixed top-4 right-4 z-50 group"
+        className={`${
+          isMobile 
+            ? 'fixed top-4 right-4' 
+            : 'fixed top-[calc(1rem+50px)] right-[calc((100vw-896px)/2-20px)]'
+        } z-50 group`}
         aria-label="Open Community Board"
       >
         <div className="relative">
-          {/* Background circle with opacity */}
-          <div className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200" />
+          {/* Background circle with opacity and subtle shadow */}
+          <div 
+            className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
+            style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
+          />
           
           {/* Message bubble icon */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
