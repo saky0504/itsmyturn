@@ -7,6 +7,15 @@ import { useIsMobile } from './ui/use-mobile';
 import { toast } from 'sonner';
 import { CommunityBoard } from './CommunityBoard';
 // Supabase 관련 import 제거 (Internet Archive 직접 사용으로 불필요)
+// Capacitor Native Features
+import { 
+  hapticMedium, 
+  hapticHeavy,
+  initPushNotifications,
+  initAppStateListeners,
+  requestReview,
+  isNativePlatform
+} from '../src/lib/capacitor-plugins';
 
 interface Track {
   id: string;
@@ -649,6 +658,22 @@ export function VinylPlayer() {
         setTracksLoading(true);
         console.log('🎵 Initializing music player...');
         
+        // 🚀 Initialize Capacitor native features
+        if (isNativePlatform()) {
+          console.log('📱 Initializing native features...');
+          
+          // Initialize push notifications
+          await initPushNotifications();
+          
+          // Initialize app state listeners
+          initAppStateListeners(
+            () => console.log('🔆 App resumed'),
+            () => console.log('🌙 App paused')
+          );
+          
+          console.log('✅ Native features initialized');
+        }
+        
         // Internet Archive 음원은 서버 체크 불필요
         // 바로 음원 로드
           await loadRecommendations();
@@ -747,6 +772,9 @@ export function VinylPlayer() {
       setIsPlaying(false);
       setCurrentTime(0);
       handleNextTrack();
+      
+      // ⭐ Request review after track ends (if eligible)
+      requestReview();
     };
     
     const handleError = (e: Event) => {
@@ -1347,6 +1375,9 @@ export function VinylPlayer() {
       // 재생 중이거나 로딩 중일 때 pause 처리
       if (isPlaying || isLoading || isAudioPlaying) {
         console.log('⏸️ Pausing...');
+        // 🎮 Haptic feedback for pause
+        await hapticMedium();
+        
         if (audioRef.current) {
           audioRef.current.pause();
           // handlePause 이벤트에서 setIsPlaying(false) 처리됨
@@ -1415,6 +1446,9 @@ export function VinylPlayer() {
             
             if (playSuccess) {
               console.log('🎵 Playing started successfully');
+              
+              // 🎮 Haptic feedback for play
+              await hapticMedium();
               
               // 🚨 수동 재생 성공 시 GUARANTEED 시간 업데이트
               if (audioRef.current) {
@@ -1514,6 +1548,9 @@ export function VinylPlayer() {
   const handlePreviousTrack = () => {
     if (tracks.length === 0) return;
     
+    // 🎮 Haptic feedback for track change
+    hapticHeavy();
+    
     const wasPlaying = isPlaying;
     shouldAutoPlayRef.current = wasPlaying;
     setIsPlaying(false);
@@ -1534,6 +1571,9 @@ export function VinylPlayer() {
 
   const handleNextTrack = () => {
     if (tracks.length === 0) return;
+    
+    // 🎮 Haptic feedback for track change
+    hapticHeavy();
     
     const wasPlaying = isPlaying;
     shouldAutoPlayRef.current = wasPlaying;
