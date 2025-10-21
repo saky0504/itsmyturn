@@ -96,36 +96,36 @@ export function VinylPlayer() {
         const immediateTracks = tracksToPreload.slice(0, 3);
         const backgroundTracks = tracksToPreload.slice(3);
         
-        // 즉시 로딩할 트랙들 (첫 3개)
+        // 즉시 로딩할 트랙들 (첫 3개) - metadata만 로딩하여 속도 향상
         const immediatePromises = immediateTracks.map(({ track, index }) => 
           new Promise<void>((resolve) => {
             const audio = new Audio();
             audio.src = track.preview_url;
-            audio.preload = 'auto'; // 전체 로딩
+            audio.preload = 'metadata'; // 🚀 metadata만 로딩 (빠름!)
             audio.crossOrigin = 'anonymous';
             
-            const handleCanPlay = () => {
+            const handleLoadedMetadata = () => {
               setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-              console.log(`🎵 Immediate preload [${index + 1}/3]: ${track.title}`);
-              audio.removeEventListener('canplay', handleCanPlay);
+              console.log(`🎵 Immediate preload [${index + 1}/3]: ${track.title} (metadata only)`);
+              audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
               audio.removeEventListener('error', handleError);
               resolve();
             };
             
             const handleError = (e: any) => {
               console.warn(`❌ Failed immediate preload: ${track.title}`, e);
-              audio.removeEventListener('canplay', handleCanPlay);
+              audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
               audio.removeEventListener('error', handleError);
               resolve();
             };
             
-            audio.addEventListener('canplay', handleCanPlay);
+            audio.addEventListener('loadedmetadata', handleLoadedMetadata);
             audio.addEventListener('error', handleError);
             
             setTimeout(() => {
               if (!preloadedTracks.has(track.id)) {
                 console.warn(`⏱️ Immediate preload timeout: ${track.title}`);
-                audio.removeEventListener('canplay', handleCanPlay);
+                audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
                 audio.removeEventListener('error', handleError);
                 resolve();
               }
@@ -133,40 +133,27 @@ export function VinylPlayer() {
           })
         );
         
-        // 백그라운드 로딩할 트랙들 (나머지)
+        // 백그라운드 로딩할 트랙들 (나머지) - none으로 최소화
         const backgroundPromises = backgroundTracks.map(({ track, index }) => 
           new Promise<void>((resolve) => {
             const audio = new Audio();
             audio.src = track.preview_url;
-            audio.preload = 'metadata'; // 메타데이터만
+            audio.preload = 'none'; // 🚀 필요할 때만 로딩 (최소 메모리)
             audio.crossOrigin = 'anonymous';
             
-            const handleCanPlay = () => {
-              setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-              console.log(`🎵 Background preload [${index + 4}/${tracksToPreload.length}]: ${track.title}`);
-              audio.removeEventListener('canplay', handleCanPlay);
-              audio.removeEventListener('error', handleError);
-              resolve();
-            };
+            // metadata 조차 기다리지 않고 즉시 등록
+            setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
+            console.log(`🎵 Background preload [${index + 4}/${tracksToPreload.length}]: ${track.title} (none - lazy load)`);
             
             const handleError = (e: any) => {
               console.warn(`❌ Failed background preload: ${track.title}`, e);
-              audio.removeEventListener('canplay', handleCanPlay);
               audio.removeEventListener('error', handleError);
-              resolve();
             };
             
-            audio.addEventListener('canplay', handleCanPlay);
             audio.addEventListener('error', handleError);
             
-            setTimeout(() => {
-              if (!preloadedTracks.has(track.id)) {
-                console.warn(`⏱️ Background preload timeout: ${track.title}`);
-                audio.removeEventListener('canplay', handleCanPlay);
-                audio.removeEventListener('error', handleError);
-                resolve();
-              }
-            }, 5000); // 백그라운드는 더 긴 타임아웃
+            // 즉시 resolve (로딩 대기 없음)
+            resolve();
           })
         );
         
@@ -1379,6 +1366,12 @@ export function VinylPlayer() {
         console.log('▶️ Attempting to play:', currentTrack.title);
         setIsLoading(true);
         audioRef.current.volume = volume / 100;
+        
+        // 🚀 재생 시점에 전체 오디오 로딩 시작 (성능 최적화)
+        if (audioRef.current && audioRef.current.preload !== 'auto') {
+          console.log('🚀 Switching to full audio preload for immediate playback');
+          audioRef.current.preload = 'auto';
+        }
         
         // 오디오가 준비되지 않았으면 로딩 완료 대기
         if (!isAudioReady) {
