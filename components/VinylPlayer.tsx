@@ -576,9 +576,13 @@ export function VinylPlayer() {
                 id: item.identifier,
                 title: item.title || 'Unknown Title',
                 artist: item.creator?.[0] || 'Unknown Artist',
+                album: 'Internet Archive',
                 cover: coverUrl,
-                audioUrl: streamingUrl,
+                preview_url: streamingUrl,
                 duration: Math.floor(duration / 1000),
+                spotify_url: '',
+                lyrics: '',
+                genre: genre,
                 license: item.licenseurl || 'Public Domain'
               };
               
