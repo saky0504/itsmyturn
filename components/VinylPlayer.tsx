@@ -7,16 +7,30 @@ import { useIsMobile } from './ui/use-mobile';
 import { toast } from 'sonner';
 import { CommunityBoard } from './CommunityBoard';
 // Supabase 관련 import 제거 (Internet Archive 직접 사용으로 불필요)
-// Capacitor Native Features
-import { 
-  hapticMedium, 
-  hapticHeavy,
-  initPushNotifications,
-  initAppStateListeners,
-  requestReview,
-  isNativePlatform,
-  openInAppBrowser
-} from '../src/lib/capacitor-plugins';
+// Capacitor Native Features (임시 비활성화 - Vercel 빌드 에러 해결용)
+// import { 
+//   hapticMedium, 
+//   hapticHeavy,
+//   initPushNotifications,
+//   initAppStateListeners,
+//   requestReview,
+//   isNativePlatform,
+//   openInAppBrowser
+// } from '../src/lib/capacitor-plugins';
+
+// 임시 대체 함수들 (웹에서만 동작)
+const hapticMedium = async () => console.log('🎮 Haptic feedback (web)');
+const hapticHeavy = async () => console.log('🎮 Haptic feedback (web)');
+const initPushNotifications = async () => console.log('🔔 Push notifications (web)');
+const initAppStateListeners = (onResume: () => void, onPause: () => void) => {
+  console.log('📱 App state listeners (web)');
+};
+const requestReview = async () => console.log('⭐ Review request (web)');
+const isNativePlatform = () => false; // 웹에서는 항상 false
+const openInAppBrowser = async (url: string) => {
+  window.open(url, '_blank', 'noopener,noreferrer');
+  console.log('🌐 Opened in new tab:', url);
+};
 
 interface Track {
   id: string;
