@@ -146,3 +146,8 @@ Thumbs.db
 # Build outputs
 dist/
 build/
+
+# Documentation (except README)
+ADMIN_GUIDE.md
+SUPABASE_SETUP_GUIDE.md
+supabase-setup.sql
