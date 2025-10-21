@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, PanInfo, useAnimationControls } from 'framer-motion';
 // ImageWithFallback 제거 (직접 이미지 처리로 변경)
-import { Play, Pause, SkipBack, SkipForward, Search, Info, Music } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Search, Info, Music, MessageCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { useIsMobile } from './ui/use-mobile';
 import { toast } from 'sonner';
+import { CommunityBoard } from './CommunityBoard';
 // Supabase 관련 import 제거 (Internet Archive 직접 사용으로 불필요)
 
 interface Track {
@@ -33,6 +34,7 @@ export function VinylPlayer() {
   const [tracksLoading, setTracksLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
+  const [showBoard, setShowBoard] = useState(false);
   // localStorage를 사용해 방문 기록 저장 (자동재생 비활성화로 단순화)
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -1624,6 +1626,23 @@ export function VinylPlayer() {
       {!tracksLoading && currentTrack && (
         <>
       
+      {/* Community Board Button - Fixed position */}
+      <button
+        onClick={() => setShowBoard(true)}
+        className="fixed top-4 right-4 z-50 group"
+        aria-label="Open Community Board"
+      >
+        <div className="relative">
+          {/* Background circle with opacity */}
+          <div className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200" />
+          
+          {/* Message bubble icon */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
+          </div>
+        </div>
+      </button>
+      
       {/* 모바일에서는 LP가 화면 상단 60% 차지 */}
       {isMobile ? (
         <div className="relative w-full flex-1 flex flex-col">
@@ -2440,8 +2459,15 @@ export function VinylPlayer() {
               </div>
             </div>
 
-            {/* Donate buttons */}
+            {/* Community Board & Donate buttons */}
             <div className="flex flex-col gap-2 mt-4 mb-4">
+              <button
+                onClick={() => setShowBoard(true)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-center text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Community Board</span>
+              </button>
               <a
                 href="https://archive.org/donate"
                 target="_blank"
@@ -2513,6 +2539,12 @@ export function VinylPlayer() {
       />
         </>
       )}
+
+      {/* Community Board */}
+      <CommunityBoard
+        isOpen={showBoard}
+        onClose={() => setShowBoard(false)}
+      />
       </div> {/* 콘텐츠 레이어 닫기 */}
     </div>
   );
