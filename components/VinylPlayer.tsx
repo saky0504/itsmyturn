@@ -14,7 +14,8 @@ import {
   initPushNotifications,
   initAppStateListeners,
   requestReview,
-  isNativePlatform
+  isNativePlatform,
+  openInAppBrowser
 } from '../src/lib/capacitor-plugins';
 
 interface Track {
@@ -76,10 +77,13 @@ export function VinylPlayer() {
         imagesToPreload.push(tracks[nextIndex].cover);
       }
       
+      // 🚀 이미지 최적화: lazy loading과 크기 최적화
       imagesToPreload.forEach(imageUrl => {
         const img = new Image();
+        img.loading = 'lazy'; // 🚀 Lazy loading
+        img.decoding = 'async'; // 🚀 비동기 디코딩
         img.src = imageUrl;
-        console.log('🖼️ Preloading cover image:', imageUrl);
+        console.log('🖼️ Optimized image preload:', imageUrl);
       });
     }
   }, [tracks, currentTrackIndex, currentTrack?.cover]);
@@ -99,63 +103,23 @@ export function VinylPlayer() {
           }
         }
         
-        console.log(`🚀 Starting parallel preload for ${tracksToPreload.length} tracks`);
+        console.log(`🚀 Starting ZERO preload strategy for ${tracksToPreload.length} tracks`);
         
-        // 우선순위별로 로딩 (첫 3개는 즉시, 나머지는 순차적으로)
-        const immediateTracks = tracksToPreload.slice(0, 3);
-        const backgroundTracks = tracksToPreload.slice(3);
-        
-        // 즉시 로딩할 트랙들 (첫 3개) - metadata만 로딩하여 속도 향상
-        const immediatePromises = immediateTracks.map(({ track, index }) => 
+        // 🚀 JUST-IN-TIME 로딩: 모든 오디오를 preload='none'으로 설정
+        // 네트워크 요청을 완전히 차단하여 LCP 최적화
+        const zeroPreloadPromises = tracksToPreload.map(({ track, index }) => 
           new Promise<void>((resolve) => {
             const audio = new Audio();
             audio.src = track.preview_url;
-            audio.preload = 'metadata'; // 🚀 metadata만 로딩 (빠름!)
+            audio.preload = 'none'; // 🚀 ZERO preload - 네트워크 요청 완전 차단!
             audio.crossOrigin = 'anonymous';
             
-            const handleLoadedMetadata = () => {
-              setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-              console.log(`🎵 Immediate preload [${index + 1}/3]: ${track.title} (metadata only)`);
-              audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-              audio.removeEventListener('error', handleError);
-              resolve();
-            };
-            
-            const handleError = (e: any) => {
-              console.warn(`❌ Failed immediate preload: ${track.title}`, e);
-              audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-              audio.removeEventListener('error', handleError);
-              resolve();
-            };
-            
-            audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-            audio.addEventListener('error', handleError);
-            
-            setTimeout(() => {
-              if (!preloadedTracks.has(track.id)) {
-                console.warn(`⏱️ Immediate preload timeout: ${track.title}`);
-                audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-                audio.removeEventListener('error', handleError);
-                resolve();
-              }
-            }, 3000);
-          })
-        );
-        
-        // 백그라운드 로딩할 트랙들 (나머지) - none으로 최소화
-        const backgroundPromises = backgroundTracks.map(({ track, index }) => 
-          new Promise<void>((resolve) => {
-            const audio = new Audio();
-            audio.src = track.preview_url;
-            audio.preload = 'none'; // 🚀 필요할 때만 로딩 (최소 메모리)
-            audio.crossOrigin = 'anonymous';
-            
-            // metadata 조차 기다리지 않고 즉시 등록
+            // 즉시 등록 (로딩 대기 없음)
             setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-            console.log(`🎵 Background preload [${index + 4}/${tracksToPreload.length}]: ${track.title} (none - lazy load)`);
+            console.log(`🎵 Zero preload [${index + 1}/${tracksToPreload.length}]: ${track.title} (no network request)`);
             
             const handleError = (e: any) => {
-              console.warn(`❌ Failed background preload: ${track.title}`, e);
+              console.warn(`❌ Audio setup error: ${track.title}`, e);
               audio.removeEventListener('error', handleError);
             };
             
@@ -166,14 +130,9 @@ export function VinylPlayer() {
           })
         );
         
-        // 즉시 로딩 완료 대기
-        await Promise.all(immediatePromises);
-        console.log(`✅ Immediate preload completed for ${immediateTracks.length} tracks`);
-        
-        // 백그라운드 로딩은 기다리지 않고 백그라운드에서 진행
-        Promise.all(backgroundPromises).then(() => {
-          console.log(`✅ Background preload completed for ${backgroundTracks.length} tracks`);
-        });
+        // 모든 트랙을 즉시 등록 (네트워크 요청 없음)
+        await Promise.all(zeroPreloadPromises);
+        console.log(`✅ Zero preload completed for ${tracksToPreload.length} tracks - LCP optimized!`);
       };
       
       loadNextTracks();
@@ -1398,32 +1357,32 @@ export function VinylPlayer() {
         setIsLoading(true);
         audioRef.current.volume = volume / 100;
         
-        // 🚀 재생 시점에 전체 오디오 로딩 시작 (성능 최적화)
+        // 🚀 JUST-IN-TIME 로딩: 재생 시점에만 오디오 로딩 시작
         if (audioRef.current && audioRef.current.preload !== 'auto') {
-          console.log('🚀 Switching to full audio preload for immediate playback');
+          console.log('🚀 JUST-IN-TIME: Starting audio load on user interaction');
           audioRef.current.preload = 'auto';
         }
         
-        // 오디오가 준비되지 않았으면 로딩 완료 대기
+        // 🚀 빠른 로딩 대기 (8초 → 3초로 단축)
         if (!isAudioReady) {
-          console.log('⏳ Audio not ready yet, waiting for loading...');
-          toast('Loading track...', { duration: 2000 });
+          console.log('⏳ JUST-IN-TIME: Loading audio on demand...');
+          toast('Loading track...', { duration: 1500 });
           
-          // 최대 8초 대기
+          // 3초 대기로 단축 (LCP 최적화)
           const waitForReady = new Promise<boolean>((resolve) => {
             const timeout = setTimeout(() => {
-              console.warn('⏱️ Audio loading timeout after 8 seconds');
+              console.warn('⏱️ JUST-IN-TIME: Audio loading timeout after 3 seconds');
               resolve(false);
-            }, 8000);
+            }, 3000); // 8초 → 3초로 단축
             
-            // 100ms마다 확인
+            // 50ms마다 확인 (더 빠른 반응)
             const checkReady = setInterval(() => {
               if (isAudioReady || (audioRef.current && audioRef.current.readyState >= 2)) {
                 clearTimeout(timeout);
                 clearInterval(checkReady);
                 resolve(true);
               }
-            }, 100);
+            }, 50); // 100ms → 50ms로 단축
           });
           
           const ready = await waitForReady;
@@ -2590,12 +2549,40 @@ export function VinylPlayer() {
               </a>
             </div>
 
-            {/* Attribution notice */}
-            <div className="pt-3 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center leading-relaxed">
-                {currentTrack.license?.includes('creativecommons.org/licenses/by/3.0') 
-                  ? 'Commercial use allowed • Attribution required'
-                  : 'Public Domain • Free to use'}
+            {/* Legal links and copyright */}
+            <div className="pt-3 border-t border-gray-200 space-y-1.5">
+              {/* Legal and license info */}
+              <div className="flex items-center justify-center gap-1.5 text-xs flex-wrap">
+                <button
+                  onClick={() => {
+                    const url = window.location.origin + '/privacy-policy.html';
+                    openInAppBrowser(url);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 underline transition-colors bg-transparent border-none cursor-pointer p-0 font-[inherit] text-xs"
+                >
+                  Privacy Policy
+                </button>
+                <span className="text-gray-400">•</span>
+                <button
+                  onClick={() => {
+                    const url = window.location.origin + '/terms-of-service.html';
+                    openInAppBrowser(url);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 underline transition-colors bg-transparent border-none cursor-pointer p-0 font-[inherit] text-xs"
+                >
+                  Terms of Service
+                </button>
+                <span className="text-gray-400">•</span>
+                <span className="text-gray-500">
+                  {currentTrack.license?.includes('creativecommons.org/licenses/by/3.0') 
+                    ? 'Commercial use allowed • Attribution required'
+                    : 'Public Domain • Free to use'}
+                </span>
+              </div>
+              
+              {/* Copyright */}
+              <p className="text-xs text-gray-400 text-center">
+                © 2025 It's My Turn • All rights reserved
               </p>
             </div>
           </motion.div>
