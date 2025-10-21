@@ -973,11 +973,11 @@ export function VinylPlayer() {
             shouldAutoPlayRef.current = false; // 사용 후 리셋
             console.log('🎵 Auto-play enabled (was playing before track change)');
           }
-          // 2. 첫 곡 로딩 시 - 자동재생 비활성화 (사용자 요청)
+          // 2. 첫 곡 로딩 시 - 자동재생 활성화 (사용자 요청)
           else if (isFirstLoad && currentTrackIndex === 0) {
-            // 첫 트랙은 항상 수동 재생으로 시작
-            shouldAutoPlay = false;
-            console.log('🎵 First track loaded - ready for manual play (auto-play disabled)');
+            // 첫 트랙도 자동재생으로 시작
+            shouldAutoPlay = true;
+            console.log('🎵 First track loaded - auto-play enabled');
             
             // isFirstLoad 플래그 업데이트
             setIsFirstLoad(false);
