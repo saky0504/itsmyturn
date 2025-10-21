@@ -22,7 +22,7 @@ import { CommunityBoard } from './CommunityBoard';
 const hapticMedium = async () => console.log('🎮 Haptic feedback (web)');
 const hapticHeavy = async () => console.log('🎮 Haptic feedback (web)');
 const initPushNotifications = async () => console.log('🔔 Push notifications (web)');
-const initAppStateListeners = (onResume: () => void, onPause: () => void) => {
+const initAppStateListeners = (_onResume: () => void, _onPause: () => void) => {
   console.log('📱 App state listeners (web)');
 };
 const requestReview = async () => console.log('⭐ Review request (web)');
