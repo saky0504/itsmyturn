@@ -6,6 +6,7 @@ import { App } from '@capacitor/app';
 import { Share } from '@capacitor/share';
 import { Preferences } from '@capacitor/preferences';
 import { InAppReview } from '@capacitor-community/in-app-review';
+import { Browser } from '@capacitor/browser';
 
 /**
  * Check if running on native platform
@@ -255,6 +256,47 @@ export const shareApp = async () => {
     console.log('✅ Share dialog shown');
   } catch (error) {
     console.error('❌ Share error:', error);
+  }
+};
+
+// ========================================
+// 6. In-App Browser
+// ========================================
+
+/**
+ * Open URL in In-App Browser (native) or new tab (web)
+ */
+export const openInAppBrowser = async (url: string) => {
+  try {
+    if (isNativePlatform()) {
+      // Native: Open in In-App Browser
+      await Browser.open({ 
+        url,
+        presentationStyle: 'popover', // iOS: popover style
+        toolbarColor: '#ffffff'
+      });
+      console.log('✅ Opened in In-App Browser:', url);
+    } else {
+      // Web: Open in new tab
+      window.open(url, '_blank', 'noopener,noreferrer');
+      console.log('✅ Opened in new tab:', url);
+    }
+  } catch (error) {
+    console.error('❌ Browser open error:', error);
+  }
+};
+
+/**
+ * Close In-App Browser (only works on native)
+ */
+export const closeInAppBrowser = async () => {
+  if (!isNativePlatform()) return;
+  
+  try {
+    await Browser.close();
+    console.log('✅ In-App Browser closed');
+  } catch (error) {
+    console.error('❌ Browser close error:', error);
   }
 };
 
