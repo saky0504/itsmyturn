@@ -4,6 +4,9 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "functions": {
+    "nodeVersion": "18.x"
+  },
   "headers": [
     {
       "source": "/(.*)",
