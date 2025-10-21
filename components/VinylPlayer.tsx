@@ -477,12 +477,12 @@ export function VinylPlayer() {
       // 음악 아이템이 있으면 음악만 사용, 없으면 전체 사용 (7분 이상 필터링 고려하여 6개 선택)
       const itemsToUse = musicItems.length > 0 ? musicItems : uniqueItems;
       const shuffledItems = [...itemsToUse].sort(() => Math.random() - 0.5);
-      const selectedItems = shuffledItems.slice(0, 6);
+      const selectedItems = shuffledItems.slice(0, 25);
       
       const archiveTracks: Track[] = [];
       
-      // 각 선택된 항목의 스트리밍 URL 추출 (순차적으로, 3개까지만)
-      for (let i = 0; i < selectedItems.length && archiveTracks.length < 3; i++) {
+      // 각 선택된 항목의 스트리밍 URL 추출 (순차적으로, 20개까지)
+      for (let i = 0; i < selectedItems.length && archiveTracks.length < 20; i++) {
         const item = selectedItems[i];
         try {
           // console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`); // 로그 정리
