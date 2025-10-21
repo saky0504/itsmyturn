@@ -24,11 +24,4 @@
     <priority>0.5</priority>
   </url>
   
-  <!-- 관리자 페이지 (검색 엔진에서 제외) -->
-  <url>
-    <loc>https://itsmyturn.app/admin.html</loc>
-    <lastmod>2025-01-22</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.3</priority>
-  </url>
 </urlset>
