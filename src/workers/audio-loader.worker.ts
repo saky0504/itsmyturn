@@ -26,7 +26,6 @@ interface AudioLoadError {
 }
 
 type WorkerMessage = AudioLoadRequest;
-type WorkerResponse = AudioLoadSuccess | AudioLoadError;
 
 // 🚀 HTTP Range Request로 음원의 처음 일부만 로드
 async function loadAudioWithRange(url: string, rangeBytes: number = 204800): Promise<Blob> {
