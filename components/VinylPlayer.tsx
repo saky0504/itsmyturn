@@ -64,94 +64,176 @@ export function VinylPlayer() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAudioReady, setIsAudioReady] = useState(false); // 오디오 준비 상태 추가
   const [preloadedTracks, setPreloadedTracks] = useState<Map<string, HTMLAudioElement>>(new Map());
+  const [audioBlobCache, setAudioBlobCache] = useState<Map<string, string>>(new Map()); // Blob URL 캐시
   const spinControls = useAnimationControls();
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const shouldAutoPlayRef = useRef<boolean>(false);
   const playTokenRef = useRef<number>(0); // 재생 요청 토큰 (레이스 컨디션 방지)
+  const audioWorkerRef = useRef<Worker | null>(null); // 🚀 Web Worker for audio loading
+  const userPausedRef = useRef<boolean>(false); // 🎯 사용자가 직접 일시정지 했는지 여부
+  const retryCountRef = useRef<number>(0); // 🔄 재시도 횟수
   const isMobile = useIsMobile();
   
-  // 🎵 단순하고 안정적인 프리로딩 (브라우저 기본 캐시 의존)
+  // 🚀 Web Worker 초기화 (음원 로딩을 메인 스레드에서 분리)
+  useEffect(() => {
+    try {
+      // Worker 생성
+      const worker = new Worker(
+        new URL('../src/workers/audio-loader.worker.ts', import.meta.url),
+        { type: 'module' }
+      );
+      
+      // Worker 메시지 핸들러
+      worker.onmessage = (e) => {
+        const message = e.data;
+        
+        if (message.type === 'WORKER_READY') {
+          console.log('🚀 Audio Worker Ready!');
+        } else if (message.type === 'AUDIO_LOADED') {
+          const { trackId, blob, size } = message;
+          console.log(`✅ Worker loaded audio: ${trackId} (${(size / 1024).toFixed(1)}KB)`);
+          
+          // Blob URL 생성 및 캐시
+          const blobUrl = URL.createObjectURL(blob);
+          setAudioBlobCache(prev => new Map(prev).set(trackId, blobUrl));
+          
+        } else if (message.type === 'AUDIO_ERROR') {
+          console.error(`❌ Worker audio error: ${message.trackId}`, message.error);
+        }
+      };
+      
+      worker.onerror = (error) => {
+        console.error('❌ Worker error:', error);
+      };
+      
+      audioWorkerRef.current = worker;
+      console.log('🚀 Audio Loader Worker initialized');
+      
+      // Cleanup
+      return () => {
+        worker.terminate();
+        console.log('🛑 Audio Worker terminated');
+        
+        // Blob URL cleanup
+        audioBlobCache.forEach(url => URL.revokeObjectURL(url));
+      };
+    } catch (error) {
+      console.warn('⚠️ Worker not supported, falling back to main thread:', error);
+    }
+  }, []);
 
   const currentTrack = tracks[currentTrackIndex];
 
+  // 🚀 모바일 이미지 최적화 함수 (LCP 개선)
+  const getOptimizedCoverUrl = (coverUrl: string) => {
+    if (!coverUrl || !coverUrl.includes('archive.org/services/img/')) {
+      return coverUrl;
+    }
+    
+    // 모바일에서는 더 작은 이미지 요청 (LCP 최적화)
+    if (isMobile) {
+      // Internet Archive는 쿼리 파라미터로 크기 조정 가능
+      return `${coverUrl}?w=300&h=300`; // 300x300 (원본보다 훨씬 작음)
+    }
+    
+    // 데스크톱은 중간 크기
+    return `${coverUrl}?w=500&h=500`; // 500x500
+  };
 
-  // 커버 이미지 미리 로딩
+  // 커버 이미지 미리 로딩 (모바일 최적화 적용)
   useEffect(() => {
     if (tracks.length > 0) {
       // 현재 트랙과 다음 트랙의 커버 이미지를 미리 로드
       const imagesToPreload = [];
       
       if (currentTrack?.cover) {
-        imagesToPreload.push(currentTrack.cover);
+        imagesToPreload.push(getOptimizedCoverUrl(currentTrack.cover));
       }
       
       const nextIndex = (currentTrackIndex + 1) % tracks.length;
       if (tracks[nextIndex]?.cover) {
-        imagesToPreload.push(tracks[nextIndex].cover);
+        imagesToPreload.push(getOptimizedCoverUrl(tracks[nextIndex].cover));
       }
       
-      // 🚀 이미지 최적화: lazy loading과 크기 최적화
+      // 🚀 이미지 최적화: lazy loading + 크기 최적화 + 비동기 디코딩
       imagesToPreload.forEach(imageUrl => {
         const img = new Image();
-        img.loading = 'lazy'; // 🚀 Lazy loading
+        img.loading = 'eager'; // 첫 이미지는 즉시 로드 (LCP)
         img.decoding = 'async'; // 🚀 비동기 디코딩
+        img.fetchPriority = 'high'; // 🚀 우선순위 높임
         img.src = imageUrl;
-        console.log('🖼️ Optimized image preload:', imageUrl);
+        console.log('🖼️ Optimized image preload:', imageUrl, isMobile ? '(mobile 300px)' : '(desktop 500px)');
       });
     }
-  }, [tracks, currentTrackIndex, currentTrack?.cover]);
+  }, [tracks, currentTrackIndex, currentTrack?.cover, isMobile]);
 
-  // 🎵 개선된 병렬 프리로딩 (더 빠른 로딩)
+  // 🎵 🚀 Web Worker + HTTP Range Requests 프리로딩 (LCP 최적화!)
   useEffect(() => {
-    if (tracks.length > 0) {
-      // 현재 트랙부터 최대 10개까지 병렬로 사전 로딩
+    if (tracks.length > 0 && audioWorkerRef.current) {
+      // 현재 트랙부터 최대 10개까지 우선순위별로 사전 로딩
       const loadNextTracks = async () => {
         const tracksToPreload = [];
         for (let i = 0; i < Math.min(10, tracks.length); i++) {
           const trackIndex = (currentTrackIndex + i) % tracks.length;
           const track = tracks[trackIndex];
           
-          if (track && !preloadedTracks.has(track.id)) {
+          if (track && !preloadedTracks.has(track.id) && !audioBlobCache.has(track.id)) {
             tracksToPreload.push({ track, index: i });
           }
         }
         
-        console.log(`🚀 Starting ZERO preload strategy for ${tracksToPreload.length} tracks`);
+        console.log(`🚀 Starting WORKER + RANGE preload for ${tracksToPreload.length} tracks`);
         
-        // 🚀 JUST-IN-TIME 로딩: 모든 오디오를 preload='none'으로 설정
-        // 네트워크 요청을 완전히 차단하여 LCP 최적화
-        const zeroPreloadPromises = tracksToPreload.map(({ track, index }) => 
-          new Promise<void>((resolve) => {
+        // 🚀 스마트 우선순위 로딩:
+        // - 첫 트랙(index 0): preload='auto' - 즉시 전체 로딩! ⚡
+        // - 다음 2개(index 1-2): preload='auto' - 빠른 전환 준비 🎯
+        // - 나머지: preload='metadata' - 메타데이터만
+        tracksToPreload.forEach(({ track, index }) => {
+          if (index <= 2) {
+            // ⚡ 처음 3곡: preload='auto' (즉시 재생 준비!)
             const audio = new Audio();
             audio.src = track.preview_url;
-            audio.preload = 'none'; // 🚀 ZERO preload - 네트워크 요청 완전 차단!
             audio.crossOrigin = 'anonymous';
-            
-            // 즉시 등록 (로딩 대기 없음)
+            audio.preload = 'auto'; // 전체 로딩
             setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-            console.log(`🎵 Zero preload [${index + 1}/${tracksToPreload.length}]: ${track.title} (no network request)`);
+            console.log(`⚡ PRIORITY LOADING [${index}]: ${track.title} (preload='auto')`);
             
-            const handleError = (e: any) => {
-              console.warn(`❌ Audio setup error: ${track.title}`, e);
-              audio.removeEventListener('error', handleError);
-            };
-            
-            audio.addEventListener('error', handleError);
-            
-            // 즉시 resolve (로딩 대기 없음)
-            resolve();
-          })
-        );
+            // 🚀 Worker가 있으면 Worker도 함께 사용 (폴백)
+            if (audioWorkerRef.current && isMobile) {
+              audioWorkerRef.current.postMessage({
+                type: 'LOAD_AUDIO',
+                url: track.preview_url,
+                trackId: track.id,
+                useRangeRequest: false, // Range Request 비활성화 (안정성 우선)
+                rangeBytes: 204800
+              });
+            }
+          } else if (index <= 5) {
+            // 🏃 다음 3개: 메타데이터만 (빠른 전환)
+            const audio = new Audio();
+            audio.src = track.preview_url;
+            audio.crossOrigin = 'anonymous';
+            audio.preload = 'metadata';
+            setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
+            console.log(`🏃 FAST READY [${index}]: ${track.title} (metadata)`);
+          } else {
+            // 💤 나머지: 지연 로딩
+            const audio = new Audio();
+            audio.src = track.preview_url;
+            audio.crossOrigin = 'anonymous';
+            audio.preload = 'none';
+            setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
+            console.log(`💤 LAZY LOAD [${index}]: ${track.title} (none)`);
+          }
+        });
         
-        // 모든 트랙을 즉시 등록 (네트워크 요청 없음)
-        await Promise.all(zeroPreloadPromises);
-        console.log(`✅ Zero preload completed for ${tracksToPreload.length} tracks - LCP optimized!`);
+        console.log(`✅ Worker preload initiated for ${tracksToPreload.length} tracks - LCP optimized!`);
       };
       
       loadNextTracks();
     }
-  }, [tracks, currentTrackIndex]);
+  }, [tracks, currentTrackIndex, isMobile]);
 
   // 음악 Spotify API 호출 함수
   // searchTracks 함수 제거 (장르 선택으로 대체됨)
@@ -814,6 +896,9 @@ export function VinylPlayer() {
       setIsPlaying(true);
       setIsLoading(false);
       
+      // 🎯 재생이 시작되었으므로 일시정지 플래그 해제
+      userPausedRef.current = false;
+      
       // 🚨 재생 시작 즉시 강제 시간 업데이트 (무조건)
       if (audio) {
         const currentTime = audio.currentTime || 0;
@@ -851,12 +936,43 @@ export function VinylPlayer() {
         }, 300);
       }
       
+      // 🚀 백그라운드 프리로딩 업그레이드: 재생 시작 후 나머지 트랙들을 순차적으로 auto로 전환
+      setTimeout(() => {
+        console.log('🚀 Starting background preload upgrade...');
+        preloadedTracks.forEach((audio, trackId) => {
+          // metadata나 none인 트랙들을 auto로 업그레이드
+          if (audio.preload !== 'auto') {
+            const oldPreload = audio.preload;
+            audio.preload = 'auto';
+            const track = tracks.find(t => t.id === trackId);
+            console.log(`⚡ Upgraded: ${track?.title || trackId} (${oldPreload} → auto)`);
+          }
+        });
+      }, 1000); // 재생 시작 1초 후 백그라운드 업그레이드
+      
       // LP 회전은 useEffect에서 자동 처리됨
     };
 
     const handlePause = () => {
       console.log('🎵 Audio paused');
       setIsPlaying(false);
+      
+      // 🎯 예기치 않은 정지 감지 및 자동 재시도
+      // 사용자가 직접 일시정지한 경우가 아니라면 재시도
+      if (!userPausedRef.current && audio && !audio.ended) {
+        console.warn('⚠️ Unexpected pause detected - will retry playback in 500ms');
+        
+        // 500ms 후 자동 재시도
+        setTimeout(() => {
+          if (audio && !userPausedRef.current && audio.paused && !audio.ended) {
+            console.log('🔄 Auto-retrying playback after unexpected pause...');
+            audio.play().catch(err => {
+              console.error('❌ Auto-retry failed:', err);
+            });
+          }
+        }, 500);
+      }
+      
       // LP 회전은 useEffect에서 자동 처리됨
     };
 
@@ -972,15 +1088,23 @@ export function VinylPlayer() {
           setDuration(0);
           
           if (audioRef.current) {
-            // 이전 재생을 확실히 중단하고 토큰 무효화
+            // 🧹 이전 재생을 확실히 중단하고 메모리 해제
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
+            audioRef.current.src = ''; // 🚀 메모리 완전 해제
+            audioRef.current.load(); // 리소스 해제 적용
             playTokenRef.current++; // 이전 재생 요청 무효화
             
-            // 사전 로딩된 오디오가 있는지 확인
+            // 🚀 우선순위: Blob URL (Worker) > Preloaded Audio > Direct URL
+            const blobUrl = audioBlobCache.get(currentTrack.id);
             const preloadedAudio = preloadedTracks.get(currentTrack.id);
             
-            if (preloadedAudio) {
+            if (blobUrl) {
+              console.log('⚡ Using WORKER Blob URL for:', currentTrack.title);
+              audioRef.current.src = blobUrl;
+              audioRef.current.currentTime = 0;
+              // Blob URL은 이미 로드되어 있어 즉시 재생 가능!
+            } else if (preloadedAudio) {
               console.log('✅ Using preloaded audio for:', currentTrack.title);
               // 사전 로딩된 오디오의 속성을 현재 오디오에 복사
               audioRef.current.src = preloadedAudio.src;
@@ -1097,6 +1221,9 @@ export function VinylPlayer() {
                     }
                   }, 100);
                   
+                  // 🎯 재생 성공: 재시도 카운터 리셋
+                  retryCountRef.current = 0;
+                  
                   // 성공했으므로 재시도 루프 탈출
                   return;
                   
@@ -1105,16 +1232,36 @@ export function VinylPlayer() {
                   if (playError.name === 'AbortError') {
                     console.log('🎵 Auto-play was aborted (normal behavior during track change)');
                     return;
+                  }
+                  
+                  // 🔄 재생 실패 시 재시도 로직
+                  console.warn(`⚠️ Auto-play failed (attempt ${retryCountRef.current + 1}/3):`, playError.name, playError.message);
+                  
+                  if (retryCountRef.current < 3) {
+                    retryCountRef.current++;
+                    console.log(`🔄 Retrying playback in 1 second...`);
+                    
+                    // 음소거 해제
+                    if (audioRef.current) {
+                      audioRef.current.muted = false;
+                    }
+                    
+                    // 1초 후 재시도
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // 재귀적으로 재시도
+                    continue; // while 루프 계속
                   } else {
-                    console.warn('⚠️ Auto-play failed:', playError.name, playError.message);
-                    // 재생 실패 시 사용자에게 알림 (토스트는 표시하지 않음 - 재생 버튼으로 유도)
+                    console.error('❌ Auto-play failed after 3 attempts');
+                    retryCountRef.current = 0; // 재시도 카운터 리셋
+                    setIsPlaying(false);
+                    
+                    // 음소거 해제
+                    if (audioRef.current) {
+                      audioRef.current.muted = false;
+                    }
+                    return;
                   }
-                  setIsPlaying(false);
-                  // 음소거 해제
-                  if (audioRef.current) {
-                    audioRef.current.muted = false;
-                  }
-                  return;
                 }
               }
             } catch (error: any) {
@@ -1348,6 +1495,9 @@ export function VinylPlayer() {
       // 재생 중이거나 로딩 중일 때 pause 처리
       if (isPlaying || isLoading || isAudioPlaying) {
         console.log('⏸️ Pausing...');
+        // 🎯 사용자가 직접 일시정지 버튼을 눌렀음을 표시
+        userPausedRef.current = true;
+        
         // 🎮 Haptic feedback for pause
         await hapticMedium();
         
@@ -1366,6 +1516,9 @@ export function VinylPlayer() {
           toast.error('No tracks available. Please load some tracks first.');
           return;
         }
+        
+        // 🎯 사용자가 재생 버튼을 눌렀으므로 일시정지 플래그 해제
+        userPausedRef.current = false;
         
         console.log('▶️ Attempting to play:', currentTrack.title);
         setIsLoading(true);
@@ -1921,9 +2074,12 @@ export function VinylPlayer() {
                   }}
                 >
                   <img 
-                    src={currentTrack?.cover || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K'}
+                    src={getOptimizedCoverUrl(currentTrack?.cover || '') || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K'}
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
                     className="w-full h-full object-contain"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       console.log('🦆 Image failed, using duck fallback');
@@ -2239,9 +2395,12 @@ export function VinylPlayer() {
                   }}
                 >
                   <img 
-                    src={currentTrack?.cover || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K'}
+                    src={getOptimizedCoverUrl(currentTrack?.cover || '') || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K'}
                     alt={`${currentTrack?.album || 'Music Loading'} cover`}
                     className="w-full h-full object-contain"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       console.log('🦆 Image failed, using duck fallback');
@@ -2473,9 +2632,11 @@ export function VinylPlayer() {
             {/* Album cover and track info - 좌우 배치 */}
             <div className="flex gap-4 mb-6">
               <img
-                src={currentTrack.cover}
+                src={getOptimizedCoverUrl(currentTrack.cover)}
                 alt={currentTrack.album}
                 className="w-24 h-24 rounded-lg object-cover shadow-md flex-shrink-0"
+                loading="lazy"
+                decoding="async"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop';
