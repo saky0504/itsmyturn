@@ -1783,7 +1783,7 @@ export function VinylPlayer() {
       <div className="absolute inset-0 bg-gradient-to-b from-gray-50 via-white to-gray-100 z-0" />
       
       {/* 콘텐츠 레이어 */}
-      <div className="relative z-10 w-full h-full flex flex-col">
+      <div className={`relative z-10 w-full flex flex-col ${isMobile ? 'h-full' : ''}`}>
       
       {/* Show loading state while tracks are being loaded */}
       {tracksLoading && (
@@ -1835,29 +1835,27 @@ export function VinylPlayer() {
       {!tracksLoading && currentTrack && (
         <>
       
-      {/* Community Board Button - Desktop: aligned with content, Mobile: fixed top-right */}
-      <button
-        onClick={() => setShowBoard(true)}
-        className={`${
-          isMobile 
-            ? 'fixed top-4 right-4' 
-            : 'fixed top-[calc(1rem+50px)] right-[calc((100vw-896px)/2-20px)]'
-        } z-50 group`}
-        aria-label="Open Community Board"
-      >
-        <div className="relative">
-          {/* Background circle with opacity and subtle shadow */}
-          <div 
-            className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
-            style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
-          />
-          
-          {/* Message bubble icon */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
+      {/* Community Board Button - Mobile only (fixed top-right) */}
+      {isMobile && (
+        <button
+          onClick={() => setShowBoard(true)}
+          className="fixed top-4 right-4 z-50 group"
+          aria-label="Open Community Board"
+        >
+          <div className="relative">
+            {/* Background circle with opacity and subtle shadow */}
+            <div 
+              className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
+              style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
+            />
+            
+            {/* Message bubble icon */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      )}
       
       {/* 모바일에서는 LP가 화면 상단 60% 차지 */}
       {isMobile ? (
@@ -2213,7 +2211,27 @@ export function VinylPlayer() {
         </div>
       ) : (
         /* 데스크톱 레이아웃 */
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto relative">
+          {/* Community Board Button - Desktop (aligned with content) */}
+          <button
+            onClick={() => setShowBoard(true)}
+            className="absolute top-[85px] -right-[15px] z-50 group"
+            aria-label="Open Community Board"
+          >
+            <div className="relative">
+              {/* Background circle with opacity and subtle shadow */}
+              <div 
+                className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
+                style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
+              />
+              
+              {/* Message bubble icon */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
+              </div>
+            </div>
+          </button>
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-[104px] items-center">
             {/* LP 턴테이블 */}
             <div className="relative flex items-center justify-center p-8" ref={containerRef}>
