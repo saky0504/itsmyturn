@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="ko">
   <head>
+    <!-- =========================================== -->
+    <!-- Analytics & Tracking -->
+    <!-- =========================================== -->
+    
     <!-- Google Tag Manager -->
     <script>
       (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -9,17 +13,34 @@
       'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
       })(window,document,'script','dataLayer','GTM-NCZK44T9');
     </script>
-    <!-- End Google Tag Manager -->
     
+    <!-- Google Analytics (GA4) - Managed via GTM -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-80DCFGLZS7"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-80DCFGLZS7');
+    </script>
+    
+    <!-- =========================================== -->
+    <!-- Basic Meta Tags -->
+    <!-- =========================================== -->
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>It's My Turn</title>
     <meta name="description" content="Premium LP Turntable Music Player with Free Vintage music" />
     <meta name="keywords" content="vinyl, turntable, music player, free music, react, typescript, jazz, classical, swing, blues, rock, 저작권 없는 음악, 재즈, 클래식, 스윙, 블루스, 록" />
-    <title>It's My Turn</title>
     
-    <!-- Open Graph Meta Tags -->
+    <!-- =========================================== -->
+    <!-- Icons & Assets -->
+    <!-- =========================================== -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    
+    <!-- =========================================== -->
+    <!-- Open Graph Meta Tags (Facebook, LinkedIn) -->
+    <!-- =========================================== -->
     <meta property="og:title" content="It's My Turn - Vinyl Turntable Music Player" />
     <meta property="og:description" content="Your turn to experience a beautiful vinyl turntable interface with Free Vintage music, legally!" />
     <meta property="og:type" content="website" />
@@ -31,14 +52,18 @@
     <meta property="og:site_name" content="It's My Turn" />
     <meta property="og:locale" content="ko_KR" />
     
+    <!-- =========================================== -->
     <!-- Twitter Card Meta Tags -->
+    <!-- =========================================== -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="It's My Turn - Vinyl Turntable Music Player" />
     <meta name="twitter:description" content="Your turn to experience a beautiful vinyl turntable interface with Free Vintage music, legally!" />
     <meta name="twitter:image" content="https://itsmyturn.app/og-image.png" />
     <meta name="twitter:image:alt" content="It's My Turn - Vinyl LP Turntable Music Player" />
     
-    <!-- Preload critical fonts -->
+    <!-- =========================================== -->
+    <!-- Performance Optimization -->
+    <!-- =========================================== -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   </head>
