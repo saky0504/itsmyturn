@@ -1,11 +1,28 @@
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { VinylPlayer } from '../components/VinylPlayer';
 import { Toaster } from '../components/ui/sonner';
+import { LpPriceList } from './pages/market/LpPriceList';
+import { LpProductDetail } from './pages/market/LpProductDetail';
+import { LpChannelDetail } from './pages/market/LpChannelDetail';
 
 export default function App() {
   return (
-    <div className="size-full">
-      <VinylPlayer />
-      <Toaster 
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <div className="size-full">
+              <VinylPlayer />
+            </div>
+          }
+        />
+        <Route path="/market" element={<LpPriceList />} />
+        <Route path="/market/lp/:productId" element={<LpProductDetail />} />
+        <Route path="/market/channels/:channelId" element={<LpChannelDetail />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Toaster
         position="top-center"
         closeButton
         duration={4000}
@@ -22,6 +39,6 @@ export default function App() {
           },
         }}
       />
-    </div>
+    </BrowserRouter>
   );
 }

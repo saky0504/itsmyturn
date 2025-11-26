@@ -4,6 +4,7 @@ import { Trash2, RefreshCw, AlertTriangle, CheckCircle, LogOut, Music2, Heart } 
 import { Button } from '../components/ui/button';
 import { supabase, type Comment } from './lib/supabase';
 import { toast, Toaster } from 'sonner';
+import { LpMarketAdmin } from '../components/admin/LpMarketAdmin';
 
 export function AdminApp() {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -12,6 +13,7 @@ export function AdminApp() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [stats, setStats] = useState({ total: 0, today: 0, totalLikes: 0 });
   const [filterTrack, setFilterTrack] = useState('');
+  const [activeView, setActiveView] = useState<'board' | 'market'>('board');
 
   // Admin password - Change this!
   const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
@@ -218,143 +220,172 @@ export function AdminApp() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Comments</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <Music2 className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Today</p>
-                <p className="text-3xl font-bold text-green-600 mt-1">{stats.today}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Likes</p>
-                <p className="text-3xl font-bold text-red-600 mt-1">{stats.totalLikes}</p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <Heart className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveView('board')}
+            className={`rounded-2xl px-4 py-2 text-sm ${
+              activeView === 'board'
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-700 border border-gray-200'
+            }`}
+          >
+            커뮤니티 관리
+          </button>
+          <button
+            onClick={() => setActiveView('market')}
+            className={`rounded-2xl px-4 py-2 text-sm ${
+              activeView === 'market'
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-700 border border-gray-200'
+            }`}
+          >
+            LP 데이터
+          </button>
         </div>
 
-        {/* Actions Bar */}
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 mb-6">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="flex-1 w-full sm:w-auto">
-              <input
-                type="text"
-                value={filterTrack}
-                onChange={(e) => setFilterTrack(e.target.value)}
-                placeholder="Filter by author or message..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={fetchComments}
-                disabled={isLoading}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button
-                onClick={handleDeleteAll}
-                variant="outline"
-                size="sm"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete All
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Comments List */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="font-semibold text-gray-900">
-              Comments ({filteredComments.length})
-            </h2>
-          </div>
-          
-          <div className="divide-y divide-gray-200">
-            {isLoading ? (
-              <div className="text-center py-12">
-                <RefreshCw className="w-12 h-12 text-gray-300 mx-auto mb-3 animate-spin" />
-                <p className="text-sm text-gray-500">Loading comments...</p>
-              </div>
-            ) : filteredComments.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-sm text-gray-500">
-                  {filterTrack ? 'No comments match your filter' : 'No comments found'}
-                </p>
-              </div>
-            ) : (
-              filteredComments.map((comment) => (
-                <div key={comment.id} className="p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                          {comment.author[0].toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{comment.author}</p>
-                          <p className="text-xs text-gray-500">{formatDate(comment.created_at)}</p>
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm text-gray-800 whitespace-pre-wrap break-words mb-2">
-                        {comment.message}
-                      </p>
-                      
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Heart className={`w-3 h-3 ${comment.likes > 0 ? 'fill-red-500 text-red-500' : ''}`} />
-                          {comment.likes}
-                        </span>
-                        <span className="font-mono">ID: {comment.id.slice(0, 8)}...</span>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      onClick={() => handleDelete(comment.id)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+        {activeView === 'board' ? (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Comments</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Music2 className="w-6 h-6 text-blue-600" />
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Today</p>
+                    <p className="text-3xl font-bold text-green-600 mt-1">{stats.today}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Likes</p>
+                    <p className="text-3xl font-bold text-red-600 mt-1">{stats.totalLikes}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <Heart className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Actions Bar */}
+            <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                <div className="flex-1 w-full sm:w-auto">
+                  <input
+                    type="text"
+                    value={filterTrack}
+                    onChange={(e) => setFilterTrack(e.target.value)}
+                    placeholder="Filter by author or message..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={fetchComments}
+                    disabled={isLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                  <Button
+                    onClick={handleDeleteAll}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete All
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Comments List */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-4 border-b border-gray-200 bg-gray-50">
+                <h2 className="font-semibold text-gray-900">
+                  Comments ({filteredComments.length})
+                </h2>
+              </div>
+              
+              <div className="divide-y divide-gray-200">
+                {isLoading ? (
+                  <div className="text-center py-12">
+                    <RefreshCw className="w-12 h-12 text-gray-300 mx-auto mb-3 animate-spin" />
+                    <p className="text-sm text-gray-500">Loading comments...</p>
+                  </div>
+                ) : filteredComments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-sm text-gray-500">
+                      {filterTrack ? 'No comments match your filter' : 'No comments found'}
+                    </p>
+                  </div>
+                ) : (
+                  filteredComments.map((comment) => (
+                    <div key={comment.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                              {comment.author[0].toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{comment.author}</p>
+                              <p className="text-xs text-gray-500">{formatDate(comment.created_at)}</p>
+                            </div>
+                          </div>
+                          
+                          <p className="text-sm text-gray-800 whitespace-pre-wrap break-words mb-2">
+                            {comment.message}
+                          </p>
+                          
+                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Heart className={`w-3 h-3 ${comment.likes > 0 ? 'fill-red-500 text-red-500' : ''}`} />
+                              {comment.likes}
+                            </span>
+                            <span className="font-mono">ID: {comment.id.slice(0, 8)}...</span>
+                          </div>
+                        </div>
+                        
+                        <Button
+                          onClick={() => handleDelete(comment.id)}
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <LpMarketAdmin />
+        )}
       </div>
     </div>
   );

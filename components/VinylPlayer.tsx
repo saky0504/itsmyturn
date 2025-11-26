@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, PanInfo, useAnimationControls } from 'framer-motion';
 // ImageWithFallback 제거 (직접 이미지 처리로 변경)
-import { Play, Pause, SkipBack, SkipForward, Search, Info, Music, MessageCircle } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Search, Info, Music, MessageCircle, ShoppingBag } from 'lucide-react';
 import { Button } from './ui/button';
 import { useIsMobile } from './ui/use-mobile';
 import { toast } from 'sonner';
 import { CommunityBoard } from './CommunityBoard';
+import { useNavigate } from 'react-router-dom';
 // Supabase 관련 import 제거 (Internet Archive 직접 사용으로 불필요)
 // Capacitor Native Features (임시 비활성화 - Vercel 빌드 에러 해결용)
 // import { 
@@ -59,8 +60,6 @@ export function VinylPlayer() {
   const [showSearch, setShowSearch] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
-  // localStorage를 사용해 방문 기록 저장 (자동재생 비활성화로 단순화)
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAudioReady, setIsAudioReady] = useState(false); // 오디오 준비 상태 추가
   const [preloadedTracks, setPreloadedTracks] = useState<Map<string, HTMLAudioElement>>(new Map());
@@ -74,6 +73,7 @@ export function VinylPlayer() {
   const userPausedRef = useRef<boolean>(false); // 🎯 사용자가 직접 일시정지 했는지 여부
   const retryCountRef = useRef<number>(0); // 🔄 재시도 횟수
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   
   // 🚀 Web Worker 초기화 (음원 로딩을 메인 스레드에서 분리)
   useEffect(() => {
@@ -653,8 +653,6 @@ export function VinylPlayer() {
         }, 2000); // 2초 후 시작
       }
       
-      // 첫 로딩 완료 플래그 업데이트
-      setIsFirstLoad(false);
       setIsInitialLoading(false);
       
     } catch (error) {
@@ -801,16 +799,23 @@ export function VinylPlayer() {
       setIsLoading(false);
       setIsAudioReady(true); // 오디오가 재생 준비 완료
       
-      // 🚀 음원 다운로드 완료 시 자동재생 (사용자 요청) - 조건 단순화
-      if (audio && !isPlaying && audio.readyState >= 2) {
-        console.log('🎵 Audio ready - attempting smart auto-play');
-        audio.play().then(() => {
-          console.log('✅ Smart auto-play successful');
-          setIsPlaying(true);
-        }).catch((error: any) => {
-          console.log('⚠️ Smart auto-play failed (normal):', error.name);
-          // 자동재생 실패는 정상적인 동작 (사용자 상호작용 필요)
-        });
+      if (
+        audio &&
+        shouldAutoPlayRef.current &&
+        audio.readyState >= 2
+      ) {
+        console.log('🎵 Auto-resume requested - attempting playback');
+        audio
+          .play()
+          .then(() => {
+            console.log('✅ Auto-resume successful');
+            setIsPlaying(true);
+            shouldAutoPlayRef.current = false;
+          })
+          .catch((error: any) => {
+            console.log('⚠️ Auto-resume failed (normal):', error.name);
+            shouldAutoPlayRef.current = false;
+          });
       }
     };
     
@@ -826,7 +831,7 @@ export function VinylPlayer() {
       console.log('Track ended');
       setIsPlaying(false);
       setCurrentTime(0);
-      handleNextTrack();
+      handleNextTrack(true);
       
       // ⭐ Request review after track ends (if eligible)
       requestReview();
@@ -1135,22 +1140,7 @@ export function VinylPlayer() {
             shouldAutoPlayRef.current = false; // 사용 후 리셋
             console.log('🎵 Auto-play enabled (was playing before track change)');
           }
-          // 2. 첫 곡 로딩 시 - 자동재생 활성화 (사용자 요청)
-          else if (isFirstLoad && currentTrackIndex === 0) {
-            // 첫 트랙도 자동재생으로 시작
-            shouldAutoPlay = true;
-            console.log('🎵 First track loaded - auto-play enabled');
-            
-            // isFirstLoad 플래그 업데이트
-            setIsFirstLoad(false);
-            
-            // 방문 기록 저장 (선택사항)
-            try {
-              localStorage.setItem('vinylplayer_visited', 'true');
-            } catch (error) {
-              console.warn('Failed to save visit record:', error);
-            }
-          }
+        // 2. 브라우저 정책 준수를 위해 초기에는 자동재생 시도하지 않음
           
           // 자동재생 시도
           if (shouldAutoPlay && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {
@@ -1319,6 +1309,10 @@ export function VinylPlayer() {
   }, [currentTrack]);
 
   // 키보드 볼륨 조절 - 안전한 처리
+  const handleOpenMarket = () => {
+    hapticMedium();
+    navigate('/market');
+  };
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // 입력 필드가 활성화되지 않았을 때만 볼륨 조절
@@ -1497,6 +1491,7 @@ export function VinylPlayer() {
         console.log('⏸️ Pausing...');
         // 🎯 사용자가 직접 일시정지 버튼을 눌렀음을 표시
         userPausedRef.current = true;
+        shouldAutoPlayRef.current = false;
         
         // 🎮 Haptic feedback for pause
         await hapticMedium();
@@ -1671,13 +1666,13 @@ export function VinylPlayer() {
     }
   };
 
-  const handlePreviousTrack = () => {
+  const handlePreviousTrack = (autoContinue: boolean = false) => {
     if (tracks.length === 0) return;
     
     // 🎮 Haptic feedback for track change
     hapticHeavy();
     
-    const wasPlaying = isPlaying;
+    const wasPlaying = autoContinue ? true : isPlaying;
     shouldAutoPlayRef.current = wasPlaying;
     setIsPlaying(false);
     
@@ -1695,13 +1690,13 @@ export function VinylPlayer() {
     }
   };
 
-  const handleNextTrack = () => {
+  const handleNextTrack = (autoContinue: boolean = false) => {
     if (tracks.length === 0) return;
     
     // 🎮 Haptic feedback for track change
     hapticHeavy();
     
-    const wasPlaying = isPlaying;
+    const wasPlaying = autoContinue ? true : isPlaying;
     shouldAutoPlayRef.current = wasPlaying;
     setIsPlaying(false);
     
@@ -2212,25 +2207,39 @@ export function VinylPlayer() {
       ) : (
         /* 데스크톱 레이아웃 */
         <div className="max-w-4xl mx-auto relative">
-          {/* Community Board Button - Desktop (aligned with content) */}
-          <button
-            onClick={() => setShowBoard(true)}
-            className="absolute top-[85px] -right-[15px] z-50 group"
-            aria-label="Open Community Board"
-          >
-            <div className="relative">
-              {/* Background circle with opacity and subtle shadow */}
-              <div 
-                className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
-                style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
-              />
-              
-              {/* Message bubble icon */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
+          {/* Floating action buttons */}
+          <div className="absolute top-[85px] -right-[15px] z-50 flex items-center gap-3">
+            <button
+              onClick={handleOpenMarket}
+              className="group"
+              aria-label="Open LP Market comparison"
+            >
+              <div className="relative">
+                <div
+                  className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
+                  style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
+                />
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <ShoppingBag className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
+            <button
+              onClick={() => setShowBoard(true)}
+              className="group"
+              aria-label="Open Community Board"
+            >
+              <div className="relative">
+                <div
+                  className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
+                  style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
+                />
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
+                </div>
+              </div>
+            </button>
+          </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-[104px] items-center">
             {/* LP 턴테이블 */}
