@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { CommunityBoard } from '../../../components/CommunityBoard';
+import { MarketHeader } from '../../components/market/MarketHeader';
 import {
   LP_CATEGORY_TREE,
   LP_FILTER_DIMENSIONS,
@@ -52,6 +53,7 @@ const getSparklinePoints = (product: LpProduct) => {
 
 export function LpPriceList() {
   const { products } = useLpProducts();
+  const [searchParams] = useSearchParams();
   const [colorFilter, setColorFilter] = useState('All');
   const [editionFilter, setEditionFilter] = useState('All');
   const [countryFilter, setCountryFilter] = useState('All');
@@ -60,8 +62,15 @@ export function LpPriceList() {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const navigate = useNavigate();
 
+  const searchQuery = searchParams.get('search') || '';
+
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      const matchesSearch =
+        !searchQuery ||
+        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesColor =
         colorFilter === 'All' ||
         product.color === colorFilter ||
@@ -71,9 +80,9 @@ export function LpPriceList() {
         product.edition === editionFilter ||
         product.editionVariants.includes(editionFilter);
       const matchesCountry = countryFilter === 'All' || product.country === countryFilter;
-      return matchesColor && matchesEdition && matchesCountry;
+      return matchesSearch && matchesColor && matchesEdition && matchesCountry;
     });
-  }, [products, colorFilter, editionFilter, countryFilter]);
+  }, [products, searchQuery, colorFilter, editionFilter, countryFilter]);
 
   const sortedProducts = useMemo(() => {
     return [...filteredProducts].sort((a, b) => {
@@ -129,7 +138,8 @@ export function LpPriceList() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 relative">
+      <div className="min-h-screen bg-background relative">
+        <MarketHeader />
         <div className="hidden md:block fixed top-[85px] left-1/2 -translate-x-1/2 z-40 w-full max-w-4xl px-4">
           <div className="flex justify-end gap-3">{renderActionButtons()}</div>
         </div>
@@ -140,14 +150,6 @@ export function LpPriceList() {
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
         <header className="space-y-6">
-          <div className="flex items-center gap-3 text-sm text-gray-500">
-            <ArrowLeft className="w-4 h-4" />
-            <Link to="/" className="hover:text-gray-800 transition-colors">
-              돌아가기
-            </Link>
-            <span>•</span>
-            <span>LP 마켓 인텔리전스</span>
-          </div>
 
           <div className="rounded-[32px] border border-white/40 bg-white/80 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur-3xl p-8 space-y-6">
             <div className="flex flex-col gap-3">

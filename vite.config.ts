@@ -12,7 +12,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 3000,
     host: true, // 모바일 접근을 위해 네트워크에 노출
     open: true,
   },
@@ -21,12 +21,20 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // 프로덕션에서는 소스맵 비활성화로 빌드 속도 향상
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
         admin: path.resolve(__dirname, 'admin.html'),
       },
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['framer-motion', 'lucide-react'],
+          'vinyl-player': ['./components/VinylPlayer'],
+        },
+      },
     },
+    chunkSizeWarningLimit: 1000,
   },
 })
