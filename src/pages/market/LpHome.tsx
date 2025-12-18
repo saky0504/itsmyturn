@@ -303,7 +303,7 @@ export function LpHome() {
             <div className="flex items-center justify-between gap-6">
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-foreground">
-                  {debouncedQuery ? `Search results` : 'All albums'}s
+                  {debouncedQuery ? `Search results` : 'All albums'}
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -330,7 +330,7 @@ export function LpHome() {
           </div>
 
           {error ? (
-            <div className="text-center py-16 text-red-500">
+            <div className="text-center py-16 text-blue-600 font-bold">
               <p>An error occurred while loading data.</p>
               <p className="text-sm mt-2">{error.message}</p>
             </div>

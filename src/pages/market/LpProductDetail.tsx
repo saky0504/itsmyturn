@@ -38,16 +38,16 @@ export function LpProductDetail() {
 
   if (!product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted">
-        <div className="rounded-3xl bg-card p-10 shadow-xl text-center space-y-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="rounded-xl bg-card p-10 shadow-sm border border-border text-center space-y-4 max-w-md w-full">
           <AlertTriangle className="w-10 h-10 text-muted-foreground mx-auto" />
           <div className="space-y-2">
-            <h1 className="text-2xl text-foreground">상품을 찾을 수 없습니다</h1>
+            <h1 className="text-xl font-bold text-foreground">상품을 찾을 수 없습니다</h1>
             <p className="text-muted-foreground text-sm">
               URL을 다시 확인하거나 리스트 페이지에서 다시 선택해 주세요.
             </p>
           </div>
-          <Button asChild className="rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button asChild className="rounded-xl w-full bg-primary text-primary-foreground hover:bg-primary/90">
             <Link to="/market">LP 가격 비교 홈으로 이동</Link>
           </Button>
         </div>
@@ -58,25 +58,26 @@ export function LpProductDetail() {
   return (
     <div className="min-h-screen bg-background">
       <MarketHeader />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" style={{ paddingRight: 'calc(var(--scrollbar-width, 0px) + clamp(1rem, 4vw, 2rem))' }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" style={{ paddingRight: 'calc(var(--scrollbar-width, 0px) + clamp(1rem, 4vw, 2rem))' }}>
         {/* 마켓으로 돌아가기 버튼 */}
         <Link
           to="/market"
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-4 h-4" />
           <span>마켓으로 돌아가기</span>
         </Link>
 
-        <header className="rounded-xl border border-border bg-card shadow-sm p-5 space-y-4">
-          <div className="flex flex-col md:flex-row gap-6">
+        {/* 헤더 섹션 */}
+        <header className="rounded-xl border border-border bg-card shadow-sm p-6 lg:p-8 space-y-6">
+          <div className="flex flex-col md:flex-row gap-8">
             {/* LP 이미지 */}
             <div className="flex-shrink-0 w-full md:w-80 lg:w-96 mx-auto md:mx-0">
-              <div className="aspect-square rounded-xl overflow-hidden bg-muted shadow-lg">
+              <div className="aspect-square rounded-xl overflow-hidden bg-muted shadow-sm border border-border/50">
                 <img
                   src={product.cover || '/images/DJ_duic.jpg'}
                   alt={product.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                   loading="eager"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
@@ -89,44 +90,53 @@ export function LpProductDetail() {
             </div>
 
             {/* 제품 정보 */}
-            <div className="flex-1 flex flex-col gap-4">
+            <div className="flex-1 flex flex-col gap-5">
               <div className="flex flex-wrap items-center gap-2">
                 {product.discogsId && (
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted text-muted-foreground">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-secondary-foreground border border-border/50">
                     Discogs #{product.discogsId}
                   </span>
                 )}
                 {product.barcode && (
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted text-muted-foreground">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-secondary-foreground border border-border/50">
                     EAN {product.barcode}
                   </span>
                 )}
                 {product.category && (
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted text-muted-foreground">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                     {product.category.toUpperCase()}
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap items-baseline gap-2 sm:gap-3 mt-2">
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-[1.3]">{product.title}</h1>
+
+              <div className="space-y-2">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight tracking-tight">{product.title}</h1>
                 {product.artist && (
-                  <span className="text-sm font-normal text-muted-foreground mt-2">· {product.artist}</span>
+                  <div className="text-lg font-medium text-muted-foreground">
+                    {product.artist}
+                  </div>
                 )}
               </div>
+
               {product.summary && (
-                <p className="text-sm font-normal text-muted-foreground max-w-3xl leading-[1.6] mt-3">{product.summary}</p>
+                <div className="prose prose-sm text-muted-foreground max-w-none leading-relaxed border-t border-border pt-4 mt-2">
+                  {product.summary}
+                </div>
               )}
             </div>
           </div>
         </header>
 
         {/* 가격 비교 섹션 */}
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-6">
-          <div className="flex items-center justify-between">
+        <section className="rounded-xl border border-border bg-card p-6 lg:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
             <div>
-              <h2 className="text-lg font-bold text-foreground">가격 비교</h2>
-              <p className="text-xs font-normal text-muted-foreground mt-1">
-                배송비 정책, 쿠폰, 카드 청구할인을 반영한 실결제 예상 금액
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                가격 비교
+                <span className="text-sm font-normal text-muted-foreground ml-1">({sortedOffers.length}개 판매처)</span>
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1.5">
+                배송비 정책, 쿠폰 등을 고려한 실질적인 구매 혜택을 비교해보세요.
               </p>
             </div>
           </div>
@@ -134,18 +144,18 @@ export function LpProductDetail() {
           {sortedOffers.length > 0 ? (
             <>
               {/* 데스크탑 테이블 */}
-              <div className="hidden md:block overflow-hidden rounded-xl border border-border bg-muted/50">
+              <div className="hidden md:block overflow-hidden rounded-xl border border-border">
                 <table className="w-full text-sm text-foreground">
-                  <thead className="bg-muted text-xs uppercase tracking-[0.05em] text-muted-foreground font-medium">
+                  <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                     <tr>
-                      <th className="px-4 py-2.5 text-left">판매처</th>
-                      <th className="px-4 py-2.5 text-left">채널</th>
-                      <th className="px-4 py-2.5 text-right">기준가</th>
-                      <th className="px-4 py-2.5 text-left">배송비 / 정책</th>
-                      <th className="px-4 py-2.5 text-right">실구매가</th>
+                      <th className="px-6 py-4 text-left">판매처</th>
+                      <th className="px-6 py-4 text-left">채널</th>
+                      <th className="px-6 py-4 text-right">기준가</th>
+                      <th className="px-6 py-4 text-left">배송정책</th>
+                      <th className="px-6 py-4 text-right">최종 혜택가</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-border bg-card">
                     {sortedOffers.map((offer) => {
                       const channel = getChannelById(offer.channelId);
                       const finalPrice = calculateOfferFinalPrice(offer);
@@ -153,18 +163,18 @@ export function LpProductDetail() {
                       return (
                         <tr
                           key={offer.id}
-                          className="border-t border-border bg-card hover:bg-muted/50 transition-colors duration-150 cursor-pointer"
+                          className="hover:bg-muted/30 transition-colors duration-200 cursor-pointer group"
                           onClick={() => window.open(affiliateUrl, '_blank', 'noopener,noreferrer')}
                         >
-                          <td className="px-4 py-3">
+                          <td className="px-6 py-4">
                             <div className="flex flex-col">
-                              <span className="text-sm font-semibold text-foreground">{offer.vendorName}</span>
-                              {offer.notes && <span className="text-xs text-muted-foreground mt-0.5 font-normal">{offer.notes}</span>}
+                              <span className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">{offer.vendorName}</span>
+                              {offer.notes && <span className="text-xs text-muted-foreground mt-1">{offer.notes}</span>}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-6 py-4">
                             <div
-                              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80"
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md bg-muted/50 hover:bg-muted transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 window.location.href = `/market/channels/${offer.channelId}`;
@@ -174,32 +184,26 @@ export function LpProductDetail() {
                               <ArrowUpRight className="w-3 h-3" />
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="text-sm font-normal text-muted-foreground">
-                              {formatCurrency(offer.basePrice)}
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-sm text-muted-foreground line-through decoration-border mr-2 opacity-70">
+                              {offer.basePrice > finalPrice ? formatCurrency(offer.basePrice) : ''}
+                            </span>
+                            <span className="text-sm text-foreground font-medium">
+                              {offer.basePrice > finalPrice ? '' : formatCurrency(offer.basePrice)}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="text-xs font-normal text-muted-foreground">
-                              {(() => {
-                                const policy = offer.shippingPolicy || '';
-                                if (policy.includes('무료') && policy.includes('만원')) {
-                                  // "5만원 이상 무료배송" 형식 추출
-                                  const match = policy.match(/(\d+만원\s*이상)/);
-                                  return match ? `${match[1]} 구매 시` : policy.split('/')[0].trim();
-                                }
-                                if (policy.includes('무료')) {
-                                  return '';
-                                }
-                                return policy;
-                              })()}
-                            </div>
-                            <div className="text-xs font-normal text-muted-foreground mt-0.5">
-                              배송비 {offer.shippingFee ? formatCurrency(offer.shippingFee) : '무료'}
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1">
+                              <div className="text-xs text-foreground">
+                                {offer.shippingFee ? `배송비 ${formatCurrency(offer.shippingFee)}` : '무료배송'}
+                              </div>
+                              {offer.shippingPolicy && (
+                                <div className="text-[11px] text-muted-foreground">{offer.shippingPolicy}</div>
+                              )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="text-base sm:text-lg font-bold text-foreground">
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-lg font-bold text-primary">
                               {formatCurrency(finalPrice)}
                             </span>
                           </td>
@@ -211,7 +215,7 @@ export function LpProductDetail() {
               </div>
 
               {/* 모바일 카드 리스트 */}
-              <div className="md:hidden space-y-3">
+              <div className="md:hidden space-y-4">
                 {sortedOffers.map((offer) => {
                   const channel = getChannelById(offer.channelId);
                   const finalPrice = calculateOfferFinalPrice(offer);
@@ -219,19 +223,20 @@ export function LpProductDetail() {
                   return (
                     <div
                       key={offer.id}
-                      className="rounded-xl border border-border bg-card p-4 space-y-3 cursor-pointer hover:bg-muted/50 transition-colors duration-150"
+                      className="rounded-xl border border-border bg-card p-5 space-y-4 cursor-pointer active:scale-[0.99] transition-transform duration-200 shadow-sm"
                       onClick={() => window.open(affiliateUrl, '_blank', 'noopener,noreferrer')}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-foreground text-sm">{offer.vendorName}</div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-lg font-bold text-foreground">{offer.vendorName}</div>
                           {offer.notes && (
-                            <div className="text-xs font-normal text-muted-foreground mt-0.5">{offer.notes}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{offer.notes}</div>
                           )}
                         </div>
                         {offer.badge && (
                           <span
-                            className={`flex-shrink-0 inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold bg-muted text-muted-foreground`}
+                            className={`flex-shrink-0 inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold ${offer.badge === 'lowest' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+                              }`}
                           >
                             {offer.badge === 'lowest' ? '최저가' : offer.badge === 'fresh' ? '신규' : '단독'}
                           </span>

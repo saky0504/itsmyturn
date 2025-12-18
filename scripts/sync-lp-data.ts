@@ -164,7 +164,8 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
     if (identifier.ean) {
       searchUrl = `https://www.yes24.com/Product/Search?domain=ALL&query=${encodeURIComponent(identifier.ean)}`;
     } else if (identifier.title && identifier.artist) {
-      const searchQuery = `${identifier.artist} ${identifier.title}`;
+      // 검색 정확도를 위해 'LP' 키워드 추가
+      const searchQuery = `${identifier.artist} ${identifier.title} LP`;
       searchUrl = `https://www.yes24.com/Product/Search?domain=ALL&query=${encodeURIComponent(searchQuery)}`;
     } else {
       return null;
@@ -173,90 +174,87 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
     const html = await fetchWithRetry(searchUrl);
     const $ = cheerio.load(html);
 
-    // YES24 검색 결과에서 첫 번째 제품 찾기
-    // 다양한 선택자 시도
-    let firstItem = $('.goodsList_item').first();
-    if (firstItem.length === 0) {
-      firstItem = $('.itemUnit').first();
-    }
-    if (firstItem.length === 0) {
-      firstItem = $('.yesUI_list li').first(); // YES24 리스트 아이템
-    }
-    if (firstItem.length === 0) {
-      firstItem = $('li[class*="item"], li[class*="goods"]').first();
-    }
-    if (firstItem.length === 0) {
-      firstItem = $('[class*="goods"], [class*="item"], [class*="product"]').first();
-    }
-    if (firstItem.length === 0) {
-      // 검색 결과가 없거나 다른 페이지 구조인 경우
-      console.log(`[YES24] No products found for: ${identifier.ean || identifier.title}`);
-      console.log(`[YES24] Search URL: ${searchUrl}`);
-      // 페이지 제목 확인
-      const pageTitle = $('title').text();
-      if (pageTitle.includes('검색') || pageTitle.includes('Search')) {
-        console.log(`[YES24] 검색 페이지는 로드되었지만 결과가 없습니다.`);
-      }
+    // 검색 결과 리스트 아이템 찾기 (여러 선택자 호환)
+    let items = $('.goodsList_item, .itemUnit, .yesUI_list li, li[class*="item"], li[class*="goods"]');
+
+    if (items.length === 0) {
+      // console.log(`[YES24] No products found for: ${identifier.ean || identifier.title}`);
       return null;
     }
 
-    // 가격 추출 (여러 선택자 시도)
-    let priceText = firstItem.find('.price').first().text().trim();
-    if (!priceText) {
-      priceText = firstItem.find('.yes_price').first().text().trim();
-    }
-    if (!priceText) {
-      priceText = firstItem.find('[class*="price"]').first().text().trim();
-    }
-    if (!priceText) {
-      // 숫자만 포함된 텍스트 찾기
-      const allText = firstItem.text();
-      const priceMatch = allText.match(/[\d,]+원/);
-      if (priceMatch) {
-        priceText = priceMatch[0];
+    let targetItem = null;
+    let targetPrice = 0;
+    let targetUrl = '';
+
+    // 결과 순회하며 LP 찾기
+    for (let i = 0; i < Math.min(items.length, 5); i++) {
+      const item = $(items[i]);
+      const title = item.find('.goods_name a, .gd_name, a').first().text().trim();
+      const link = item.find('a').first().attr('href');
+
+      // 가격 추출
+      let priceText = item.find('.price, .yes_price, [class*="price"]').first().text().trim();
+      if (!priceText) {
+        const match = item.text().match(/[\d,]+원/);
+        if (match) priceText = match[0];
       }
+      const price = extractNumber(priceText);
+
+      if (!title || !link || price === 0) continue;
+
+      // 검증 로직
+      const lowerTitle = title.toLowerCase();
+
+      // 1. CD 키워드가 있고 LP 키워드가 없으면 스킵 (가장 흔한 오류)
+      // 단, "CD/LP" 같이 둘다 있는 경우는 LP일 수 있음
+      const hasCD = lowerTitle.includes('cd') || lowerTitle.includes('compact disc');
+      const hasLP = lowerTitle.includes('lp') || lowerTitle.includes('vinyl') || lowerTitle.includes('바이닐');
+
+      if (hasCD && !hasLP) {
+        // console.log(`[YES24] Skip CD item: ${title}`);
+        continue;
+      }
+
+      // 2. 제목이나 카테고리에 LP/Vinyl 표시 확인 (EAN 검색일 경우는 완화)
+      // EAN 검색이 아닌 경우 엄격하게 체크
+      if (!identifier.ean) {
+        if (!hasLP) {
+          // console.log(`[YES24] Skip non-LP item: ${title}`);
+          continue;
+        }
+
+        // 유사도 체크
+        if (identifier.title) {
+          const similarity = calculateSimilarity(identifier.title, title);
+          if (similarity < 0.2) continue;
+        }
+      }
+
+      // 여기까지 왔으면 유효한 LP로 간주
+      targetItem = item;
+      targetPrice = price;
+      targetUrl = link.startsWith('http') ? link : `https://www.yes24.com${link}`;
+      break; // 찾았으면 종료
     }
 
-    const price = extractNumber(priceText);
-    if (price === 0) {
-      console.log(`[YES24] Could not extract price from: ${priceText}`);
-      console.log(`[YES24] Item HTML: ${firstItem.html()?.substring(0, 300)}`);
+    if (!targetItem) {
+      // console.log(`[YES24] No matching LP found in results for ${identifier.title}`);
       return null;
     }
 
-    console.log(`[YES24] Found price: ${price}원 for ${identifier.ean || identifier.title}`);
-
-    // 제품 URL 추출
-    const productLink = firstItem.find('a').first().attr('href');
-    const productUrl = productLink
-      ? (productLink.startsWith('http') ? productLink : `https://www.yes24.com${productLink}`)
-      : searchUrl;
-
-    // 유사도 검증 (EAN 검색이 아닌 경우)
-    if (!identifier.ean && identifier.title) {
-      const scrapedTitle = firstItem.find('.goods_name a').text().trim() ||
-        firstItem.find('.gd_name').text().trim() ||
-        firstItem.find('a').first().text().trim();
-
-      const similarity = calculateSimilarity(identifier.title, scrapedTitle);
-
-      if (similarity < 0.2) { // 20% 미만이면 불일치로 간주
-        console.log(`[YES24] ❌ Low similarity (${similarity.toFixed(2)}), discarding: "${identifier.title}" vs "${scrapedTitle}"`);
-        return null;
-      }
-    }
+    console.log(`[YES24] Found LP: ${targetPrice}원 - ${targetItem.find('.goods_name a').text().trim().substring(0, 30)}...`);
 
     // 재고 확인
-    const stockText = firstItem.find('.stock, [class*="stock"]').text().toLowerCase();
+    const stockText = targetItem.find('.stock, [class*="stock"]').text().toLowerCase();
     const inStock = !stockText.includes('품절') && !stockText.includes('out of stock');
 
     return {
       vendorName: 'YES24',
       channelId: 'mega-book',
-      basePrice: price,
+      basePrice: targetPrice,
       shippingFee: 0,
       shippingPolicy: '5만원 이상 무료배송',
-      url: productUrl,
+      url: targetUrl,
       inStock: inStock,
       affiliateCode: 'itsmyturn',
       affiliateParamKey: 'Acode',
@@ -277,7 +275,8 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
     if (identifier.ean) {
       searchUrl = `https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=All&KeyWord=${encodeURIComponent(identifier.ean)}`;
     } else if (identifier.title && identifier.artist) {
-      const searchQuery = `${identifier.artist} ${identifier.title}`;
+      // 검색 정확도를 위해 'LP' 키워드 추가
+      const searchQuery = `${identifier.artist} ${identifier.title} LP`;
       searchUrl = `https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=All&KeyWord=${encodeURIComponent(searchQuery)}`;
     } else {
       return null;
@@ -286,63 +285,73 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
     const html = await fetchWithRetry(searchUrl);
     const $ = cheerio.load(html);
 
-    // 알라딘 검색 결과에서 첫 번째 제품 찾기
-    let firstItem = $('.ss_book_box').first();
-    if (firstItem.length === 0) {
-      firstItem = $('.bookBox').first();
-    }
-    if (firstItem.length === 0) {
-      firstItem = $('[class*="book"], [class*="item"], [class*="product"]').first();
-    }
-    if (firstItem.length === 0) {
-      console.log(`[알라딘] No products found for: ${identifier.ean || identifier.title}`);
-      console.log(`[알라딘] Search URL: ${searchUrl}`);
+    // 알라딘 검색 결과에서 아이템 리스트 찾기
+    let items = $('.ss_book_box, .bookBox, [class*="book"], [class*="item"], [class*="product"]');
+
+    if (items.length === 0 || $('#Search3_Result').text().includes('검색결과가 없습니다')) {
+      // console.log(`[알라딘] No products found for: ${identifier.ean || identifier.title}`);
       return null;
     }
 
-    // 가격 추출
-    let priceText = firstItem.find('.bo_price').first().text().trim();
-    if (!priceText) {
-      priceText = firstItem.find('.price').first().text().trim();
-    }
-    if (!priceText) {
-      priceText = firstItem.find('[class*="price"]').first().text().trim();
-    }
-    if (!priceText) {
-      const allText = firstItem.text();
-      const priceMatch = allText.match(/[\d,]+원/);
-      if (priceMatch) {
-        priceText = priceMatch[0];
+    let targetItem = null;
+    let targetPrice = 0;
+    let targetUrl = '';
+
+    // 결과 순회하며 LP 찾기
+    for (let i = 0; i < Math.min(items.length, 5); i++) {
+      const item = $(items[i]);
+      const title = item.find('.bo3, a.bo3, a').first().text().trim();
+      const link = item.find('a').first().attr('href');
+
+      // 가격 추출
+      let priceText = item.find('.bo_price, .price, [class*="price"]').first().text().trim();
+      if (!priceText) {
+        const match = item.text().match(/[\d,]+원/);
+        if (match) priceText = match[0];
       }
+      const price = extractNumber(priceText);
+
+      if (!title || !link || price === 0) continue;
+
+      // 검증 로직
+      const lowerTitle = title.toLowerCase();
+
+      // 1. CD 표기가 있고 LP 표기가 없으면 스킵
+      // (알라딘은 구분이 명확한 편이지만 콤보 상품 주의)
+      const hasCD = lowerTitle.includes('cd') || lowerTitle.includes('compact disc');
+      const hasLP = lowerTitle.includes('lp') || lowerTitle.includes('vinyl') || lowerTitle.includes('바이닐');
+
+      if (hasCD && !hasLP) {
+        // console.log(`[알라딘] Skip CD item: ${title}`);
+        continue;
+      }
+
+      // 2. 제목이나 카테고리에 LP/Vinyl 표시 확인 (EAN 검색일 경우는 완화)
+      if (!identifier.ean) {
+        if (!hasLP) {
+          // console.log(`[알라딘] Skip non-LP item: ${title}`);
+          continue;
+        }
+
+        // 유사도 체크
+        if (identifier.title) {
+          const similarity = calculateSimilarity(identifier.title, title);
+          if (similarity < 0.2) continue;
+        }
+      }
+
+      targetItem = item;
+      targetPrice = price;
+      targetUrl = link.startsWith('http') ? link : `https://www.aladin.co.kr${link}`;
+      break;
     }
 
-    const price = extractNumber(priceText);
-    if (price === 0) {
-      console.log(`[알라딘] Could not extract price from: ${priceText}`);
+    if (!targetItem) {
+      // console.log(`[알라딘] No matching LP found in results for ${identifier.title}`);
       return null;
     }
 
-    console.log(`[알라딘] Found price: ${price}원 for ${identifier.ean || identifier.title}`);
-
-    // 제품 URL 추출
-    const productLink = firstItem.find('a').first().attr('href');
-    const productUrl = productLink
-      ? (productLink.startsWith('http') ? productLink : `https://www.aladin.co.kr${productLink}`)
-      : searchUrl;
-
-    // 유사도 검증 (EAN 검색이 아닌 경우)
-    if (!identifier.ean && identifier.title) {
-      const scrapedTitle = firstItem.find('.bo3').text().trim() ||
-        firstItem.find('a.bo3').text().trim() ||
-        firstItem.find('a').first().text().trim();
-
-      const similarity = calculateSimilarity(identifier.title, scrapedTitle);
-
-      if (similarity < 0.2) {
-        console.log(`[알라딘] ❌ Low similarity (${similarity.toFixed(2)}), discarding: "${identifier.title}" vs "${scrapedTitle}"`);
-        return null;
-      }
-    }
+    console.log(`[알라딘] Found price: ${targetPrice}원 for ${identifier.title} [${targetItem.find('.bo3').first().text().trim()}]`);
 
     // 재고 확인 (알라딘은 일반적으로 재고 있음)
     const inStock = true;
@@ -350,11 +359,13 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
     return {
       vendorName: '알라딘',
       channelId: 'mega-book',
-      basePrice: price,
+      basePrice: targetPrice,
       shippingFee: 0,
       shippingPolicy: '5만원 이상 무료배송',
-      url: productUrl,
+      url: targetUrl,
       inStock: inStock,
+      affiliateCode: 'itsmyturn',
+      affiliateParamKey: 'PartnerId', // 알라딘 파트너 ID 파라미터명 (예시)
     };
   } catch (error) {
     console.error('[알라딘] Error:', error);

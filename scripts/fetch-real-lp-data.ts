@@ -389,79 +389,105 @@ async function fetchAndStoreRealLpData() {
 
     console.log(`📊 기존 앨범 ${existingDiscogsIds.size}개 발견 (중복 방지)`);
 
-    // Discogs에서 검색 (매번 다른 결과를 위해 랜덤 페이지 사용)
-    // 기존 앨범 수에 따라 다른 페이지에서 검색하여 다양한 앨범 가져오기
-    const existingCount = existingDiscogsIds.size;
-    const randomPage = Math.floor(Math.random() * Math.max(1, Math.floor(existingCount / 20) + 5)) + 1;
-    const searchResult = await searchPopularLPs(randomPage, 20);
-    console.log(`📦 ${searchResult.results.length}개의 LP 발견 (페이지 ${randomPage})`);
+    const MAX_PAGES = 10;
+    let totalAdded = 0;
 
-    const products = [];
+    // 페이지네이션 루프 (1~10페이지)
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      console.log(`\n📄 검색 페이지 ${page}/${MAX_PAGES}...`);
 
-    // 각 릴리즈의 상세 정보 가져오기
-    let addedCount = 0;
-    let skippedCount = 0;
+      try {
+        // 검색 실행 (Vinyl 포맷, 페이지당 50개)
+        const searchResult = await searchPopularLPs(page, 50);
 
-    for (let i = 0; i < searchResult.results.length; i++) {
-      const result = searchResult.results[i];
-      const discogsId = result.id.toString();
+        if (!searchResult.results || searchResult.results.length === 0) {
+          console.log('⚠️ 더 이상 검색 결과가 없습니다.');
+          break;
+        }
 
-      // 이미 존재하는 앨범은 스킵
-      if (existingDiscogsIds.has(discogsId)) {
-        console.log(`\n[${i + 1}/${searchResult.results.length}] ${result.title} - 이미 존재 (스킵)`);
-        skippedCount++;
-        continue;
-      }
+        console.log(`📦 발견된 항목: ${searchResult.results.length}개`);
 
-      console.log(`\n[${i + 1}/${searchResult.results.length}] ${result.title} 처리 중...`);
+        const productsToAdd = [];
 
-      // 상세 정보 가져오기
-      const release = await getReleaseDetails(result.id);
+        for (const result of searchResult.results) {
+          // 중복 체크
+          if (existingDiscogsIds.has(String(result.id))) {
+            continue;
+          }
 
-      if (!release) {
-        console.warn(`⚠️  릴리즈 ${result.id} 정보를 가져올 수 없습니다. 스킵합니다.`);
-        skippedCount++;
-        continue;
-      }
+          // 포맷 필터링: CD 제외, Vinyl 필수
+          const formats = (result.format || []).map(f => f.toLowerCase());
+          const isVinyl = formats.some(f => f.includes('vinyl') || f.includes('lp') || f.includes('12"'));
+          const isCD = formats.some(f => f.includes('cd') || f.includes('compact disc'));
 
-      // 데이터 변환
-      const product = convertToLpProduct(release, i);
-      products.push(product);
+          if (!isVinyl || isCD) {
+            continue;
+          }
 
-      // Supabase에 저장
-      const { error } = await supabase
-        .from('lp_products')
-        .insert([product]);
+          try {
+            // 변환 (검색 결과 -> LpProduct)
+            // 상세 API 호출 없이 검색 결과만으로 1차 저장 (Rate Limit 회피)
+            const product = {
+              title: result.title,
+              artist: 'Unknown Artist',
+              release_date: result.year ? String(result.year) : null,
+              cover: result.cover_image || result.thumb || '/images/DJ_duic.jpg',
+              thumbnail_url: result.thumb || null,
+              format: (result.format || []).join(', ') || 'Vinyl',
+              genres: [],
+              styles: [],
+              discogs_id: String(result.id),
+              ean: result.barcode?.[0] || null,
+              description: `${result.title} (${result.year || 'Unknown'}) - ${result.country || 'Unknown'}`,
+              last_synced_at: new Date().toISOString(),
+            };
 
-      if (error) {
-        console.error(`❌ 제품 저장 실패 (${product.title}):`, error);
-        skippedCount++;
-      } else {
-        console.log(`✅ 저장 완료: ${product.title} - ${product.artist}`);
-        addedCount++;
-        // 새로 추가된 ID를 Set에 추가 (같은 배치 내 중복 방지)
-        existingDiscogsIds.add(discogsId);
-      }
+            // 제목에서 아티스트 분리
+            if (result.title.includes(' - ')) {
+              const parts = result.title.split(' - ');
+              product.artist = parts[0].trim();
+              product.title = parts.slice(1).join(' - ').trim();
+            } else {
+              product.artist = result.title; // Fallback
+            }
 
-      // Rate limit 고려하여 딜레이 추가 (Discogs API는 초당 1회 요청 제한)
-      if (i < searchResult.results.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1200)); // 1.2초 대기
+            productsToAdd.push(product);
+            existingDiscogsIds.add(String(result.id)); // 중복 방지 업데이트
+
+          } catch (err) {
+            console.error(`❌ 처리 오류 (${result.id}):`, err);
+          }
+        }
+
+        if (productsToAdd.length > 0) {
+          console.log(`💾 ${productsToAdd.length}개 신규 앨범 저장 중...`);
+
+          const { error } = await supabase
+            .from('lp_products')
+            .upsert(productsToAdd, { onConflict: 'discogs_id' });
+
+          if (error) {
+            console.error('❌ Supabase 저장 실패:', error);
+          } else {
+            console.log('✅ 저장 성공!');
+            totalAdded += productsToAdd.length;
+          }
+        } else {
+          process.stdout.write('.'); // 진행 상황 표시
+        }
+
+        // Rate Limit 보호
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+      } catch (err) {
+        console.error(`❌ 페이지 ${page} 오류:`, err);
       }
     }
 
-    console.log(`\n🎉 완료!`);
-    console.log(`  - 새로 추가된 앨범: ${addedCount}개`);
-    console.log(`  - 스킵된 앨범: ${skippedCount}개 (이미 존재하거나 오류)`);
-    console.log(`  - 총 처리된 앨범: ${products.length}개`);
+    console.log(`\n🎉 전체 완료! 총 ${totalAdded}개의 LP가 추가되었습니다.`);
 
-    return {
-      added: addedCount,
-      skipped: skippedCount,
-      total: products.length,
-      products: products,
-    };
   } catch (error) {
-    console.error('❌ 오류 발생:', error);
+    console.error('치명적인 오류 발생:', error);
     throw error;
   }
 }
