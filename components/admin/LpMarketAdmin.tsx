@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import type { LpOffer, LpProduct } from '../../src/data/lpMarket';
 import {
   LP_VENDOR_CHANNELS,
-  DEFAULT_LP_PRODUCTS,
   calculateOfferFinalPrice,
   formatCurrency,
 } from '../../src/data/lpMarket';
@@ -167,15 +166,15 @@ export function LpMarketAdmin() {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const jsonProducts = await response.json();
-      
+
       updateProducts((prev) => {
         const existingIds = new Set(prev.map(p => p.id));
         const allProducts = [...prev];
         let addedCount = 0;
         let updatedCount = 0;
-        
+
         jsonProducts.forEach((product: LpProduct) => {
           if (!existingIds.has(product.id)) {
             allProducts.push(product);
@@ -186,7 +185,7 @@ export function LpMarketAdmin() {
               const existingProduct = prev[existingIndex];
               const existingOffers = existingProduct.offers || [];
               const newOffers = [...existingOffers];
-              
+
               product.offers.forEach(newOffer => {
                 const existingOfferIndex = newOffers.findIndex(
                   o => o.vendorName === newOffer.vendorName && o.channelId === newOffer.channelId
@@ -197,7 +196,7 @@ export function LpMarketAdmin() {
                   newOffers.push(newOffer);
                 }
               });
-              
+
               allProducts[existingIndex] = {
                 ...existingProduct,
                 ...product,
@@ -207,10 +206,10 @@ export function LpMarketAdmin() {
             }
           }
         });
-        
+
         return allProducts;
       });
-      
+
       toast.success(`JSON에서 제품 로드 완료 (추가: ${jsonProducts.length}개)`);
     } catch (error) {
       console.error('JSON 로드 실패:', error);
@@ -278,11 +277,10 @@ export function LpMarketAdmin() {
               <button
                 key={product.id}
                 onClick={() => setSelectedId(product.id)}
-                className={`w-full rounded-2xl border px-3 py-2 text-left text-sm ${
-                  product.id === selectedId
+                className={`w-full rounded-2xl border px-3 py-2 text-left text-sm ${product.id === selectedId
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <div className="font-medium">{product.title || '제목 미입력'}</div>
                 <div className="text-xs opacity-70">{product.discogsId || 'Discogs 없음'}</div>
