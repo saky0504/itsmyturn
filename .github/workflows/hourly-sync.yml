@@ -1,0 +1,52 @@
+name: Hourly LP Data Sync
+
+on:
+  schedule:
+    # 한 시간마다 실행 (UTC 기준)
+    - cron: '0 * * * *'
+  workflow_dispatch: # 수동 실행도 가능
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run hourly sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_SUPABASE_SERVICE_ROLE_KEY }}
+          DISCOGS_TOKEN: ${{ secrets.DISCOGS_TOKEN }}
+          DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
+          DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
+          DISCOGS_USER_AGENT: ${{ secrets.DISCOGS_USER_AGENT }}
+        run: npm run hourly-sync
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Hourly Sync Failed',
+              body: 'The hourly LP data sync job failed. Please check the logs.',
+              labels: ['bug', 'automation']
+            })
+
+
+

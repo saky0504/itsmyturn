@@ -7,41 +7,11 @@ const cloneProducts = (products: LpProduct[]): LpProduct[] =>
   JSON.parse(JSON.stringify(products));
 
 const mergeWithDefaults = (stored: LpProduct[] | null): LpProduct[] => {
+  // 더미 데이터 제거 - 실제 데이터만 사용
   const safeStored = stored ? cloneProducts(stored) : [];
-  const storedMap = new Map(safeStored.map((product) => [product.id, product]));
-
-  const merged = DEFAULT_LP_PRODUCTS.map((defaultProduct) => {
-    const storedProduct = storedMap.get(defaultProduct.id);
-    if (!storedProduct) {
-      return { ...defaultProduct };
-    }
-
-    return {
-      ...defaultProduct,
-      ...storedProduct,
-      offers:
-        storedProduct.offers && storedProduct.offers.length > 0
-          ? storedProduct.offers
-          : defaultProduct.offers,
-      priceHistory:
-        storedProduct.priceHistory && storedProduct.priceHistory.length > 0
-          ? storedProduct.priceHistory
-          : defaultProduct.priceHistory,
-      colorVariants: storedProduct.colorVariants || defaultProduct.colorVariants,
-      editionVariants:
-        storedProduct.editionVariants || defaultProduct.editionVariants,
-      restockVendors: storedProduct.restockVendors || defaultProduct.restockVendors,
-    };
-  });
-
-  safeStored.forEach((product) => {
-    const exists = merged.some((mergedProduct) => mergedProduct.id === product.id);
-    if (!exists) {
-      merged.push(product);
-    }
-  });
-
-  return merged;
+  
+  // 더미 데이터와 병합하지 않고 저장된 데이터만 반환
+  return safeStored;
 };
 
 export const getDefaultProducts = (): LpProduct[] =>
@@ -63,6 +33,32 @@ export const loadProducts = (): LpProduct[] => {
   } catch {
     return getDefaultProducts();
   }
+};
+
+// JSON 파일에서 제품 로드 (비동기)
+export const loadProductsFromJSON = async (): Promise<LpProduct[]> => {
+  if (!isBrowser) {
+    return getDefaultProducts();
+  }
+
+  try {
+    const response = await fetch('/data/lp-products.json');
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const jsonProducts = await response.json();
+    if (jsonProducts && jsonProducts.length > 0) {
+      // localStorage에 저장
+      saveProducts(jsonProducts);
+      return mergeWithDefaults(jsonProducts);
+    }
+  } catch (error) {
+    console.warn('JSON 파일 로드 실패:', error);
+  }
+  
+  // 실패 시 기존 localStorage 데이터 반환
+  return loadProducts();
 };
 
 export const saveProducts = (products: LpProduct[]) => {
@@ -87,6 +83,7 @@ export const deleteProduct = (id: string) => {
   saveProducts(products);
   return products;
 };
+
 
 
 

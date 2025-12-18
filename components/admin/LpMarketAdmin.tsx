@@ -26,27 +26,41 @@ const emptyOffer = (): LpOffer => ({
 });
 
 const createBlankProduct = (): LpProduct => {
-  const template = DEFAULT_LP_PRODUCTS[0];
+  // 더미 데이터 제거 - 빈 템플릿 생성
   return {
-    ...template,
     id: `lp-${Date.now()}`,
     title: '',
     artist: '',
-    discogsId: '',
-    barcode: '',
+    cover: '/images/DJ_duic.jpg',
+    category: 'LP',
+    subCategory: 'general',
     color: 'Black',
     colorVariants: ['Black'],
     edition: 'Remastered',
     editionVariants: ['Remastered'],
     country: 'US Press',
+    discogsId: '',
+    barcode: '',
+    tags: [],
+    rarityIndex: 0,
+    lpr: 0,
+    last30dChange: 0,
+    priceHistory: [],
+    offers: [emptyOffer()],
     summary: '',
     pressingNotes: '',
     listeningNotes: [],
     preferredSetups: [],
     careTips: [],
-    priceHistory: [],
-    offers: [emptyOffer()],
-    tags: [],
+    inventoryStatus: 'in-stock',
+    restockVendors: [],
+    priceFloorEstimate: 0,
+    priceCeilingEstimate: 0,
+    recommendedPairing: {
+      turntable: '',
+      cartridge: '',
+      phonoStage: '',
+    },
   };
 };
 
@@ -147,6 +161,63 @@ export function LpMarketAdmin() {
     setDraft(createBlankProduct());
   };
 
+  const handleLoadFromJSON = async () => {
+    try {
+      const response = await fetch('/data/lp-products.json');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const jsonProducts = await response.json();
+      
+      updateProducts((prev) => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const allProducts = [...prev];
+        let addedCount = 0;
+        let updatedCount = 0;
+        
+        jsonProducts.forEach((product: LpProduct) => {
+          if (!existingIds.has(product.id)) {
+            allProducts.push(product);
+            addedCount++;
+          } else {
+            const existingIndex = prev.findIndex(p => p.id === product.id);
+            if (existingIndex !== -1) {
+              const existingProduct = prev[existingIndex];
+              const existingOffers = existingProduct.offers || [];
+              const newOffers = [...existingOffers];
+              
+              product.offers.forEach(newOffer => {
+                const existingOfferIndex = newOffers.findIndex(
+                  o => o.vendorName === newOffer.vendorName && o.channelId === newOffer.channelId
+                );
+                if (existingOfferIndex !== -1) {
+                  newOffers[existingOfferIndex] = newOffer;
+                } else {
+                  newOffers.push(newOffer);
+                }
+              });
+              
+              allProducts[existingIndex] = {
+                ...existingProduct,
+                ...product,
+                offers: newOffers
+              };
+              updatedCount++;
+            }
+          }
+        });
+        
+        return allProducts;
+      });
+      
+      toast.success(`JSON에서 제품 로드 완료 (추가: ${jsonProducts.length}개)`);
+    } catch (error) {
+      console.error('JSON 로드 실패:', error);
+      toast.error(`JSON 파일 로드 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
+  };
+
   const offerStats = useMemo(() => {
     if (!draft.offers.length) return null;
     const best = draft.offers.reduce((min, offer) => {
@@ -169,6 +240,13 @@ export function LpMarketAdmin() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="rounded-2xl border-slate-200 text-slate-700"
+            onClick={handleLoadFromJSON}
+          >
+            JSON에서 로드
+          </Button>
           <Button
             variant="outline"
             className="rounded-2xl border-slate-200 text-slate-700"
@@ -332,6 +410,7 @@ export function LpMarketAdmin() {
                     </div>
                     <InputField
                       label="기준가"
+                      type="number"
                       value={offer.basePrice.toString()}
                       onChange={(event) =>
                         handleOfferChange(index, 'basePrice', Number(event.target.value) || 0)
@@ -339,6 +418,7 @@ export function LpMarketAdmin() {
                     />
                     <InputField
                       label="배송비"
+                      type="number"
                       value={offer.shippingFee.toString()}
                       onChange={(event) =>
                         handleOfferChange(index, 'shippingFee', Number(event.target.value) || 0)
@@ -422,9 +502,10 @@ interface InputFieldProps {
   value: string;
   onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   textarea?: boolean;
+  type?: string;
 }
 
-function InputField({ label, value, onChange, textarea }: InputFieldProps) {
+function InputField({ label, value, onChange, textarea, type = 'text' }: InputFieldProps) {
   const commonClasses =
     'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-200';
   return (
@@ -433,7 +514,7 @@ function InputField({ label, value, onChange, textarea }: InputFieldProps) {
       {textarea ? (
         <textarea value={value} onChange={onChange} className={`${commonClasses} min-h-[100px]`} />
       ) : (
-        <input value={value} onChange={onChange} className={commonClasses} />
+        <input type={type} value={value} onChange={onChange} className={commonClasses} />
       )}
     </div>
   );
