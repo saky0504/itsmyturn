@@ -14,6 +14,13 @@
 
 import { fetchAndStoreRealLpData } from './fetch-real-lp-data';
 import { syncAllProducts } from './sync-lp-data';
+import { cleanupBadProducts, cleanupBadOffers } from './cleanup';
+
+// Helper wrapper for dynamic import (since it's a standalone script)
+async function runKoreanDiscovery() {
+  const { discoverKoreanLPs } = await import('./discover-korean-lps');
+  await discoverKoreanLPs();
+}
 
 /**
  * 통합 동기화 작업
@@ -23,8 +30,17 @@ async function hourlySync() {
   console.log('🔄 한 시간마다 실행되는 동기화 작업 시작...\n');
 
   try {
-    // 1. Discogs에서 추가로 20개의 앨범 가져오기
-    console.log('📦 [1/3] Discogs에서 추가 앨범 20개 가져오기...');
+    // 0. 한국 가요/LP 신규 데이터 발굴 (Aladin)
+    console.log('🇰🇷 [0/4] 국내 가요/LP 데이터 발굴 (Aladin)...');
+    try {
+      await runKoreanDiscovery();
+      console.log('✅ 국내 LP 발굴 완료\n');
+    } catch (error) {
+      console.error('❌ 국내 LP 발굴 실패 (계속 진행):', error);
+    }
+
+    // 1. Discogs에서 추가 앨범 데이터 수집 (페이지네이션 적용됨)
+    console.log('📦 [1/4] Discogs에서 추가 앨범 데이터 수집...');
     try {
       await fetchAndStoreRealLpData();
       console.log('✅ Discogs 앨범 가져오기 완료\n');
@@ -46,9 +62,19 @@ async function hourlySync() {
     // 3. 존재하는 가격정보 적용 (syncAllProducts에서 이미 처리됨)
     console.log('✅ [3/3] 가격정보 적용 완료 (동기화 과정에서 처리됨)\n');
 
+    // 4. 데이터 정제 (잘못된 상품 및 가격 제거)
+    console.log('🧹 [4/4] 데이터 정제 작업...');
+    try {
+      await cleanupBadProducts();
+      await cleanupBadOffers();
+      console.log('✅ 데이터 정제 완료\n');
+    } catch (error) {
+      console.error('❌ 데이터 정제 실패 (치명적이지 않음):', error);
+    }
+
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`🎉 전체 동기화 작업 완료! (소요 시간: ${duration}초)`);
-    
+
     return {
       success: true,
       duration: parseFloat(duration),
@@ -57,7 +83,7 @@ async function hourlySync() {
   } catch (error) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.error(`❌ 동기화 작업 실패 (소요 시간: ${duration}초):`, error);
-    
+
     return {
       success: false,
       duration: parseFloat(duration),

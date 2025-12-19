@@ -33,6 +33,9 @@ jobs:
           DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
           DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
           DISCOGS_USER_AGENT: ${{ secrets.DISCOGS_USER_AGENT }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          ALADIN_TTB_KEY: ${{ secrets.ALADIN_TTB_KEY }}
         run: npm run hourly-sync
 
       - name: Notify on failure

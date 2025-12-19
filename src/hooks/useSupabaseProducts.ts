@@ -9,6 +9,7 @@ const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 export interface UseSupabaseProductsResult {
     products: LpProduct[];
+    allProducts: LpProduct[]; // Added for global features like recommendations
     totalCount: number;
     isLoading: boolean;
     error: Error | null;
@@ -20,6 +21,8 @@ export const useSupabaseProducts = (
     page: number = 1,
     itemsPerPage: number = 20
 ): UseSupabaseProductsResult => {
+    const [allProducts, setAllProducts] = useState<LpProduct[]>([]);
+
     const [products, setProducts] = useState<LpProduct[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
@@ -30,60 +33,36 @@ export const useSupabaseProducts = (
         setTrigger((prev) => prev + 1);
     }, []);
 
+    // 1. 전체 데이터 한 번만 로드 (Client-side Search를 위해)
     useEffect(() => {
-        const fetchProducts = async () => {
+        const fetchAllProducts = async () => {
             setIsLoading(true);
             setError(null);
 
             try {
-                // 검색어가 있으면 Edge Function 사용 (FTS)
-                if (searchQuery.trim()) {
-                    const { data, error: fnError } = await supabase.functions.invoke('search-lps', {
-                        body: { q: searchQuery, page, limit: itemsPerPage },
-                        method: 'GET',
-                    });
+                // 전체 데이터 로드 (최대 1000개 제한)
+                const { data, error: dbError } = await supabase
+                    .from('lp_products')
+                    .select(`
+                        *,
+                        offers:lp_offers(
+                            id,
+                            vendor_name,
+                            channel_id,
+                            base_price,
+                            shipping_fee,
+                            url,
+                            is_stock_available,
+                            shipping_policy
+                        )
+                    `)
+                    .order('created_at', { ascending: false })
+                    .limit(1000);
 
-                    if (fnError) throw fnError;
+                if (dbError) throw dbError;
 
-                    // Edge Function이 배열을 반환한다고 가정
-                    // 실제로는 { products: [], total: number } 형태가 이상적이지만, 
-                    // 현재 implementation plan의 edge function은 단순 배열 반환
-                    // totalCount는 정확하지 않을 수 있음 (검색 결과 수)
-                    const searchResults = Array.isArray(data) ? data : (data.products || []);
-
-                    // 데이터 변환 (DB snake_case -> App camelCase)
-                    const mappedProducts = searchResults.map(mapDbProductToAppProduct);
-
-                    setProducts(mappedProducts);
-                    setTotalCount(mappedProducts.length); // 임시로 length 사용
-                } else {
-                    // 검색어가 없으면 일반 DB 쿼리
-                    const from = (page - 1) * itemsPerPage;
-                    const to = from + itemsPerPage - 1;
-
-                    const { data, count, error: dbError } = await supabase
-                        .from('lp_products')
-                        .select(`
-                *,
-                offers:lp_offers(
-                    id,
-                    vendor_name,
-                    channel_id,
-                    base_price,
-                    shipping_fee,
-                    url,
-                    is_stock_available,
-                    shipping_policy
-                )
-            `, { count: 'exact' })
-                        .order('created_at', { ascending: false })
-                        .range(from, to);
-
-                    if (dbError) throw dbError;
-
-                    setProducts((data || []).map(mapDbProductToAppProduct));
-                    setTotalCount(count || 0);
-                }
+                const mappedProducts = (data || []).map(mapDbProductToAppProduct);
+                setAllProducts(mappedProducts);
             } catch (err: any) {
                 console.error('Failed to fetch products:', err);
                 setError(err);
@@ -93,14 +72,36 @@ export const useSupabaseProducts = (
         };
 
         if (supabaseUrl && supabaseKey) {
-            fetchProducts();
+            fetchAllProducts();
         } else {
             console.warn('Supabase env vars missing');
             setIsLoading(false);
         }
-    }, [searchQuery, page, itemsPerPage, trigger]);
+    }, [trigger]); // trigger가 변경될 때만 재요청
 
-    return { products, totalCount, isLoading, error, refetch };
+    // 2. 검색어 필터링 및 페이지네이션 처리
+    useEffect(() => {
+        let result = allProducts;
+
+        // 검색 필터링 (Client-side)
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim();
+            result = allProducts.filter(p =>
+                (p.title || '').toLowerCase().includes(query) ||
+                (p.artist || '').toLowerCase().includes(query)
+            );
+        }
+
+        setTotalCount(result.length);
+
+        // 페이지네이션
+        const from = (page - 1) * itemsPerPage;
+        const to = from + itemsPerPage;
+        setProducts(result.slice(from, to));
+
+    }, [searchQuery, page, itemsPerPage, allProducts]);
+
+    return { products, allProducts, totalCount, isLoading, error, refetch };
 };
 
 // DB 데이터를 앱 데이터 타입으로 변환하는 헬퍼

@@ -8,6 +8,7 @@ import {
   type LpProduct,
 } from '../../data/lpMarket';
 import { useSupabaseProducts } from '../../hooks/useSupabaseProducts';
+import { getDailyLpRecommendations } from '../../lib/recommendation';
 
 const getBestOffer = (offers: LpProduct['offers']) => {
   if (!offers?.length) return undefined;
@@ -241,23 +242,38 @@ export function LpHome() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // 페이지네이션 리셋
+  const lastStablePageRef = useRef(1);
+
+  // 1. 검색어가 없을 때만 현재 페이지 위치를 기억
   useEffect(() => {
-    setCurrentPage(1);
+    if (!debouncedQuery) {
+      lastStablePageRef.current = currentPage;
+    }
+  }, [currentPage, debouncedQuery]);
+
+  // 2. 검색어 변경 시 페이지 전환 로직
+  useEffect(() => {
+    if (debouncedQuery) {
+      // 검색 시작 시 1페이지로
+      setCurrentPage(1);
+    } else {
+      // 검색 취소 시 이전 페이지로 복귀
+      setCurrentPage(lastStablePageRef.current);
+    }
   }, [debouncedQuery]);
 
   // Supabase 데이터 훅 사용
-  const { products, totalCount, isLoading, error } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
+  const { products, allProducts, totalCount, isLoading, error } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const featuredProducts = useMemo(() => {
-    // 검색어가 없을 때만 상위 5개를 추천으로 표시 (서버에서 가져온 순서대로)
-    if (!debouncedQuery && products.length > 0) {
-      return products.slice(0, 5);
+    // 검색어가 없을 때만 "오늘의 추천 앨범" 5개를 표시 (Daily Fixed)
+    if (!debouncedQuery && allProducts.length > 0) {
+      return getDailyLpRecommendations(allProducts, 5);
     }
     return [];
-  }, [debouncedQuery, products]);
+  }, [debouncedQuery, allProducts]);
 
   // 검색어 입력 핸들러
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -293,7 +309,8 @@ export function LpHome() {
           {!debouncedQuery && featuredProducts.length > 0 && !isLoading && (
             <section className="mb-12">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground">Recommended albums</h2>
+                <h2 className="text-2xl font-bold text-foreground">Today's Picks 🎵</h2>
+                <p className="text-sm text-muted-foreground mt-1">Daily curated selection just for you</p>
               </div>
               <FeaturedCarousel products={featuredProducts} />
             </section>

@@ -418,9 +418,21 @@ async function fetchAndStoreRealLpData() {
           // 포맷 필터링: CD 제외, Vinyl 필수
           const formats = (result.format || []).map(f => f.toLowerCase());
           const isVinyl = formats.some(f => f.includes('vinyl') || f.includes('lp') || f.includes('12"'));
-          const isCD = formats.some(f => f.includes('cd') || f.includes('compact disc'));
 
-          if (!isVinyl || isCD) {
+          if (!isVinyl) {
+            continue;
+          }
+
+          // 제목 및 포맷에서 제외할 키워드 (포스터, 굿즈 등)
+          const lowerTitle = result.title.toLowerCase();
+          const invalidKeywords = ['cd', 'compact disc', 'poster', 'book', 'magazine', 't-shirt', 'shirt', 'hoodie', 'apparel', 'merch', 'clothing', 'sticker', 'patch', 'badge', 'slipmat', 'totebag', 'cassette', 'tape', 'vhs', 'dvd', 'blu-ray'];
+
+          // 포맷이나 제목에 금지어 포함 여부 확인
+          const hasInvalidFormat = formats.some(f => invalidKeywords.some(k => f.includes(k)));
+          const hasInvalidTitle = invalidKeywords.some(k => lowerTitle.includes(k) && !lowerTitle.includes('with poster')); // "with poster"는 허용
+
+          if (hasInvalidFormat || hasInvalidTitle) {
+            // console.log(`🚫 제외됨 (${result.title}): 금지된 키워드 포함`);
             continue;
           }
 
