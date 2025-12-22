@@ -110,3 +110,59 @@ export async function cleanupBadOffers() {
         console.log(`✅ Successfully deleted ${idsToDelete.length} bad offers.`);
     }
 }
+
+/**
+ * Remove duplicate offers for the same product and vendor
+ */
+export async function cleanupDuplicateOffers() {
+    console.log('🧹 [Cleanup] Checking for duplicate offers...');
+
+    // Fetch all offers
+    const { data: offers, error } = await supabase
+        .from('lp_offers')
+        .select('id, product_id, vendor_name, base_price, url')
+        .order('id', { ascending: true }); // Keep oldest or newest? Let's keep oldest (lowest ID)
+
+    if (error || !offers) {
+        console.error('❌ Failed to fetch offers:', error);
+        return;
+    }
+
+    const uniqueMap = new Map();
+    const toDelete: string[] = [];
+
+    for (const offer of offers) {
+        // Key for uniqueness: Product + Vendor + Price + URL
+        const key = `${offer.product_id}-${offer.vendor_name}-${offer.base_price}-${offer.url}`;
+
+        if (uniqueMap.has(key)) {
+            // Duplicate found -> Mark for deletion
+            toDelete.push(offer.id);
+        } else {
+            uniqueMap.set(key, offer.id);
+        }
+    }
+
+    if (toDelete.length > 0) {
+        console.log(`📋 Found ${toDelete.length} duplicate offers to delete.`);
+
+        // Delete in batches of 1000 to be safe
+        const batchSize = 1000;
+        for (let i = 0; i < toDelete.length; i += batchSize) {
+            const batch = toDelete.slice(i, i + batchSize);
+            const { error: deleteError } = await supabase
+                .from('lp_offers')
+                .delete()
+                .in('id', batch);
+
+            if (deleteError) {
+                console.error(`❌ Failed to delete batch ${i}:`, deleteError);
+            } else {
+                console.log(`✅ Deleted batch ${i / batchSize + 1} (${batch.length} items)`);
+            }
+        }
+        console.log('✅ Duplicate cleanup complete.');
+    } else {
+        console.log('✨ No duplicate offers found.');
+    }
+}

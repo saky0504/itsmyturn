@@ -125,20 +125,20 @@ export function VinylPlayer() {
 
   const currentTrack = tracks[currentTrackIndex];
 
-  // 🚀 모바일 이미지 최적화 함수 (LCP 개선)
+  // 🚀 모바일 이미지 최적화 함수 (LCP 개선) -> 원상복구 (고화질 유지)
   const getOptimizedCoverUrl = (coverUrl: string) => {
+    // 화질 저하 방지를 위해 원본 URL 그대로 사용
+    return coverUrl;
+
+    /* 이전 최적화 로직 (Reverted)
     if (!coverUrl || !coverUrl.includes('archive.org/services/img/')) {
       return coverUrl;
     }
-
-    // 모바일에서는 더 작은 이미지 요청 (LCP 최적화)
     if (isMobile) {
-      // Internet Archive는 쿼리 파라미터로 크기 조정 가능
-      return `${coverUrl}?w=300&h=300`; // 300x300 (원본보다 훨씬 작음)
+      return `${coverUrl}?w=300&h=300`;
     }
-
-    // 데스크톱은 중간 크기
-    return `${coverUrl}?w=500&h=500`; // 500x500
+    return `${coverUrl}?w=500&h=500`;
+    */
   };
 
   // 커버 이미지 미리 로딩 (모바일 최적화 적용)

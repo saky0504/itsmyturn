@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,12 +18,29 @@ import {
 import { useSupabaseAlbum } from '../../hooks/useSupabaseAlbum';
 
 export function LpProductDetail() {
+  const navigate = useNavigate();
   const { productId } = useParams();
   const { product, isLoading } = useSupabaseAlbum(productId);
 
   const sortedOffers = useMemo(() => {
     if (!product) return [];
-    return [...product.offers].sort(
+
+    // Deduplication logic: Keep first occurrence of unique (Vendor + Price + URL)
+    const uniqueMap = new Map();
+    product.offers.forEach(offer => {
+      // Create a unique key. If URL is same, it's definitely duplicate.
+      // If Vendor + Price is same, user considers it duplicate too based on request.
+      // Let's use Vendor + Price + Channel as key, or just URL if available.
+      // To be safe and dedupe redundant rows:
+      // Deduplicate strictly by Vendor + Price. 
+      // If a vendor has multiple links for the same price, we only show the first one.
+      const key = `${offer.vendorName}-${offer.basePrice}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, offer);
+      }
+    });
+
+    return Array.from(uniqueMap.values()).sort(
       (a, b) => calculateOfferFinalPrice(a) - calculateOfferFinalPrice(b)
     );
   }, [product]);
@@ -60,13 +77,19 @@ export function LpProductDetail() {
       <MarketHeader />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" style={{ paddingRight: 'calc(var(--scrollbar-width, 0px) + clamp(1rem, 4vw, 2rem))' }}>
         {/* 마켓으로 돌아가기 버튼 */}
-        <Link
-          to="/market"
+        <button
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/market');
+            }
+          }}
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>마켓으로 돌아가기</span>
-        </Link>
+        </button>
 
         {/* 헤더 섹션 */}
         <header className="rounded-xl border border-border bg-card shadow-sm p-6 lg:p-8 space-y-6">

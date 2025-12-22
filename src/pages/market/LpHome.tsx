@@ -227,12 +227,36 @@ function FeaturedCarousel({ products }: { products: LpProduct[] }) {
   );
 }
 
+const STORAGE_KEY = 'itsmyturn_lp_market_state';
+
 export function LpHome() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  // 초기 상태를 세션 스토리지에서 복원
+  const getInitialState = () => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : { query: '', page: 1 };
+    } catch {
+      return { query: '', page: 1 };
+    }
+  };
+
+  const initialState = getInitialState();
+
+  const [searchQuery, setSearchQuery] = useState<string>(initialState.query || '');
+  const [debouncedQuery, setDebouncedQuery] = useState<string>(initialState.query || ''); // 초기값도 동일하게 설정하여 깜빡임 방지
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(Number(initialState.page) || 1);
   const itemsPerPage = 10;
+
+  // 상태 변경 시 스토리지 저장
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      query: searchQuery,
+      page: currentPage
+    }));
+  }, [searchQuery, currentPage]);
+
+  const lastStablePageRef = useRef(1);
 
   // 디바운스 처리
   useEffect(() => {
@@ -242,8 +266,6 @@ export function LpHome() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const lastStablePageRef = useRef(1);
-
   // 1. 검색어가 없을 때만 현재 페이지 위치를 기억
   useEffect(() => {
     if (!debouncedQuery) {
@@ -252,9 +274,16 @@ export function LpHome() {
   }, [currentPage, debouncedQuery]);
 
   // 2. 검색어 변경 시 페이지 전환 로직
+  // (저장된 쿼리와 현재 디바운스된 쿼리가 다를 때만 실행하여 초기 로드 시 리셋 방지)
+  const isFirstRun = useRef(true);
   useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+
     if (debouncedQuery) {
-      // 검색 시작 시 1페이지로
+      // 검색 시작 시 1페이지로 (단, 사용자가 직접 페이지를 바꾼게 아니라 검색어를 입력했을 때)
       setCurrentPage(1);
     } else {
       // 검색 취소 시 이전 페이지로 복귀
@@ -309,7 +338,7 @@ export function LpHome() {
           {!debouncedQuery && featuredProducts.length > 0 && !isLoading && (
             <section className="mb-12">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground">Today's Picks 🎵</h2>
+                <h2 className="text-2xl font-bold text-foreground">Today's Picks</h2>
                 <p className="text-sm text-muted-foreground mt-1">Daily curated selection just for you</p>
               </div>
               <FeaturedCarousel products={featuredProducts} />

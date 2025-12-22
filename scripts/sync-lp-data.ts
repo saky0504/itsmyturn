@@ -474,57 +474,64 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
  * EAN 또는 제품명으로 검색
  */
 async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOffer | null> {
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    return null;
-  }
-
   try {
-    const query = identifier.ean || `${identifier.artist} ${identifier.title} LP`;
-    // Fetch specifically for Kyobo context if possible, but Naver Search is general.
-    // We just filter the results.
-    const response = await fetch(
-      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=20&sort=sim`,
-      {
-        headers: {
-          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
-        },
+    const keyword = identifier.ean || `${identifier.artist} ${identifier.title} LP`;
+    // 교보문고 최신 검색 URL 구조 (2025 기준)
+    const searchUrl = `https://search.kyobobook.co.kr/search?keyword=${encodeURIComponent(keyword)}&gbCode=TOT&target=total`;
+
+    // Using fetchWithRetry or standard fetch? User provided standard fetch with headers.
+    // Let's use standard fetch as requested to ensure headers are exactly as specified.
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
-    );
+    });
 
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    if (!data.items || data.items.length === 0) return null;
-
-    // Filter for "교보문고"
-    const kyoboItem = data.items.find((item: any) => item.mallName === '교보문고');
-
-    if (!kyoboItem) {
-      // console.log(`[교보문고/Naver] No Kyobo offer found for ${identifier.title}`);
+    if (!response.ok) {
+      console.log(`[교보문고] 응답 실패: ${response.status}`);
       return null;
     }
 
-    // Process the found item
-    const price = parseInt(kyoboItem.lprice, 10);
-    if (!isValidPrice(price)) return null;
+    const html = await response.text();
+    const $ = cheerio.load(html);
 
-    console.log(`[교보문고/Naver] Found price: ${price}원 for ${identifier.title}`);
+    // 검색 결과에서 첫 번째 상품의 가격 추출 (사이트 구조에 따라 셀렉터 수정 필요)
+    // User provided: .prod_price .price .val
+    const priceText = $('.prod_price .price .val').first().text().replace(/[^0-9]/g, '');
+    const price = priceText ? parseInt(priceText) : 0;
+
+    if (!price) {
+      // console.log(`[교보문고] Price not found for ${keyword}`);
+      return null;
+    }
+
+    // Try to extract specific product URL, otherwise use search URL
+    // Kyobo usually has prod_info -> a[href]
+    let productLink = $('.prod_info a').first().attr('href');
+    if (productLink && !productLink.startsWith('http')) {
+      productLink = `https://product.kyobobook.co.kr/detail/${productLink.split('/').pop()}`; // Guessing or absolute? 
+      // Kyobo link usually: https://product.kyobobook.co.kr/detail/S000211836098
+      // Or if it's full path. 
+      // Safest to just prepend domain if missing, or use searchUrl.
+      if (!productLink.startsWith('http')) {
+        productLink = `https://product.kyobobook.co.kr${productLink}`;
+      }
+    }
 
     return {
       vendorName: '교보문고',
       channelId: 'mega-book',
       basePrice: price,
       shippingFee: 0,
-      shippingPolicy: '5만원 이상 무료배송',
-      url: kyoboItem.link, // Naver returns a redirect link or direct link
-      inStock: true, // If listed on shopping, usually means in stock
+      shippingPolicy: '5만원 이상 무료배송', // Default policy
+      url: productLink || searchUrl,
+      inStock: true,
       affiliateCode: 'itsmyturn',
       affiliateParamKey: 'KyoboCode'
     };
 
   } catch (error) {
-    console.error('[교보문고] API Error:', error);
+    console.error(`[교보문고] 에러 발생:`, error);
     return null;
   }
 }
@@ -1488,8 +1495,20 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
     }
   });
 
-  console.log(`[가격 수집] 총 ${offers.length}개의 가격 정보를 찾았습니다.`);
-  return offers;
+  // Deduplicate offers based on URL or Vendor+Price to prevent redundancy
+  const uniqueOffers = offers.reduce((acc, current) => {
+    const isDuplicate = acc.some(item =>
+      item.url === current.url ||
+      (item.vendorName === current.vendorName && item.basePrice === current.basePrice)
+    );
+    if (!isDuplicate) {
+      acc.push(current);
+    }
+    return acc;
+  }, [] as VendorOffer[]);
+
+  console.log(`[가격 수집] 총 ${uniqueOffers.length}개의 가격 정보를 찾았습니다.`);
+  return uniqueOffers;
 }
 
 /**

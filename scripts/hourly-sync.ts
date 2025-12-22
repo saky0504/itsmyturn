@@ -14,7 +14,7 @@
 
 import { fetchAndStoreRealLpData } from './fetch-real-lp-data';
 import { syncAllProducts } from './sync-lp-data';
-import { cleanupBadProducts, cleanupBadOffers } from './cleanup';
+import { cleanupBadProducts, cleanupBadOffers, cleanupDuplicateOffers } from './cleanup';
 
 // Helper wrapper for dynamic import (since it's a standalone script)
 async function runKoreanDiscovery() {
@@ -67,6 +67,7 @@ async function hourlySync() {
     try {
       await cleanupBadProducts();
       await cleanupBadOffers();
+      await cleanupDuplicateOffers();
       console.log('✅ 데이터 정제 완료\n');
     } catch (error) {
       console.error('❌ 데이터 정제 실패 (치명적이지 않음):', error);
