@@ -148,8 +148,8 @@ function calculateSimilarity(str1: string, str2: string): number {
  * 가격 유효성 검사 (Price Guard)
  */
 function isValidPrice(price: number): boolean {
-  // 너무 싸거나(1.5만원 미만) 너무 비싼(30만원 초과) 경우는 의심
-  return price >= 15000 && price <= 300000;
+  // 너무 싸거나(2만원 미만) 너무 비싼(30만원 초과) 경우는 의심 (CD 오인 방지)
+  return price >= 20000 && price <= 300000;
 }
 
 /**

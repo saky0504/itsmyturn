@@ -55,14 +55,14 @@ const NEGATIVE_KEYWORDS = [
     'turntable', '턴테이블', 'needle', 'stylus', 'cartridge'
 ];
 
-async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller' | 'Keyword', query?: string, categoryId: string = String(TARGET_CID)) {
-    console.log(`📡 Fetching Aladin ${queryType} ${query ? `"${query}"` : ''} (CID: ${categoryId})...`);
+async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller' | 'Keyword', query?: string, categoryId: string = String(TARGET_CID), page: number = 1) {
+    console.log(`📡 Fetching Aladin ${queryType} ${query ? `"${query}"` : ''} (CID: ${categoryId}, Page: ${page})...`);
 
     const params = new URLSearchParams({
         ttbkey: aladinTtbKey!,
         QueryType: queryType,
         MaxResults: '50',
-        start: '1',
+        start: String(page),
         SearchTarget: 'Music',
         CategoryId: categoryId,
         Output: 'JS', // JSON format
@@ -201,14 +201,25 @@ export async function discoverKoreanLPs() {
     let totalAdded = 0;
 
     // 1. Fetch New Releases (Vinyl Specific CID)
-    const newItems = await fetchAladinLPs('ItemNewAll');
-    totalAdded += await processAladinItems(newItems);
+    console.log('📚 Fetching New Releases (Pages 1-5)...');
+    for (let page = 1; page <= 5; page++) {
+        const newItems = await fetchAladinLPs('ItemNewAll', undefined, String(TARGET_CID), page);
+        if (!newItems || newItems.length === 0) break; // Stop if no data returned
+        const count = await processAladinItems(newItems);
+        totalAdded += count;
+        // Do NOT break just because count is 0 (items might already exist, keep digging)
+        await new Promise(r => setTimeout(r, 1000)); // Rate limit
+    }
 
     // 2. Fetch Bestsellers (Vinyl Specific CID)
-    const bestItems = await fetchAladinLPs('Bestseller');
-    totalAdded += await processAladinItems(bestItems);
-
-    // 3. Expanded Discovery Strategies
+    console.log('🏆 Fetching Bestsellers (Pages 1-5)...');
+    for (let page = 1; page <= 5; page++) {
+        const bestItems = await fetchAladinLPs('Bestseller', undefined, String(TARGET_CID), page);
+        if (!bestItems || bestItems.length === 0) break;
+        const count = await processAladinItems(bestItems);
+        totalAdded += count;
+        await new Promise(r => setTimeout(r, 1000));
+    }
     // Strategy A: Broad General Category "Music" (CID 3887) but we filter strictly
     // Strategy B: Specific Korean Music Categories if mapped, but "Gayo" specific CID in Vinyl might be tricky to guess.
     // Instead, let's use Keyword Search for broad terms.
