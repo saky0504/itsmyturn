@@ -45,8 +45,18 @@ const ALADIN_API_BASE = 'http://www.aladin.co.kr/ttb/api/ItemList.aspx';
 // Finding standard CID: 53533 (Vinyl) is often used. Let's try broad fetch and filter.
 const TARGET_CID = 53533; // Vinyl/LP
 
-async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller') {
-    console.log(`📡 Fetching Aladin ${queryType}...`);
+// Expanded Negative Keywords (Sync with cleanup.ts)
+const NEGATIVE_KEYWORDS = [
+    'cd', 'compact disc', 'poster', 'book', 'magazine',
+    't-shirt', 'shirt', 'hoodie', 'apparel', 'merch', 'clothing',
+    'sticker', 'patch', 'badge', 'slipmat', 'totebag',
+    'cassette', 'tape', 'vhs', 'dvd', 'blu-ray',
+    'frame', '액자', 'metronome', '메트로놈', 'cleaner', '클리너',
+    'turntable', '턴테이블', 'needle', 'stylus', 'cartridge'
+];
+
+async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller' | 'Keyword', query?: string, categoryId: string = String(TARGET_CID)) {
+    console.log(`📡 Fetching Aladin ${queryType} ${query ? `"${query}"` : ''} (CID: ${categoryId})...`);
 
     const params = new URLSearchParams({
         ttbkey: aladinTtbKey!,
@@ -54,10 +64,14 @@ async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller') {
         MaxResults: '50',
         start: '1',
         SearchTarget: 'Music',
-        CategoryId: String(TARGET_CID),
+        CategoryId: categoryId,
         Output: 'JS', // JSON format
         Version: '20131101'
     });
+
+    if (queryType === 'Keyword' && query) {
+        params.set('Query', query);
+    }
 
     const url = `${ALADIN_API_BASE}?${params.toString()}`;
 
@@ -66,7 +80,7 @@ async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller') {
         const data = await response.json();
 
         if (!data.item || !Array.isArray(data.item)) {
-            console.error('❌ Invalid Aladin response:', data);
+            // console.error('❌ Invalid Aladin response:', data); // Quiet down error logs for empty results
             return [];
         }
 
@@ -88,24 +102,40 @@ function normalizeTitle(title: string): string {
 }
 
 async function processAladinItems(items: any[]) {
-    console.log(`🔍 Processing ${items.length} items from Aladin...`);
+    // console.log(`🔍 Processing ${items.length} items from Aladin...`);
     let addedCount = 0;
 
     for (const item of items) {
         // 1. Strict Filter: Title or Category must indicate LP/Vinyl
         const title = item.title || '';
         const categoryName = item.categoryName || '';
-        const description = item.description || '';
 
         // Normalize Check
         const lowerTitle = title.toLowerCase();
         const lowerCat = categoryName.toLowerCase();
 
-        const hasLPParams = lowerTitle.includes('lp') || lowerTitle.includes('vinyl') || lowerCat.includes('lp') || lowerCat.includes('vinyl');
-        const isCD = lowerTitle.includes('cd') || lowerTitle.includes('compact disc') || lowerCat.includes('cd');
+        // A. Filter out negative keywords first
+        const hasNegative = NEGATIVE_KEYWORDS.some(k => lowerTitle.includes(k) && !lowerTitle.includes('with poster') && !lowerTitle.includes('+ poster'));
+        if (hasNegative) {
+            // console.log(`🚫 Skipped (Negative Keyword): ${title}`);
+            continue;
+        }
 
-        if (isCD && !hasLPParams) continue; // Skip strict CDs
-        if (!hasLPParams && !item.format?.toLowerCase().includes('lp')) continue; // Must have some LP indication
+        // B. Price Guard for Accessories
+        const price = item.priceSales || item.priceStandard || 0;
+        if (price < 15000) {
+            // console.log(`🚫 Skipped (Low Price): ${title} (${price} KRW)`);
+            continue;
+        }
+
+        // C. Positive Match Logic
+        const isStrictCategory = lowerCat.includes('vinyl') || lowerCat.includes('lp') || lowerCat.includes('records');
+        // Strict title match required if category is not explicitly Vinyl
+        const hasLPParams = lowerTitle.includes('lp') || lowerTitle.includes('vinyl') || lowerTitle.includes('limited edition');
+
+        if (!isStrictCategory && !hasLPParams) {
+            continue; // Must have some LP indication
+        }
 
         // 2. Map to DB Schema
         const productData = {
@@ -130,8 +160,6 @@ async function processAladinItems(items: any[]) {
             .single();
 
         if (existing) {
-            // Product exists, link offer?
-            // Skip for now, focus on new discovery
             continue;
         }
 
@@ -170,16 +198,48 @@ async function processAladinItems(items: any[]) {
 // Main Execution Function
 export async function discoverKoreanLPs() {
     console.log('🇰🇷 Starting Korean LP Discovery (Aladin)...');
+    let totalAdded = 0;
 
-    // 1. Fetch New Releases
+    // 1. Fetch New Releases (Vinyl Specific CID)
     const newItems = await fetchAladinLPs('ItemNewAll');
-    const newAdded = await processAladinItems(newItems);
+    totalAdded += await processAladinItems(newItems);
 
-    // 2. Fetch Bestsellers
+    // 2. Fetch Bestsellers (Vinyl Specific CID)
     const bestItems = await fetchAladinLPs('Bestseller');
-    const bestAdded = await processAladinItems(bestItems);
+    totalAdded += await processAladinItems(bestItems);
 
-    console.log(`🎉 Discovery Complete. Added ${newAdded + bestAdded} new Korean LPs.`);
+    // 3. Expanded Discovery Strategies
+    // Strategy A: Broad General Category "Music" (CID 3887) but we filter strictly
+    // Strategy B: Specific Korean Music Categories if mapped, but "Gayo" specific CID in Vinyl might be tricky to guess.
+    // Instead, let's use Keyword Search for broad terms.
+
+    // Additional Keywords to boost Korean LP discovery
+    const searchQueries = [
+        '가요 LP',
+        '가요 바이닐',
+        '한국 인디 LP',
+        '영화 OST LP',
+        '드라마 OST LP',
+        'City Pop LP',
+        'Korea Vinyl',
+        'K-Pop Vinyl'
+    ];
+
+    console.log(`🔎 Executing Expanded Keyword Search (${searchQueries.length} queries)...`);
+
+    for (const query of searchQueries) {
+        // Use default Vinyl CID to keep it focused, or broader Music CID? 
+        // Using Vinyl CID (53533) ensures we get LPs, but "Keyword" search in Aladin might ignore CID if not careful.
+        // Let's try searching within Vinyl category first.
+        const items = await fetchAladinLPs('Keyword', query); // Uses default CID 53533
+        const added = await processAladinItems(items);
+        totalAdded += added;
+
+        // Respect API rate limits slightly
+        await new Promise(r => setTimeout(r, 1000));
+    }
+
+    console.log(`🎉 Discovery Complete. Added ${totalAdded} new Korean LPs.`);
 }
 
 // Allow direct execution

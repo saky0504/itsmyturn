@@ -48,13 +48,28 @@ interface Track {
   license?: string; // Attribution 3.0 등 라이선스 정보
 }
 
+
+const INITIAL_TRACK: Track = {
+  id: '78_wedding-march_symphony-orchestra-mendelssohn_gbia0012855a',
+  title: 'Wedding March',
+  artist: 'Symphony Orchestra',
+  album: 'Internet Archive',
+  cover: 'https://archive.org/services/img/78_wedding-march_symphony-orchestra-mendelssohn_gbia0012855a',
+  preview_url: 'https://archive.org/download/78_wedding-march_symphony-orchestra-mendelssohn_gbia0012855a/Wedding March - Symphony Orchestra - Mendelssohn-restored.mp3',
+  duration: 183000,
+  spotify_url: '',
+  lyrics: 'Pre-loaded for instant playback',
+  genre: 'Classical',
+  license: 'Public Domain'
+};
+
 export function VinylPlayer() {
-  const [tracks, setTracks] = useState<Track[]>([]);
+  const [tracks, setTracks] = useState<Track[]>([INITIAL_TRACK]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(75);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(INITIAL_TRACK.duration / 1000);
   const [isLoading, setIsLoading] = useState(false);
   const [tracksLoading, setTracksLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
@@ -530,19 +545,19 @@ export function VinylPlayer() {
       const shuffledItems = [...itemsToUse].sort(() => Math.random() - 0.5);
       const selectedItems = shuffledItems.slice(0, 25);
 
+      // 1단계: 먼저 3개 트랙만 빠르게 로딩
       const archiveTracks: Track[] = [];
 
-      // 1단계: 먼저 3개 트랙만 빠르게 로딩
       for (let i = 0; i < selectedItems.length && archiveTracks.length < 3; i++) {
         const item = selectedItems[i];
         try {
-          // console.log(`🔄 Loading track ${i + 1}/${selectedItems.length}: ${item.title || item.identifier}`); // 로그 정리
+          // Skip if it's the same as initial track
+          if (item.identifier === INITIAL_TRACK.id) continue;
 
           const { streamingUrl, coverUrl, duration } = await getStreamingUrl(item.identifier, item);
 
           // 7분(420초) 이상인 긴 트랙 제외 (로딩 시간 단축)
-          if (duration > 420000) { // duration은 밀리초 단위 (420초 = 7분)
-            console.log(`⚠️ Skipping long track (${Math.floor(duration / 60000)}분): ${item.title}`);
+          if (duration > 420000) {
             continue;
           }
 
@@ -551,34 +566,26 @@ export function VinylPlayer() {
             title: item.title || 'Unknown Title',
             artist: item.creator || 'Unknown Artist',
             album: item.identifier,
-            cover: coverUrl, // Internet Archive 커버 사용
+            cover: coverUrl,
             preview_url: streamingUrl,
             duration: duration,
             spotify_url: `https://open.spotify.com/search/${encodeURIComponent(item.title || '')}`,
             lyrics: `From Internet Archive\nClassic audio recording\nPublic domain music`,
             genre: 'Classical',
-            license: item.licenseurl || 'Public Domain' // Attribution 3.0 등 라이선스 정보
+            license: item.licenseurl || 'Public Domain'
           };
 
           archiveTracks.push(track);
-          // console.log(`✅ Track ${i + 1} ready: ${track.title} - ${track.artist}`); // 로그 정리
 
-          // 첫 번째 트랙이 로드되면 UI에 반영하고 완전히 준비될 때까지 대기
-          if (archiveTracks.length === 1) {
-            setTracks([track]);
-            setCurrentTrackIndex(0);
-            console.log('🎵 First track loaded - Ready to play (manual start)');
-
-            // 첫 번째 트랙 로딩 완료 - 오디오 재생 준비 대기
-            console.log('✅ First track loaded - waiting for audio ready');
-          } else {
-            // 나머지 트랙들은 짧은 간격으로 로딩
-            await new Promise(resolve => setTimeout(resolve, 300));
-          }
+          // 첫 번째 추가 트랙이 로드되면 리스트에 추가 (초기 트랙 뒤에 붙임)
+          setTracks(prev => {
+            // 중복 방지
+            if (prev.find(t => t.id === track.id)) return prev;
+            return [...prev, track];
+          });
 
         } catch (error) {
           console.warn(`❌ Failed to process item ${item.identifier}:`, error);
-          // 실패한 항목은 건너뛰고 계속 진행
         }
       }
 
@@ -749,7 +756,6 @@ export function VinylPlayer() {
   // 오디오가 재생 준비되면 로딩 완료
   useEffect(() => {
     if (isAudioReady) {
-      console.log('🎵 Audio ready - hiding loading indicator');
       setTracksLoading(false);
     }
   }, [isAudioReady]);
@@ -771,25 +777,22 @@ export function VinylPlayer() {
     const handleTimeUpdate = () => {
       const time = audio.currentTime;
       if (!isNaN(time) && isFinite(time)) {
-        console.log(`🎵 TimeUpdate: ${time.toFixed(2)}s (duration: ${audio.duration?.toFixed(2)}s)`);
         setCurrentTime(time);
 
-        // 🚨 timeupdate 이벤트가 발생하면 duration도 함께 업데이트
-        if (audio.duration && !isNaN(audio.duration)) {
+        // 🚨 timeupdate 이벤트가 발생하면 duration도 함께 업데이트 (Infinity 체크 추가)
+        if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
           setDuration(audio.duration);
         }
       }
     };
 
     const updateDuration = () => {
-      if (audio.duration && !isNaN(audio.duration)) {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
         setDuration(audio.duration);
-        console.log('Duration loaded:', audio.duration);
       }
     };
 
     const handleLoadStart = () => {
-      console.log('Loading audio...');
       setIsLoading(true);
       setIsAudioReady(false); // 새 트랙 로딩 시작 시 준비 상태 초기화
     };
@@ -821,7 +824,7 @@ export function VinylPlayer() {
 
     const handleLoadedData = () => {
       console.log('Audio data loaded');
-      if (audio.duration && !isNaN(audio.duration)) {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
         setDuration(audio.duration);
       }
       setIsAudioReady(true); // 메타데이터 로드 완료
@@ -897,7 +900,6 @@ export function VinylPlayer() {
     };
 
     const handlePlay = () => {
-      console.log('🎵 Audio started playing');
       setIsPlaying(true);
       setIsLoading(false);
 
@@ -907,11 +909,10 @@ export function VinylPlayer() {
       // 🚨 재생 시작 즉시 강제 시간 업데이트 (무조건)
       if (audio) {
         const currentTime = audio.currentTime || 0;
-        console.log(`🚀 GUARANTEED Play start - forcing time update: ${currentTime.toFixed(2)}s`);
         setCurrentTime(currentTime);
 
-        // duration도 강제 업데이트
-        if (audio.duration && !isNaN(audio.duration)) {
+        // duration도 강제 업데이트 (Infinity 체크 추가)
+        if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
           setDuration(audio.duration);
         }
 
@@ -920,7 +921,6 @@ export function VinylPlayer() {
           if (audio && !audio.paused) {
             const time = audio.currentTime || 0;
             setCurrentTime(time);
-            console.log(`🚀 GUARANTEED Update 1: ${time.toFixed(2)}s`);
           }
         }, 100);
 
@@ -928,7 +928,6 @@ export function VinylPlayer() {
           if (audio && !audio.paused) {
             const time = audio.currentTime || 0;
             setCurrentTime(time);
-            console.log(`🚀 GUARANTEED Update 2: ${time.toFixed(2)}s`);
           }
         }, 200);
 
@@ -936,7 +935,6 @@ export function VinylPlayer() {
           if (audio && !audio.paused) {
             const time = audio.currentTime || 0;
             setCurrentTime(time);
-            console.log(`🚀 GUARANTEED Update 3: ${time.toFixed(2)}s`);
           }
         }, 300);
       }
@@ -1373,7 +1371,9 @@ export function VinylPlayer() {
   useEffect(() => {
     console.log('🔄 Track changed - resetting progress');
     setCurrentTime(0);
-    setDuration(0);
+    // duration을 0으로 초기화하지 않고, 트랙 정보에 있는 duration으로 초기화
+    const trackDuration = tracks[currentTrackIndex]?.duration ? tracks[currentTrackIndex].duration / 1000 : 0;
+    setDuration(trackDuration);
     setIsPlaying(false);
 
     // 오디오 엘리먼트도 강제 초기화
@@ -1830,31 +1830,40 @@ export function VinylPlayer() {
         {!tracksLoading && currentTrack && (
           <>
 
-            {/* Community Board Button - Mobile only (fixed top-right) */}
-            {isMobile && (
-              <button
-                onClick={() => setShowBoard(true)}
-                className="fixed top-4 right-4 z-50 group"
-                aria-label="Open Community Board"
-              >
-                <div className="relative">
-                  {/* Background circle with opacity and subtle shadow */}
-                  <div
-                    className="w-12 h-12 bg-white rounded-full opacity-25 group-hover:opacity-40 transition-opacity duration-200"
-                    style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}
-                  />
 
-                  {/* Message bubble icon */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800 transition-colors duration-200" />
-                  </div>
-                </div>
-              </button>
-            )}
 
             {/* 모바일에서는 LP가 화면 상단 60% 차지 */}
             {isMobile ? (
               <div className="relative w-full flex-1 flex flex-col">
+                {/* Mobile Floating Buttons */}
+                <div className="absolute top-4 right-4 z-50 flex flex-col gap-3">
+                  <button
+                    onClick={handleOpenMarket}
+                    className="group"
+                    aria-label="Open LP Market comparison"
+                  >
+                    <div className="relative">
+                      <div
+                        className="w-10 h-10 bg-white/80 rounded-full shadow-lg backdrop-blur-sm flex items-center justify-center"
+                      >
+                        <ShoppingBag className="w-5 h-5 text-gray-900" />
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setShowBoard(true)}
+                    className="group"
+                    aria-label="Open Community Board"
+                  >
+                    <div className="relative">
+                      <div
+                        className="w-10 h-10 bg-white/80 rounded-full shadow-lg backdrop-blur-sm flex items-center justify-center"
+                      >
+                        <MessageCircle className="w-5 h-5 text-gray-900" />
+                      </div>
+                    </div>
+                  </button>
+                </div>
                 {/* LP 영역 - 화면 상단 60% 차지 */}
                 <div className="relative h-[60vh] overflow-hidden flex items-center justify-center">
                   {/* 턴테이블 베이스 - 모바일에서는 화면보다 크게 */}

@@ -22,15 +22,30 @@ export default async function handler(
     return response.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Vercel Serverless Function에서는 외부 스크립트 실행이 제한적이므로
-  // GitHub Actions를 사용하는 것을 권장합니다.
-  // 이 엔드포인트는 단순히 상태를 반환합니다.
+  // Vercel Serverless Function Limit: 10s (Hobby), 60s (Pro)
+  // We try to run what we can, but likely better to trigger an external worker or just do quick discovery
 
-  return response.status(200).json({
-    success: true,
-    message: 'Vercel Cron endpoint is configured. Please use GitHub Actions for actual script execution.',
-    note: 'The hourly sync should be run via GitHub Actions (.github/workflows/hourly-sync.yml)',
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const { discoverKoreanLPs } = await import('../scripts/discover-korean-lps');
+    const { cleanupBadProducts } = await import('../scripts/cleanup');
+
+    // Run Korean Discovery (Aladin API is fast)
+    await discoverKoreanLPs();
+
+    // Run Cleanup to ensure DB stays clean
+    await cleanupBadProducts();
+
+    return response.status(200).json({
+      success: true,
+      message: 'Hourly sync executed successfully',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Hourly sync failed:', error);
+    return response.status(500).json({
+      success: false,
+      error: String(error)
+    });
+  }
 }
 

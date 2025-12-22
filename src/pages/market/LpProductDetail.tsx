@@ -122,7 +122,7 @@ export function LpProductDetail() {
                 )}
                 {product.barcode && (
                   <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-secondary-foreground border border-border/50">
-                    EAN {product.barcode}
+                    {/^[0-9\s-]+$/.test(product.barcode) ? 'EAN ' : ''}{product.barcode}
                   </span>
                 )}
                 {product.category && (

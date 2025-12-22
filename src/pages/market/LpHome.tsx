@@ -9,6 +9,7 @@ import {
 } from '../../data/lpMarket';
 import { useSupabaseProducts } from '../../hooks/useSupabaseProducts';
 import { getDailyLpRecommendations } from '../../lib/recommendation';
+import { useIsMobile } from '../../../components/ui/use-mobile';
 
 const getBestOffer = (offers: LpProduct['offers']) => {
   if (!offers?.length) return undefined;
@@ -293,6 +294,7 @@ export function LpHome() {
 
   // Supabase 데이터 훅 사용
   const { products, allProducts, totalCount, isLoading, error } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
+  const isMobile = useIsMobile();
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
@@ -341,7 +343,7 @@ export function LpHome() {
                 <h2 className="text-2xl font-bold text-foreground">Today's Picks</h2>
                 <p className="text-sm text-muted-foreground mt-1">Daily curated selection just for you</p>
               </div>
-              <FeaturedCarousel products={featuredProducts} />
+              <FeaturedCarousel products={isMobile ? featuredProducts.slice(0, 4) : featuredProducts} />
             </section>
           )}
 

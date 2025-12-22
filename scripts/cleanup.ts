@@ -33,7 +33,15 @@ export async function cleanupBadProducts() {
         return;
     }
 
-    const invalidKeywords = ['cd', 'compact disc', 'poster', 'book', 'magazine', 't-shirt', 'shirt', 'hoodie', 'apparel', 'merch', 'clothing', 'sticker', 'patch', 'badge', 'slipmat', 'totebag', 'cassette', 'tape', 'vhs', 'dvd', 'blu-ray'];
+    // Expanded Negative Keywords
+    const invalidKeywords = [
+        'cd', 'compact disc', 'poster', 'book', 'magazine',
+        't-shirt', 'shirt', 'hoodie', 'apparel', 'merch', 'clothing',
+        'sticker', 'patch', 'badge', 'slipmat', 'totebag',
+        'cassette', 'tape', 'vhs', 'dvd', 'blu-ray',
+        'frame', '액자', 'metronome', '메트로놈', 'cleaner', '클리너',
+        'turntable', '턴테이블', 'needle', 'stylus', 'cartridge'
+    ];
 
     const toDelete: string[] = [];
 
@@ -41,8 +49,9 @@ export async function cleanupBadProducts() {
         const lowerTitle = (product.title || '').toLowerCase();
         const formats = (typeof product.format === 'string' ? product.format.split(',') : (Array.isArray(product.format) ? product.format : [])).map((f: string) => f.trim().toLowerCase());
 
-        // Check title (allow "with poster")
-        const hasInvalidTitle = invalidKeywords.some(k => lowerTitle.includes(k) && !lowerTitle.includes('with poster'));
+        // Check title (allow "with poster" but generally strict)
+        // strict exclusion if ANY invalid keyword is present as a standalone word or significant part
+        const hasInvalidKeyword = invalidKeywords.some(k => lowerTitle.includes(k) && !lowerTitle.includes('with poster') && !lowerTitle.includes('+ poster'));
 
         // Check format
         const hasInvalidFormat = formats.some((f: string) => invalidKeywords.some(k => f.includes(k)));
@@ -50,7 +59,7 @@ export async function cleanupBadProducts() {
         // Check if it lacks vinyl format (strict check)
         const isVinyl = formats.some((f: string) => f.includes('vinyl') || f.includes('lp') || f.includes('12"'));
 
-        if (hasInvalidTitle || hasInvalidFormat || (formats.length > 0 && !isVinyl)) {
+        if (hasInvalidKeyword || hasInvalidFormat || (formats.length > 0 && !isVinyl)) {
             // console.log(`🗑️  Marked for deletion: ${product.title} (Format: ${product.format})`);
             toDelete.push(product.id);
         }
@@ -58,32 +67,36 @@ export async function cleanupBadProducts() {
 
     if (toDelete.length > 0) {
         console.log(`📋 Found ${toDelete.length} invalid products to delete.`);
-        const { error: deleteError } = await supabase
-            .from('lp_products')
-            .delete()
-            .in('id', toDelete);
+        // Delete in batches
+        const batchSize = 1000;
+        for (let i = 0; i < toDelete.length; i += batchSize) {
+            const batch = toDelete.slice(i, i + batchSize);
+            const { error: deleteError } = await supabase
+                .from('lp_products')
+                .delete()
+                .in('id', batch);
 
-        if (deleteError) {
-            console.error('❌ Failed to delete products:', deleteError);
-        } else {
-            console.log('✅ Successfully deleted bad products.');
+            if (deleteError) {
+                console.error(`❌ Failed to delete batch ${i}:`, deleteError);
+            }
         }
+        console.log('✅ Successfully deleted bad products.');
     } else {
         console.log('✨ No bad products found.');
     }
 }
 
 /**
- * Remove offers with abnormally low prices
+ * Remove offers with abnormally low prices (Accessory Check)
  */
 export async function cleanupBadOffers() {
-    console.log('🧹 [Cleanup] Checking for invalid low-price offers (< 10,000 KRW)...');
+    console.log('🧹 [Cleanup] Checking for invalid low-price offers (< 15,000 KRW)...');
 
-    // 1. Fetch all offers with price < 10000
+    // 1. Fetch all offers with price < 15000 (Raised from 10k to 15k to catch more accessories)
     const { data: offers, error } = await supabase
         .from('lp_offers')
         .select('id, base_price, vendor_name, url')
-        .lt('base_price', 10000); // 10,000 KRW threshold
+        .lt('base_price', 15000);
 
     if (error) {
         console.error('❌ Failed to fetch offers:', error);
@@ -121,7 +134,7 @@ export async function cleanupDuplicateOffers() {
     const { data: offers, error } = await supabase
         .from('lp_offers')
         .select('id, product_id, vendor_name, base_price, url')
-        .order('id', { ascending: true }); // Keep oldest or newest? Let's keep oldest (lowest ID)
+        .order('id', { ascending: true }); // Keep oldest
 
     if (error || !offers) {
         console.error('❌ Failed to fetch offers:', error);
