@@ -1568,10 +1568,12 @@ async function updateProductOffers(productId: string, offers: VendorOffer[]) {
  */
 export async function syncAllProducts() {
   try {
-    // 모든 제품 가져오기 (EAN, Discogs ID, 제목, 아티스트 포함)
+    // 모든 제품 가져오기 (오래된 순서대로 1000개만 - API 제한 고려)
     const { data: products, error } = await supabase
       .from('lp_products')
-      .select('id, ean, discogs_id, title, artist');
+      .select('id, ean, discogs_id, title, artist')
+      .order('last_synced_at', { ascending: true, nullsFirst: true }) // 가장 오래된(또는 한번도 안한) 것부터
+      .limit(1000); // 하루 API 제한(5000)을 고려하여 배치 크기 제한
 
     if (error) {
       console.error('Error fetching products:', error);
