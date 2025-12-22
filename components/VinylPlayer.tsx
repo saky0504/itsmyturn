@@ -55,7 +55,7 @@ const INITIAL_TRACK: Track = {
   artist: 'Symphony Orchestra',
   album: 'Internet Archive',
   cover: 'https://archive.org/services/img/78_wedding-march_symphony-orchestra-mendelssohn_gbia0012855a',
-  preview_url: 'https://archive.org/download/78_wedding-march_symphony-orchestra-mendelssohn_gbia0012855a/Wedding March - Symphony Orchestra - Mendelssohn-restored.mp3',
+  preview_url: '/music/wedding_march.mp3',
   duration: 183000,
   spotify_url: '',
   lyrics: 'Pre-loaded for instant playback',
