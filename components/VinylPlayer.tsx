@@ -637,7 +637,7 @@ export function VinylPlayer() {
                 album: 'Internet Archive',
                 cover: coverUrl,
                 preview_url: streamingUrl,
-                duration: Math.floor(duration / 1000),
+                duration: duration,
                 spotify_url: '',
                 lyrics: '',
                 genre: genre,
@@ -780,14 +780,14 @@ export function VinylPlayer() {
         setCurrentTime(time);
 
         // 🚨 timeupdate 이벤트가 발생하면 duration도 함께 업데이트 (Infinity 체크 추가)
-        if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
           setDuration(audio.duration);
         }
       }
     };
 
     const updateDuration = () => {
-      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
       }
     };
@@ -824,7 +824,7 @@ export function VinylPlayer() {
 
     const handleLoadedData = () => {
       console.log('Audio data loaded');
-      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
       }
       setIsAudioReady(true); // 메타데이터 로드 완료
@@ -1004,7 +1004,9 @@ export function VinylPlayer() {
 
         // 무조건 시간 업데이트 (모든 조건 제거)
         setCurrentTime(currentAudioTime);
-        setDuration(audioDuration);
+        if (audioDuration && !isNaN(audioDuration) && isFinite(audioDuration) && audioDuration > 0) {
+          setDuration(audioDuration);
+        }
 
         // 재생 중일 때는 더 자주 로그 출력
         if (isPlaying) {
@@ -1015,7 +1017,7 @@ export function VinylPlayer() {
       } else {
         // 오디오가 없어도 0으로 설정
         setCurrentTime(0);
-        setDuration(0);
+        // setDuration(0); // 🚨 Do not reset duration to 0 blindly
         console.log('⏰ No audio - setting time to 0');
       }
     }, 50); // 50ms로 더 빠르게 (재생 중일 때 더 부드럽게)
@@ -1045,7 +1047,7 @@ export function VinylPlayer() {
 
     // 마운트 시 즉시 타임라인 상태 초기화
     setCurrentTime(0);
-    setDuration(0);
+    // setDuration(0); // 🚨 Do not reset duration to 0 blindly on mount
 
     // 500ms 후에도 강제로 타임라인 체크
     const forceTimelineCheck = setTimeout(() => {
@@ -1053,7 +1055,9 @@ export function VinylPlayer() {
         const time = audioRef.current.currentTime || 0;
         const duration = audioRef.current.duration || 0;
         setCurrentTime(time);
-        setDuration(duration);
+        if (duration && !isNaN(duration) && isFinite(duration) && duration > 0) {
+          setDuration(duration);
+        }
         console.log(`🚀 Force timeline check: ${time.toFixed(2)}s / ${duration.toFixed(2)}s`);
       } else {
         console.log('🚀 Force timeline check: No audio element');
@@ -1088,7 +1092,9 @@ export function VinylPlayer() {
         try {
           setIsLoading(true);
           setCurrentTime(0);
-          setDuration(0);
+          // duration을 0으로 초기화하지 않고, 트랙 정보에 있는 duration으로 초기화
+          const trackDuration = currentTrack.duration ? currentTrack.duration / 1000 : 0;
+          setDuration(trackDuration);
 
           if (audioRef.current) {
             // 🧹 이전 재생을 확실히 중단하고 메모리 해제
@@ -1411,6 +1417,10 @@ export function VinylPlayer() {
   // Preview URL 유효성 검증 (Spotify + 데모 URL 지원)
   const isValidPreviewUrl = (url: string | null | undefined): boolean => {
     if (!url || typeof url !== 'string' || url.trim() === '') return false;
+
+    // 🚀 Local file support (starts with /)
+    if (url.startsWith('/')) return true;
+
     try {
       const urlObj = new URL(url);
       return urlObj.protocol.startsWith('http') &&
@@ -1773,7 +1783,7 @@ export function VinylPlayer() {
   };
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden relative ${isMobile ? 'pt-0' : 'p-8 justify-center items-center'}`}>
+    <div className={`flex flex-col h-[100dvh] overflow-hidden relative ${isMobile ? 'pt-0' : 'p-8 justify-center items-center'}`}>
       {/* 배경 레이어 */}
       <div className="absolute inset-0 bg-gradient-to-b from-gray-50 via-white to-gray-100 z-0" />
 
@@ -1864,12 +1874,12 @@ export function VinylPlayer() {
                     </div>
                   </button>
                 </div>
-                {/* LP 영역 - 화면 상단 60% 차지 */}
-                <div className="relative h-[60vh] overflow-hidden flex items-center justify-center">
+                {/* LP 영역 - 화면 상단 55% 차지 */}
+                <div className="relative h-[55vh] overflow-hidden flex items-center justify-center">
                   {/* 턴테이블 베이스 - 모바일에서는 화면보다 크게 */}
-                  <div className="relative -mt-32" ref={containerRef}>
+                  <div className="relative mt-4" ref={containerRef}>
                     <motion.div
-                      className="relative cursor-pointer w-[126vw] h-[126vw]"
+                      className="relative cursor-pointer w-[85vw] h-[85vw] max-w-[360px] max-h-[360px]"
                       onClick={handlePlayPause}
                       drag="x"
                       dragConstraints={{ left: 0, right: 0 }}
@@ -2113,10 +2123,10 @@ export function VinylPlayer() {
                   </div>
                 </div>
 
-                {/* 컨텐츠 영역 - 화면 하단 40% */}
-                <div className="flex-1 px-6 pb-6 flex flex-col justify-between">
-                  {/* 트랙 정보 */}
-                  <div className="text-center mb-2 px-4">
+                {/* 컨텐츠 영역 - 화면 하단 45% - justify-between 제거하고 gap 사용 */}
+                <div className="flex-1 px-6 pb-6 flex flex-col gap-6 justify-center">
+                  {/* 트랙 정보 - 상단에 배치하고 mb-auto 제거 */}
+                  <div className="text-center px-4 mt-2">
                     {/* 제목 - 2줄 넘으면 ... 처리 */}
                     <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '1.5rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {currentTrack?.title || 'No Track Selected'}
@@ -2179,7 +2189,7 @@ export function VinylPlayer() {
                       variant="ghost"
                       size="icon"
                       onClick={handlePlayPause}
-                      className="text-gray-600 hover:text-gray-900 w-10 h-10 justify-self-center"
+                      className="text-gray-900 hover:text-black w-14 h-14 justify-self-center"
                     >
                       {isPlaying || isLoading ? (
                         <Pause className="w-5 h-5" />
@@ -2215,7 +2225,7 @@ export function VinylPlayer() {
               </div>
             ) : (
               /* 데스크톱 레이아웃 */
-              <div className="max-w-4xl mx-auto relative">
+              <div className="max-w-4xl xl:max-w-6xl mx-auto relative">
                 {/* Floating action buttons */}
                 <div className="absolute top-[85px] -right-[15px] z-50 flex items-center gap-3">
                   <button
@@ -2250,7 +2260,7 @@ export function VinylPlayer() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-[104px] items-center">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 xl:gap-[104px] items-center">
                   {/* LP 턴테이블 */}
                   <div className="relative flex items-center justify-center p-8" ref={containerRef}>
                     <motion.div
@@ -2470,7 +2480,7 @@ export function VinylPlayer() {
                   {/* 컨트롤 패널 */}
                   <div className="space-y-8">
                     {/* 트랙 정보 */}
-                    <div className="text-center lg:text-left">
+                    <div className="text-center xl:text-left">
                       <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '1.75rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {currentTrack?.title || 'No Track Selected'}
                       </h2>
@@ -2506,7 +2516,7 @@ export function VinylPlayer() {
                     </div>
 
                     {/* 플레이어 컨트롤 - 균등한 간격으로 배렬 */}
-                    <div className="flex items-center space-x-3 max-w-md mx-auto lg:mx-0">
+                    <div className="flex items-center justify-center space-x-4 w-full">
                       <Button
                         variant="ghost"
                         size="icon"
