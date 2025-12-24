@@ -176,7 +176,7 @@ export function VinylPlayer() {
         const img = new Image();
         img.loading = 'eager'; // 첫 이미지는 즉시 로드 (LCP)
         img.decoding = 'async'; // 🚀 비동기 디코딩
-        img.fetchPriority = 'high'; // 🚀 우선순위 높임
+        img.fetchpriority = 'high'; // 🚀 우선순위 높임
         img.src = imageUrl;
         console.log('🖼️ Optimized image preload:', imageUrl, isMobile ? '(mobile 300px)' : '(desktop 500px)');
       });
@@ -2091,7 +2091,7 @@ export function VinylPlayer() {
                           className="w-full h-full object-contain"
                           loading="eager"
                           decoding="async"
-                          fetchPriority="high"
+                          fetchpriority="high"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             console.log('🦆 Image failed, using duck fallback');
@@ -2446,7 +2446,7 @@ export function VinylPlayer() {
                           className="w-full h-full object-contain"
                           loading="eager"
                           decoding="async"
-                          fetchPriority="high"
+                          fetchpriority="high"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             console.log('🦆 Image failed, using duck fallback');

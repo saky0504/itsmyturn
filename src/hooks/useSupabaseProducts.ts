@@ -1,11 +1,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import type { LpProduct } from '../data/lpMarket';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+import { supabase } from '../lib/supabase'; // Singleton import
 
 export interface UseSupabaseProductsResult {
     products: LpProduct[];
@@ -71,12 +67,8 @@ export const useSupabaseProducts = (
             }
         };
 
-        if (supabaseUrl && supabaseKey) {
-            fetchAllProducts();
-        } else {
-            console.warn('Supabase env vars missing');
-            setIsLoading(false);
-        }
+        // Supabase 클라이언트가 있으면 바로 실행
+        fetchAllProducts();
     }, [trigger]); // trigger가 변경될 때만 재요청
 
     // 2. 검색어 필터링 및 페이지네이션 처리

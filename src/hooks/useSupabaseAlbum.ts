@@ -1,11 +1,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import type { LpProduct } from '../data/lpMarket';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+import { supabase } from '../lib/supabase'; // Singleton import
 
 export interface UseSupabaseAlbumResult {
     product: LpProduct | null;
@@ -71,9 +67,7 @@ export const useSupabaseAlbum = (id: string | undefined): UseSupabaseAlbumResult
             }
         };
 
-        if (supabaseUrl && supabaseKey) {
-            fetchProduct();
-        }
+        fetchProduct();
     }, [id, trigger]);
 
     return { product, isLoading, error, refetch };
