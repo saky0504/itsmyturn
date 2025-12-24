@@ -495,27 +495,26 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    // 검색 결과에서 첫 번째 상품의 가격 추출 (사이트 구조에 따라 셀렉터 수정 필요)
-    // User provided: .prod_price .price .val
+    // 검색 결과에서 첫 번째 상품의 가격 추출
     const priceText = $('.prod_price .price .val').first().text().replace(/[^0-9]/g, '');
     const price = priceText ? parseInt(priceText) : 0;
 
     if (!price) {
-      // console.log(`[교보문고] Price not found for ${keyword}`);
       return null;
     }
 
-    // Try to extract specific product URL, otherwise use search URL
-    // Kyobo usually has prod_info -> a[href]
-    let productLink = $('.prod_info a').first().attr('href');
-    if (productLink && !productLink.startsWith('http')) {
-      productLink = `https://product.kyobobook.co.kr/detail/${productLink.split('/').pop()}`; // Guessing or absolute? 
-      // Kyobo link usually: https://product.kyobobook.co.kr/detail/S000211836098
-      // Or if it's full path. 
-      // Safest to just prepend domain if missing, or use searchUrl.
+    // 정확한 상품 링크 추출 (.prod_link 클래스 사용)
+    let productLink = $('.prod_link').first().attr('href');
+
+    // URL 생성 로직 개선
+    if (productLink) {
       if (!productLink.startsWith('http')) {
-        productLink = `https://product.kyobobook.co.kr${productLink}`;
+        // 상대 경로인 경우 도메인 추가
+        productLink = `https://product.kyobobook.co.kr${productLink.startsWith('/') ? '' : '/'}${productLink}`;
       }
+    } else {
+      // 링크를 찾지 못한 경우 검색 결과 페이지 사용 (안전장치)
+      productLink = searchUrl;
     }
 
     return {
