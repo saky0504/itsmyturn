@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Grid, List, Search, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
+import { Grid, List, Search, ChevronLeft, ChevronRight, Loader2, X, RefreshCw } from 'lucide-react';
 import { MarketHeader } from '../../components/market/MarketHeader';
 import {
   calculateOfferFinalPrice,
@@ -8,6 +8,7 @@ import {
   type LpProduct,
 } from '../../data/lpMarket';
 import { useSupabaseProducts } from '../../hooks/useSupabaseProducts';
+import { useOnDemandPriceSearch } from '../../hooks/useOnDemandPriceSearch';
 import { getDailyLpRecommendations } from '../../lib/recommendation';
 import { useIsMobile } from '../../../components/ui/use-mobile';
 
@@ -22,11 +23,14 @@ const getBestOffer = (offers: LpProduct['offers']) => {
 interface ProductCardProps {
   product: LpProduct;
   variant?: 'default' | 'featured' | 'compact' | 'list';
+  onPriceSearch?: (productId: string) => void;
+  isSearchingPrice?: boolean;
 }
 
-function ProductCard({ product, variant = 'default' }: ProductCardProps) {
+function ProductCard({ product, variant = 'default', onPriceSearch, isSearchingPrice = false }: ProductCardProps) {
   const bestOffer = getBestOffer(product.offers);
   const finalPrice = bestOffer ? calculateOfferFinalPrice(bestOffer) : null;
+  const hasNoOffers = !product.offers || product.offers.length === 0;
 
   if (variant === 'list') {
     return (
@@ -103,8 +107,22 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
                 )}
               </div>
             ) : (
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-muted-foreground">Price info not available</span>
+                {onPriceSearch && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onPriceSearch(product.id);
+                    }}
+                    disabled={isSearchingPrice}
+                    className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isSearchingPrice ? 'animate-spin' : ''}`} />
+                    {isSearchingPrice ? 'Searching...' : 'Search prices'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -201,7 +219,25 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
               <span className="text-[11px] text-muted-foreground/60 truncate">{bestOffer.vendorName}</span>
             )}
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-col gap-1 pt-1">
+            <span className="text-sm text-muted-foreground">No price</span>
+            {onPriceSearch && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onPriceSearch(product.id);
+                }}
+                disabled={isSearchingPrice}
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <RefreshCw className={`w-3 h-3 ${isSearchingPrice ? 'animate-spin' : ''}`} />
+                {isSearchingPrice ? 'Searching...' : 'Search'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -293,8 +329,36 @@ export function LpHome() {
   }, [debouncedQuery]);
 
   // Supabase 데이터 훅 사용
-  const { products, allProducts, totalCount, isLoading, error } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
+  const { products, allProducts, totalCount, isLoading, error, refetch } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
+  const { searchPrices, isLoading: isSearchingPrice } = useOnDemandPriceSearch();
+  const [searchingProductId, setSearchingProductId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+
+  // 온디맨드 가격 검색 핸들러
+  const handlePriceSearch = async (productId: string) => {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+
+    setSearchingProductId(productId);
+    try {
+      const result = await searchPrices({
+        productId: product.id,
+        artist: product.artist,
+        title: product.title,
+        ean: product.barcode,
+        discogsId: product.discogsId,
+      });
+
+      if (result && result.offers.length > 0) {
+        // 검색 성공 시 제품 목록 다시 불러오기
+        refetch();
+      }
+    } catch (err) {
+      console.error('가격 검색 실패:', err);
+    } finally {
+      setSearchingProductId(null);
+    }
+  };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
@@ -402,13 +466,24 @@ export function LpHome() {
               {viewMode === 'list' ? (
                 <div className="space-y-4">
                   {products.map((product) => (
-                    <ProductCard key={product.id} product={product} variant="list" />
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      variant="list"
+                      onPriceSearch={handlePriceSearch}
+                      isSearchingPrice={searchingProductId === product.id}
+                    />
                   ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
                   {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onPriceSearch={handlePriceSearch}
+                      isSearchingPrice={searchingProductId === product.id}
+                    />
                   ))}
                 </div>
               )}

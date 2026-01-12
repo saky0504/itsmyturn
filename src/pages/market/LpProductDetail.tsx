@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowUpRight,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { MarketHeader } from '../../components/market/MarketHeader';
@@ -16,11 +17,14 @@ import {
   getChannelById,
 } from '../../data/lpMarket';
 import { useSupabaseAlbum } from '../../hooks/useSupabaseAlbum';
+import { useOnDemandPriceSearch } from '../../hooks/useOnDemandPriceSearch';
 
 export function LpProductDetail() {
   const navigate = useNavigate();
   const { productId } = useParams();
-  const { product, isLoading } = useSupabaseAlbum(productId);
+  const { product, isLoading, refetch } = useSupabaseAlbum(productId);
+  const { searchPrices, isLoading: isSearchingPrice } = useOnDemandPriceSearch();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const sortedOffers = useMemo(() => {
     if (!product) return [];
@@ -162,6 +166,36 @@ export function LpProductDetail() {
                 배송비 정책, 쿠폰 등을 고려한 실질적인 구매 혜택을 비교해보세요.
               </p>
             </div>
+            <Button
+              onClick={async () => {
+                if (!product) return;
+                setIsRefreshing(true);
+                try {
+                  const result = await searchPrices({
+                    productId: product.id,
+                    artist: product.artist,
+                    title: product.title,
+                    ean: product.barcode,
+                    discogsId: product.discogsId,
+                    forceRefresh: true,
+                  });
+                  if (result) {
+                    // 검색 성공 시 제품 정보 다시 불러오기
+                    await refetch();
+                  }
+                } catch (err) {
+                  console.error('가격 검색 실패:', err);
+                } finally {
+                  setIsRefreshing(false);
+                }
+              }}
+              disabled={isSearchingPrice || isRefreshing}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${(isSearchingPrice || isRefreshing) ? 'animate-spin' : ''}`} />
+              {(isSearchingPrice || isRefreshing) ? '검색 중...' : '가격 새로고침'}
+            </Button>
           </div>
 
           {sortedOffers.length > 0 ? (
@@ -307,8 +341,37 @@ export function LpProductDetail() {
               </div>
             </>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p className="text-sm">현재 가격 정보가 없습니다.</p>
+            <div className="text-center py-12 space-y-4">
+              <p className="text-sm text-muted-foreground">현재 가격 정보가 없습니다.</p>
+              <Button
+                onClick={async () => {
+                  if (!product) return;
+                  setIsRefreshing(true);
+                  try {
+                    const result = await searchPrices({
+                      productId: product.id,
+                      artist: product.artist,
+                      title: product.title,
+                      ean: product.barcode,
+                      discogsId: product.discogsId,
+                      forceRefresh: true,
+                    });
+                    if (result) {
+                      await refetch();
+                    }
+                  } catch (err) {
+                    console.error('가격 검색 실패:', err);
+                  } finally {
+                    setIsRefreshing(false);
+                  }
+                }}
+                disabled={isSearchingPrice || isRefreshing}
+                variant="default"
+                className="flex items-center gap-2 mx-auto"
+              >
+                <RefreshCw className={`w-4 h-4 ${(isSearchingPrice || isRefreshing) ? 'animate-spin' : ''}`} />
+                {(isSearchingPrice || isRefreshing) ? '검색 중...' : '가격 검색하기'}
+              </Button>
             </div>
           )}
         </section>
