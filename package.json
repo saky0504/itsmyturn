@@ -19,7 +19,8 @@
     "sync-lp-prices": "tsx scripts/sync-lp-data.ts",
     "hourly-sync": "tsx scripts/hourly-sync.ts",
     "test-price-crawling": "tsx scripts/test-price-crawling.ts",
-    "add-products": "tsx scripts/add-products-with-prices.ts"
+    "add-products": "tsx scripts/add-products-with-prices.ts",
+    "deploy-edge-functions": "supabase functions deploy search-prices"
   },
   "dependencies": {
     "@capacitor-community/in-app-review": "^7.0.1",
