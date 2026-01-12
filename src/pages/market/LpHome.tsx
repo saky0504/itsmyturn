@@ -30,7 +30,6 @@ interface ProductCardProps {
 function ProductCard({ product, variant = 'default', onPriceSearch, isSearchingPrice = false }: ProductCardProps) {
   const bestOffer = getBestOffer(product.offers);
   const finalPrice = bestOffer ? calculateOfferFinalPrice(bestOffer) : null;
-  const hasNoOffers = !product.offers || product.offers.length === 0;
 
   if (variant === 'list') {
     return (
@@ -330,7 +329,7 @@ export function LpHome() {
 
   // Supabase 데이터 훅 사용
   const { products, allProducts, totalCount, isLoading, error, refetch } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
-  const { searchPrices, isLoading: isSearchingPrice } = useOnDemandPriceSearch();
+  const { searchPrices } = useOnDemandPriceSearch();
   const [searchingProductId, setSearchingProductId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 

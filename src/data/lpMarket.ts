@@ -66,6 +66,7 @@ export interface LpProduct {
     cartridge: string;
     phonoStage: string;
   };
+  checked?: boolean; // Admin 페이지에서만 사용
 }
 
 export interface LpCategoryNode {
