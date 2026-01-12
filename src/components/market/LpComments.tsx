@@ -48,12 +48,12 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
 
       // data가 null이거나 undefined가 아닌 경우 (빈 배열도 정상)
       if (data !== null && data !== undefined) {
-        setComments(data);
+        setComments(data as Comment[]);
       } else {
         // data가 null인 경우 빈 배열로 설정
         setComments([]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error:', error);
       // 모든 에러를 조용히 처리 (빈 배열로 설정)
       setComments([]);
@@ -84,7 +84,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
           if (payload.eventType === 'INSERT') {
             setComments(prev => [payload.new as Comment, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
-            setComments(prev => 
+            setComments(prev =>
               prev.map(c => c.id === payload.new.id ? payload.new as Comment : c)
             );
           } else if (payload.eventType === 'DELETE') {
@@ -110,9 +110,9 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   const handleSubmitComment = async () => {
     if (!newComment.trim()) return;
     if (!username.trim() && !showUsernameInput) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -159,7 +159,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
       }
 
       // Update local state
-      setComments(comments.map(c => 
+      setComments(comments.map(c =>
         c.id === commentId ? { ...c, likes: c.likes + 1 } : c
       ));
     } catch (error) {
@@ -184,7 +184,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   };
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-5">
+    <section className="space-y-5">
       <div>
         <h2 className="text-lg font-bold text-foreground">댓글</h2>
         <p className="text-xs font-normal text-muted-foreground mt-1">
@@ -194,22 +194,21 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
 
       {/* Username Setup */}
       {showUsernameInput && (
-        <div className="p-4 bg-muted rounded-lg border border-border">
-          <p className="text-xs text-foreground mb-3 font-normal">닉네임을 설정해주세요</p>
+        <div>
           <div className="flex gap-2">
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSetUsername()}
-              placeholder="닉네임 입력"
+              placeholder="닉네임을 설정해주세요"
               className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               maxLength={20}
             />
             <Button
               onClick={handleSetUsername}
               size="sm"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 px-3 text-xs"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 w-12 text-xs p-0"
             >
               설정
             </Button>
@@ -234,7 +233,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
       )}
 
       {/* Comment Input */}
-      <div className="space-y-2" style={{ marginTop: showUsernameInput ? '32px' : '28px' }}>
+      <div className="space-y-2">
         <div className="flex gap-2 items-stretch">
           <textarea
             value={newComment}
@@ -254,7 +253,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
           <Button
             onClick={handleSubmitComment}
             size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 px-3"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 w-12 p-0"
             disabled={!newComment.trim() || showUsernameInput || isLoading}
           >
             <Send className="w-4 h-4" />
@@ -311,11 +310,11 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
                   </div>
                 </div>
               </div>
-              
+
               <p className="text-sm font-normal text-foreground whitespace-pre-wrap break-words mb-2">
                 {comment.message}
               </p>
-              
+
               <button
                 onClick={() => handleLike(comment.id)}
                 className="flex items-center gap-1 text-xs font-normal text-muted-foreground hover:text-primary transition-colors"

@@ -125,8 +125,8 @@ function createOAuth() {
 /**
  * Discogs API 헤더 생성
  */
-function getDiscogsHeaders(url: string, method: string = 'GET'): HeadersInit {
-  const headers: HeadersInit = {
+function getDiscogsHeaders(url: string, method: string = 'GET'): Record<string, string> {
+  const headers: Record<string, string> = {
     'User-Agent': discogsUserAgent,
     'Accept': 'application/json',
   };
@@ -153,12 +153,13 @@ function getDiscogsHeaders(url: string, method: string = 'GET'): HeadersInit {
       const requestData = {
         url: baseUrl,
         method: method,
+        data: data
       };
 
-      const token = {}; // OAuth 1.0a 2-legged (no user token)
+      const token = { key: '', secret: '' }; // OAuth 1.0a 2-legged (no user token)
 
       // OAuth 서명 생성 (쿼리 파라미터 포함)
-      const authData = oauth.authorize(requestData, token, { data });
+      const authData = oauth.authorize(requestData, token);
       const authHeader = oauth.toHeader(authData);
 
       headers['Authorization'] = authHeader.Authorization;
@@ -227,7 +228,7 @@ async function searchPopularLPs(page: number = 1, perPage: number = 20): Promise
   console.log('📡 Authorization 헤더:', headers['Authorization'] ? headers['Authorization'].substring(0, 80) + '...' : '없음');
 
   const response = await fetch(url, {
-    headers: headers,
+    headers: headers as HeadersInit,
   });
 
   if (!response.ok) {
@@ -274,99 +275,9 @@ async function searchPopularLPs(page: number = 1, perPage: number = 20): Promise
   return data;
 }
 
-/**
- * Discogs API에서 특정 릴리즈 상세 정보 가져오기
- */
-async function getReleaseDetails(releaseId: number): Promise<DiscogsRelease | null> {
-  const url = `https://api.discogs.com/releases/${releaseId}`;
 
-  try {
-    const response = await fetch(url, {
-      headers: getDiscogsHeaders(url, 'GET'),
-    });
 
-    if (!response.ok) {
-      console.warn(`Failed to fetch release ${releaseId}: ${response.status}`);
-      return null;
-    }
 
-    return await response.json();
-  } catch (error) {
-    console.error(`Error fetching release ${releaseId}:`, error);
-    return null;
-  }
-}
-
-/**
- * Discogs 데이터를 LpProduct 형식으로 변환
- */
-function convertToLpProduct(release: DiscogsRelease, index: number): any {
-  const artist = release.artists?.[0]?.name || 'Unknown Artist';
-  const title = release.title || 'Unknown Title';
-  const discogsId = release.id.toString();
-  const barcode = release.barcode?.[0] || '';
-  const cover = release.cover_image || release.thumb || '/images/DJ_duic.jpg';
-
-  // 카테고리 추정
-  const genres = release.genres || [];
-  const styles = release.styles || [];
-  let category = 'LP';
-  let subCategory = 'general';
-
-  if (genres.some(g => g.toLowerCase().includes('jazz'))) {
-    subCategory = 'classic-jazz';
-  } else if (genres.some(g => g.toLowerCase().includes('rock'))) {
-    subCategory = 'rock';
-  } else if (genres.some(g => g.toLowerCase().includes('pop'))) {
-    subCategory = 'pop';
-  } else if (genres.some(g => g.toLowerCase().includes('classical'))) {
-    subCategory = 'classical';
-  }
-
-  // 포맷 정보에서 컬러/에디션 추출
-  const formats = release.formats || [];
-  const color = formats.some(f => f.name?.toLowerCase().includes('colored')) ? 'Colored' : 'Black';
-  const edition = formats.some(f => f.name?.toLowerCase().includes('remaster')) ? 'Remastered' : 'Original';
-
-  // 요약 생성
-  const summary = release.notes
-    ? release.notes.substring(0, 200)
-    : `${artist}의 ${title}${release.year ? ` (${release.year})` : ''}`;
-
-  const label = release.labels?.[0]?.name || null;
-  const releaseDate = release.released || (release.year ? release.year.toString() : null);
-  const trackList = release.tracklist?.map(t => ({
-    position: t.position || '',
-    title: t.title || '',
-    duration: t.duration || ''
-  })) || [];
-
-  const format = formats.map(f => f.name).join(', ') || 'LP';
-
-  return {
-    // id: undefined, // Removed to let Supabase generate UUID via DEFAULT
-    title: title,
-    artist: artist,
-    release_date: releaseDate,
-    label: label,
-    cover: cover,
-    thumbnail_url: release.thumb || null,
-    format: format,
-    genres: genres,
-    styles: styles,
-    track_list: trackList,
-    discogs_id: discogsId,
-    // Map to new schema columns
-    ean: barcode || null,
-    description: summary,
-
-    // Legacy fields removed to prevent PGRST204 errors
-    // barcode: barcode, 
-    // summary: summary, 
-
-    last_synced_at: new Date().toISOString(),
-  };
-}
 
 /**
  * 20개의 실제 LP 데이터를 가져와 Supabase에 저장

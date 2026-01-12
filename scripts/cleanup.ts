@@ -179,3 +179,44 @@ export async function cleanupDuplicateOffers() {
         console.log('✨ No duplicate offers found.');
     }
 }
+
+/**
+ * Remove products with missing title or artist
+ */
+export async function cleanupMissingData() {
+    console.log('🧹 [Cleanup] Checking for products with missing title or artist...');
+
+    const { data: products, error } = await supabase
+        .from('lp_products')
+        .select('id, title, artist')
+        .or('title.is.null,artist.is.null,title.eq.,artist.eq.');
+
+    if (error) {
+        console.error('❌ Failed to fetch missing data products:', error);
+        return;
+    }
+
+    if (!products || products.length === 0) {
+        console.log('✨ No missing data products found.');
+        return;
+    }
+
+    console.log(`📋 Found ${products.length} products with missing title or artist.`);
+
+    const idsToDelete = products.map(p => p.id);
+    const batchSize = 1000;
+
+    for (let i = 0; i < idsToDelete.length; i += batchSize) {
+        const batch = idsToDelete.slice(i, i + batchSize);
+        const { error: deleteError } = await supabase
+            .from('lp_products')
+            .delete()
+            .in('id', batch);
+
+        if (deleteError) {
+            console.error(`❌ Failed to delete batch ${i}:`, deleteError);
+        } else {
+            console.log(`✅ Deleted batch ${i / batchSize + 1} (${batch.length} items)`);
+        }
+    }
+}

@@ -1,0 +1,8 @@
+Found 1 products.
+
+[Product #1] ID: dcf93963-26db-4990-93d4-025b4a714ee8
+   Title: Kind Of Blue
+   Artist: Miles Davis
+   EAN: 886976805715 | Discogs: 2825456
+   Offers: 1
+      - 알라딘 (28600원): https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=42840611&amp;partner=openAPI&amp;start=api

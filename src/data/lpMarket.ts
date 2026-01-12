@@ -119,6 +119,24 @@ export const LP_VENDOR_CHANNELS: LpVendorChannel[] = [
     differentiator:
       '빠른 배송과 쿠폰이 강점이므로 최종 결제 금액을 즉시 계산해 보여줘야 합니다.',
   },
+  {
+    id: 'naver-api',
+    label: '네이버 쇼핑 검색',
+    sampleSellers: ['네이버쇼핑 파트너'],
+    description: '네이버 쇼핑 검색 API를 통해 수집된 다양한 판매처의 결과입니다.',
+    shippingTip: '판매자별 상이, 상세 페이지 확인 필수.',
+    updateCadence: '실시간 검색 API 연동',
+    differentiator: '다양한 소규모 샵과 오픈마켓의 최저가를 한눈에 확인할 수 있습니다.',
+  },
+  {
+    id: 'aladin-api',
+    label: '알라딘 (API)',
+    sampleSellers: ['알라딘'],
+    description: '알라딘 Open API를 통해 실시간으로 조회된 상품 정보입니다.',
+    shippingTip: '알라딘 배송 정책 (우주배송 등) 적용.',
+    updateCadence: '실시간 검색 API 연동',
+    differentiator: '알라딘의 방대한 신품/중고 재고를 직접 조회하여 정확도가 높습니다.',
+  },
 ];
 
 export const LP_CATEGORY_TREE: LpCategoryNode[] = [
@@ -193,9 +211,8 @@ export const buildAffiliateUrl = (offer: LpOffer) => {
     return url.toString();
   } catch {
     const separator = offer.url.includes('?') ? '&' : '?';
-    return `${offer.url}${separator}${offer.affiliateParamKey || 'aff_id'}=${
-      offer.affiliateCode
-    }`;
+    return `${offer.url}${separator}${offer.affiliateParamKey || 'aff_id'}=${offer.affiliateCode
+      }`;
   }
 };
 

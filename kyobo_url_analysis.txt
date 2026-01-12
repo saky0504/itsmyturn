@@ -1,0 +1,111 @@
+# Kyobo URL Analysis
+
+Total Kyobo offers: 1000
+Search URLs (invalid): 0
+Suspicious product URLs (used >3 times): 57
+
+## Most Frequently Used URLs (Likely Invalid)
+
+### S000218673248 - Used 20 times
+URL: https://product.kyobobook.co.kr/detail/S000218673248
+Products:
+  - Late Registration - Kanye West
+  - Gorillaz - Gorillaz
+  - A Moon Shaped Pool - Radiohead
+  - Metallica - Metallica
+  - Nevermind - Nirvana
+  ... and 15 more
+
+### S000217164234 - Used 16 times
+URL: https://product.kyobobook.co.kr/detail/S000217164234
+Products:
+  - For You - Tatsuro Yamashita
+  - Mint Jams - Casiopea
+  - Pacific - 細野晴臣*, 鈴木　茂* & 山下達郎*
+  - Variety = ヴァラエティ - Mariya Takeuchi
+  - An Insatiable High - 高中正義* = Masayoshi Takanaka
+  ... and 11 more
+
+### S000218854075 - Used 16 times
+URL: https://product.kyobobook.co.kr/detail/S000218854075
+Products:
+  - Brothers In Arms - Dire Straits
+  - Paul's Boutique - Beastie Boys
+  - Pornography - The Cure
+  - In Utero - Nirvana
+  - Moon Safari - AIR French Band*
+  ... and 11 more
+
+### S000218857512 - Used 16 times
+URL: https://product.kyobobook.co.kr/detail/S000218857512
+Products:
+  - Reputation - Taylor Swift
+  - Demon Days - Gorillaz
+  - In Rainbows - Radiohead
+  - Random Access Memories - Daft Punk
+  - OK Computer - Radiohead
+  ... and 11 more
+
+### S000218787515 - Used 15 times
+URL: https://product.kyobobook.co.kr/detail/S000218787515
+Products:
+  - Midnight Marauders - A Tribe Called Quest
+  - The Low End Theory - A Tribe Called Quest
+  - Mezzanine - Massive Attack
+  - Siamese Dream - Smashing Pumpkins*
+  - Plastic Beach - Gorillaz
+  ... and 10 more
+
+### S000217454704 - Used 13 times
+URL: https://product.kyobobook.co.kr/detail/S000217454704
+Products:
+  - Born In The U.S.A. - Bruce Springsteen
+  - Californication - Red Hot Chili Peppers
+  - The Divine Feminine - Mac Miller
+  - Alive 2007 - Daft Punk
+  - Remain In Light - Talking Heads
+  ... and 8 more
+
+### S000218907311 - Used 13 times
+URL: https://product.kyobobook.co.kr/detail/S000218907311
+Products:
+  - Dummy - Portishead
+  - Madvillain - Madvillainy - Doom* And Madlib
+  - Discovery - Daft Punk
+  - Straight Outta Compton - N.W.A*
+  - Dummy - Portishead
+  ... and 8 more
+
+### S000218847154 - Used 13 times
+URL: https://product.kyobobook.co.kr/detail/S000218847154
+Products:
+  - The Fame Monster - Lady Gaga
+  - Oil Of Every Pearl's Un-Insides - Sophie (42)
+  - Are You Experienced - The Jimi Hendrix Experience
+  - Ultraviolence - Lana Del Rey
+  - Red - Taylor Swift
+  ... and 8 more
+
+### S000218278381 - Used 11 times
+URL: https://product.kyobobook.co.kr/detail/S000218278381
+Products:
+  - To Pimp A Butterfly - Kendrick Lamar
+  - Currents - Tame Impala
+  - Back To Black - Amy Winehouse
+  - For Emma, Forever Ago - Bon Iver
+  - The Marshall Mathers LP - Eminem
+  ... and 6 more
+
+### S000001814993 - Used 10 times
+URL: https://product.kyobobook.co.kr/detail/S000001814993
+Products:
+  - Purple Rain - Prince And The Revolution
+  - Master Of Puppets - Metallica
+  - Speaking In Tongues - Talking Heads
+  - Purple Rain - Prince And The Revolution
+  - Master Of Puppets - Metallica
+  ... and 5 more
+
+## Search URLs (All Invalid)
+
+Count: 0

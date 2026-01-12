@@ -28,12 +28,7 @@ jobs:
         env:
           SUPABASE_URL: '${{ secrets.SUPABASE_URL }}'
           SUPABASE_SERVICE_ROLE_KEY: '${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}'
-          VITE_SUPABASE_URL: '${{ secrets.VITE_SUPABASE_URL }}'
-          VITE_SUPABASE_SERVICE_ROLE_KEY: '${{ secrets.VITE_SUPABASE_SERVICE_ROLE_KEY }}'
           DISCOGS_TOKEN: '${{ secrets.DISCOGS_TOKEN }}'
-          DISCOGS_CONSUMER_KEY: '${{ secrets.DISCOGS_CONSUMER_KEY }}'
-          DISCOGS_CONSUMER_SECRET: '${{ secrets.DISCOGS_CONSUMER_SECRET }}'
-          DISCOGS_USER_AGENT: '${{ secrets.DISCOGS_USER_AGENT }}'
           NAVER_CLIENT_ID: '${{ secrets.NAVER_CLIENT_ID }}'
           NAVER_CLIENT_SECRET: '${{ secrets.NAVER_CLIENT_SECRET }}'
           ALADIN_TTB_KEY: '${{ secrets.ALADIN_TTB_KEY }}'

@@ -84,10 +84,10 @@ export function updateProductOffers(
 /**
  * Supabase Edge Function을 통해 가격 정보 가져오기
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export async function fetchPricesFromEdgeFunction(
   productId: string,
-  identifier: Record<string, any>
+  identifier: Record<string, unknown>
 ): Promise<VendorOffer[]> {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -129,14 +129,7 @@ export async function fetchPricesFromEdgeFunction(
  * 클라이언트에서 직접 크롤링 (CORS 문제로 제한적)
  * 주의: 대부분의 쇼핑몰은 CORS를 차단하므로 Edge Function 사용 권장
  */
-export async function fetchPricesDirectly(
-  _identifier: {
-    ean?: string;
-    discogsId?: string;
-    title?: string;
-    artist?: string;
-  }
-): Promise<VendorOffer[]> {
+export async function fetchPricesDirectly(): Promise<VendorOffer[]> {
   // 클라이언트에서 직접 크롤링은 CORS 문제로 어려움
   // 대신 Edge Function을 통해 가져오는 것을 권장
   console.warn('클라이언트에서 직접 크롤링은 CORS 문제로 제한적입니다. Edge Function 사용을 권장합니다.');

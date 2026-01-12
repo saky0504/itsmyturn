@@ -59,9 +59,9 @@ export const useSupabaseProducts = (
 
                 const mappedProducts = (data || []).map(mapDbProductToAppProduct);
                 setAllProducts(mappedProducts);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error('Failed to fetch products:', err);
-                setError(err);
+                setError(err instanceof Error ? err : new Error('Unknown error'));
             } finally {
                 setIsLoading(false);
             }
@@ -75,13 +75,18 @@ export const useSupabaseProducts = (
     useEffect(() => {
         let result = allProducts;
 
-        // 검색 필터링 (Client-side)
+        // 검색 필터링 (Client-side) - whitespace insensitive
         if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase().trim();
-            result = allProducts.filter(p =>
-                (p.title || '').toLowerCase().includes(query) ||
-                (p.artist || '').toLowerCase().includes(query)
-            );
+            // Normalize: remove all whitespace for matching
+            const normalize = (str: string) => str.replace(/\s+/g, '').toLowerCase();
+            const normalizedQuery = normalize(searchQuery);
+
+            result = allProducts.filter(p => {
+                const normalizedTitle = normalize(p.title || '');
+                const normalizedArtist = normalize(p.artist || '');
+                // Check if normalized query is contained in either title or artist
+                return normalizedTitle.includes(normalizedQuery) || normalizedArtist.includes(normalizedQuery);
+            });
         }
 
         setTotalCount(result.length);
@@ -96,8 +101,33 @@ export const useSupabaseProducts = (
     return { products, allProducts, totalCount, isLoading, error, refetch };
 };
 
+interface DbOffer {
+    id: string;
+    vendor_name: string;
+    channel_id: string;
+    base_price: number;
+    shipping_fee: number;
+    shipping_policy: string;
+    url: string;
+    is_stock_available: boolean;
+    updated_at?: string;
+}
+
+interface DbProduct {
+    id: string;
+    title: string;
+    artist: string;
+    cover: string;
+    category: string;
+    sub_category: string;
+    discogs_id: string;
+    barcode: string;
+    summary: string;
+    offers?: DbOffer[];
+}
+
 // DB 데이터를 앱 데이터 타입으로 변환하는 헬퍼
-function mapDbProductToAppProduct(dbItem: any): LpProduct {
+function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
     return {
         id: dbItem.id,
         title: dbItem.title,
@@ -120,7 +150,7 @@ function mapDbProductToAppProduct(dbItem: any): LpProduct {
         tags: [dbItem.category, dbItem.sub_category].filter(Boolean),
 
         // Offers 매핑
-        offers: (dbItem.offers || []).map((o: any) => ({
+        offers: (dbItem.offers || []).map((o: DbOffer) => ({
             id: o.id || `offer-${Math.random()}`,
             vendorName: o.vendor_name,
             channelId: o.channel_id,

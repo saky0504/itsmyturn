@@ -1,0 +1,16 @@
+Kyobo Search Results for "Lana Del Rey Born To Die LP":
+
+1. BORN TO DIE [DELUXE] [LP]
+   Price: 67,100원
+   Link: https://hottracks.kyobobook.co.kr//p/0602527934242
+   Debug: artistMatch=false, titleMatch=true, titleMatchStrength=1.00
+   Validation: ✅ PASS
+   >>> THIS WOULD BE SELECTED <<<
+
+2. BORN TO DIE [THE PARADISE EDITION] [LP]
+   Price: 0원
+   Link: https://hottracks.kyobobook.co.kr//p/0602537181223
+   Debug: artistMatch=false, titleMatch=true, titleMatchStrength=1.00
+   Validation: ✅ PASS
+   >>> THIS WOULD BE SELECTED <<<
+

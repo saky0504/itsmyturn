@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { config } from 'dotenv';
+
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import fetch from 'node-fetch';
@@ -18,7 +18,7 @@ try {
             }
         }
     });
-} catch (error) {
+} catch {
     // .env not found
 }
 
@@ -91,15 +91,7 @@ async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller' | 'Keyword'
     }
 }
 
-function normalizeTitle(title: string): string {
-    // Remove tags like [LP], (180g), [Limited]
-    return title
-        .replace(/\[.*?\]/g, '')
-        .replace(/\(.*?\)/g, '')
-        .replace(/LP/gi, '')
-        .replace(/Vinyl/gi, '')
-        .trim();
-}
+
 
 async function processAladinItems(items: any[]) {
     // console.log(`🔍 Processing ${items.length} items from Aladin...`);

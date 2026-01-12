@@ -92,7 +92,7 @@ export function LpProductDetail() {
         </button>
 
         {/* 헤더 섹션 */}
-        <header className="rounded-xl border border-border bg-card shadow-sm p-6 lg:p-8 space-y-6">
+        <header className="space-y-6">
           <div className="flex flex-col md:flex-row gap-8">
             {/* LP 이미지 */}
             <div className="flex-shrink-0 w-full md:w-80 lg:w-96 mx-auto md:mx-0">
@@ -151,7 +151,7 @@ export function LpProductDetail() {
         </header>
 
         {/* 가격 비교 섹션 */}
-        <section className="rounded-xl border border-border bg-card p-6 lg:p-8 shadow-sm space-y-6">
+        <section className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
             <div>
               <h2 className="text-xl font-bold text-foreground flex items-center gap-2">

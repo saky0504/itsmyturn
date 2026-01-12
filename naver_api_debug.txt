@@ -1,0 +1,76 @@
+Found 10 results:
+
+1. 스틸리 댄 아날로그 LP Steely Dan Aja 아자 앨범 바이닐
+   Price: 59,860원
+   Mall: 연통상회
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/9455806589
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+2. (수입 LP) STEELY DAN Aja[LP]
+   Price: 109,430원
+   Mall: 뷰티스탠
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/12784841477
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+3. Steely Dan 스틸리 댄 Aja LP 엘피 앨범
+   Price: 45,900원
+   Mall: 네이버
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://search.shopping.naver.com/catalog/43035502076
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+4. (수입 LP) Steely Dan Aja [New Vinyl LP]
+   Price: 108,570원
+   Mall: 누리누리컴퍼니
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/12918702773
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+5. (수입 LP) Steely Dan – Aja LP Vinyl Record 12 NEW Sealed
+   Price: 111,930원
+   Mall: 뷰티스탠
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/12786056604
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+6. [LP] 스틸리 댄 (Steely Dan) Aja
+   Price: 53,000원
+   Mall: 바이닐앤바이브
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/9217652313
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+7. [LP]Steely Dan - Aja [45 RPM 200 Gram Clarity 2LP]
+   Price: 286,000원
+   Mall: 뮤직사운드
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/9601095539
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+8. Steely Dan - Aja (LP) 스틸리 댄
+   Price: 75,000원
+   Mall: 브리티쉬 레코드
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/8603381119
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+9. 스틸리 댄 LP Steely Dan - Aja 앨범 바이닐
+   Price: 45,900원
+   Mall: 샵버스
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/9103593265
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+10. STEELY DAN 스틸리 댄 (AJA) 독일반 LP
+   Price: 48,600원
+   Mall: 필엔틱
+   Category: 생활/건강 > 음반 > 해외앨범
+   Link: https://smartstore.naver.com/main/products/11091557422
+   Validation: LP=true, Aja=true, Steely/Dan=true
+
+
+🎯 First result that would be selected:
+   Title: 스틸리 댄 아날로그 LP Steely Dan Aja 아자 앨범 바이닐
+   Link: https://smartstore.naver.com/main/products/9455806589

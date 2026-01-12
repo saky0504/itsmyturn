@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Grid, List, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Grid, List, Search, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
 import { MarketHeader } from '../../components/market/MarketHeader';
 import {
   calculateOfferFinalPrice,
@@ -326,8 +326,18 @@ export function LpHome() {
                   value={searchQuery}
                   onChange={handleSearchChange}
                   placeholder="Artist, Album Search"
-                  className="w-full pl-12 pr-6 pt-4 pb-2 text-base bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors rounded-none"
+                  className="w-full pl-12 pr-12 pt-4 pb-2 text-base bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors rounded-none"
                 />
+                {searchQuery && !isLoading && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
                 {isLoading && (
                   <div className="absolute right-4 top-1/2 -translate-y-1/2">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />

@@ -59,9 +59,9 @@ export const useSupabaseAlbum = (id: string | undefined): UseSupabaseAlbumResult
                 } else {
                     setProduct(null);
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error('Failed to fetch album:', err);
-                setError(err);
+                setError(err instanceof Error ? err : new Error('Unknown error'));
             } finally {
                 setIsLoading(false);
             }
@@ -73,7 +73,38 @@ export const useSupabaseAlbum = (id: string | undefined): UseSupabaseAlbumResult
     return { product, isLoading, error, refetch };
 };
 
-function mapDbProductToAppProduct(dbItem: any): LpProduct {
+interface DbOffer {
+    id: string;
+    vendor_name: string;
+    channel_id: string;
+    base_price: number;
+    shipping_fee: number;
+    shipping_policy: string;
+    url: string;
+    is_stock_available: boolean;
+    updated_at: string;
+    badge?: string;
+}
+
+interface DbProduct {
+    id: string;
+    title: string;
+    artist: string;
+    cover: string;
+    format: string;
+    styles?: string[];
+    genres?: string[];
+    discogs_id: string;
+    ean: string;
+    description: string;
+    offers?: DbOffer[];
+    category?: string;
+    sub_category?: string;
+    barcode?: string;
+    summary?: string;
+}
+
+function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
     return {
         id: dbItem.id,
         title: dbItem.title,
@@ -103,7 +134,7 @@ function mapDbProductToAppProduct(dbItem: any): LpProduct {
         recommendedPairing: { turntable: '', cartridge: '', phonoStage: '' },
         tags: [...(dbItem.genres || []), ...(dbItem.styles || [])],
 
-        offers: (dbItem.offers || []).map((o: any) => ({
+        offers: (dbItem.offers || []).map((o: DbOffer) => ({
             id: o.id,
             vendorName: o.vendor_name,
             channelId: o.channel_id,
@@ -115,7 +146,7 @@ function mapDbProductToAppProduct(dbItem: any): LpProduct {
             lastChecked: o.updated_at || new Date().toISOString(),
             currency: 'KRW',
             notes: o.shipping_policy, // Fallback/Use shipping policy as notes if needed
-            badge: o.badge
+            badge: o.badge as "fresh" | "lowest" | "exclusive" | undefined
         })),
 
         colorVariants: [],

@@ -23,8 +23,9 @@ import { useNavigate } from 'react-router-dom';
 const hapticMedium = async () => console.log('🎮 Haptic feedback (web)');
 const hapticHeavy = async () => console.log('🎮 Haptic feedback (web)');
 const initPushNotifications = async () => console.log('🔔 Push notifications (web)');
-const initAppStateListeners = (_onResume: () => void, _onPause: () => void) => {
+const initAppStateListeners = () => {
   console.log('📱 App state listeners (web)');
+  // Mock implementation calling callbacks if needed for testing, or just logging.
 };
 const requestReview = async () => console.log('⭐ Review request (web)');
 const isNativePlatform = () => false; // 웹에서는 항상 false
@@ -32,6 +33,14 @@ const openInAppBrowser = async (url: string) => {
   window.open(url, '_blank', 'noopener,noreferrer');
   console.log('🌐 Opened in new tab:', url);
 };
+
+interface ArchiveItem {
+  identifier: string;
+  title?: string;
+  creator?: string | string[];
+  licenseurl?: string;
+  [key: string]: unknown;
+}
 
 interface Track {
   id: string;
@@ -136,6 +145,7 @@ export function VinylPlayer() {
     } catch (error) {
       console.warn('⚠️ Worker not supported, falling back to main thread:', error);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentTrack = tracks[currentTrackIndex];
@@ -176,7 +186,7 @@ export function VinylPlayer() {
         const img = new Image();
         img.loading = 'eager'; // 첫 이미지는 즉시 로드 (LCP)
         img.decoding = 'async'; // 🚀 비동기 디코딩
-        img.fetchpriority = 'high'; // 🚀 우선순위 높임
+        img.fetchPriority = 'high'; // 🚀 우선순위 높임
         img.src = imageUrl;
         console.log('🖼️ Optimized image preload:', imageUrl, isMobile ? '(mobile 300px)' : '(desktop 500px)');
       });
@@ -248,10 +258,9 @@ export function VinylPlayer() {
 
       loadNextTracks();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tracks, currentTrackIndex, isMobile]);
 
-  // 음악 Spotify API 호출 함수
-  // searchTracks 함수 제거 (장르 선택으로 대체됨)
 
   // 장르별 검색 쿼리 생성
   const getGenreSearchQueries = (genre: string) => {
@@ -339,7 +348,7 @@ export function VinylPlayer() {
   };
 
   // Internet Archive Metadata API로 실제 스트리밍 URL 추출
-  const getStreamingUrl = async (identifier: string, item?: any) => {
+  const getStreamingUrl = async (identifier: string, item?: { title?: string; creator?: string | string[]; licenseurl?: string;[key: string]: unknown }) => {
     try {
       console.log(`🎵 Getting metadata for: ${identifier}`);
 
@@ -353,7 +362,7 @@ export function VinylPlayer() {
       const data = await response.json();
 
       // MP3 파일 찾기 (우선순위: .mp3 > .ogg > .wav)
-      const mp3Files = data.files.filter((file: any) =>
+      const mp3Files = data.files.filter((file: { name: string; format: string }) =>
         file.name.endsWith('.mp3') &&
         file.format !== 'Metadata' &&
         !file.name.includes('_files.xml')
@@ -460,7 +469,7 @@ export function VinylPlayer() {
       // 선택된 장르에 따른 검색 쿼리 생성
       const searchQueries = getGenreSearchQueries(genre);
 
-      let allItems: any[] = [];
+      let allItems: ArchiveItem[] = [];
 
       // 여러 검색어로 충분한 결과 확보 (빠른 로딩을 위해 15개로 축소)
       for (const query of searchQueries) {
@@ -564,7 +573,7 @@ export function VinylPlayer() {
           const track: Track = {
             id: item.identifier,
             title: item.title || 'Unknown Title',
-            artist: item.creator || 'Unknown Artist',
+            artist: Array.isArray(item.creator) ? (item.creator[0] || 'Unknown Artist') : (item.creator || 'Unknown Artist'),
             album: item.identifier,
             cover: coverUrl,
             preview_url: streamingUrl,
@@ -647,7 +656,7 @@ export function VinylPlayer() {
               additionalTracks.push(track);
               console.log(`🎵 Background loaded: ${track.title} - ${track.artist}`);
 
-            } catch (error) {
+            } catch {
               console.log(`❌ Failed to load additional track: ${item.title}`);
             }
           }
@@ -684,18 +693,19 @@ export function VinylPlayer() {
         return false;
       }
       return true;
-    } catch (error: any) {
+    } catch (error) {
       if (playTokenRef.current !== token) {
         console.log('🎵 Play request was superseded by newer request');
         return false;
       }
 
-      if (error.name === 'AbortError') {
+      const err = error as Error;
+      if (err.name === 'AbortError') {
         console.log('🎵 Play request was aborted (normal behavior)');
         return false;
       }
 
-      console.warn('🎵 Play failed:', error.name, error.message);
+      console.warn('🎵 Play failed:', err.name, err.message);
       return false;
     }
   };
@@ -726,10 +736,8 @@ export function VinylPlayer() {
           await initPushNotifications();
 
           // Initialize app state listeners
-          initAppStateListeners(
-            () => console.log('🔆 App resumed'),
-            () => console.log('🌙 App paused')
-          );
+          // Initialize app state listeners
+          initAppStateListeners();
 
           console.log('✅ Native features initialized');
         }
@@ -751,6 +759,7 @@ export function VinylPlayer() {
     };
 
     initializeApp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 오디오가 재생 준비되면 로딩 완료
@@ -815,8 +824,8 @@ export function VinylPlayer() {
             setIsPlaying(true);
             shouldAutoPlayRef.current = false;
           })
-          .catch((error: any) => {
-            console.log('⚠️ Auto-resume failed (normal):', error.name);
+          .catch((error: unknown) => {
+            console.log('⚠️ Auto-resume failed (normal):', (error as Error).name);
             shouldAutoPlayRef.current = false;
           });
       }
@@ -1039,6 +1048,7 @@ export function VinylPlayer() {
         clearInterval(mainTimer);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrackIndex, isPlaying]); // isPlaying 추가 - 타이머 제어용
 
   // 🚨 컴포넌트 마운트 시 타임라인 강제 시작
@@ -1221,15 +1231,16 @@ export function VinylPlayer() {
                   // 성공했으므로 재시도 루프 탈출
                   return;
 
-                } catch (playError: any) {
+                } catch (playError: unknown) {
                   // AbortError는 정상적인 중단이므로 조용히 처리
-                  if (playError.name === 'AbortError') {
+                  const err = playError as Error;
+                  if (err.name === 'AbortError') {
                     console.log('🎵 Auto-play was aborted (normal behavior during track change)');
                     return;
                   }
 
                   // 🔄 재생 실패 시 재시도 로직
-                  console.warn(`⚠️ Auto-play failed (attempt ${retryCountRef.current + 1}/3):`, playError.name, playError.message);
+                  console.warn(`⚠️ Auto-play failed (attempt ${retryCountRef.current + 1}/3):`, err.name, err.message);
 
                   if (retryCountRef.current < 3) {
                     retryCountRef.current++;
@@ -1258,10 +1269,11 @@ export function VinylPlayer() {
                   }
                 }
               }
-            } catch (error: any) {
+            } catch (error: unknown) {
               // 로딩 실패는 로그만 남김 (타임아웃은 정상적인 동작일 수 있음)
-              if (error.message !== 'Audio loading timeout') {
-                console.error('❌ Auto-play error:', error);
+              const err = error as Error;
+              if (err.message !== 'Audio loading timeout') {
+                console.error('❌ Auto-play error:', err);
               } else {
                 console.warn('⏱️ Auto-play loading timeout - track may still be loading');
               }
@@ -1273,16 +1285,17 @@ export function VinylPlayer() {
           // 여기까지 도달하면 성공적으로 로딩됨
           return;
 
-        } catch (error: any) {
+        } catch (error: unknown) {
           retryCount++;
-          console.error(`❌ Track loading failed (시도 ${retryCount}/${MAX_RETRIES + 1}):`, error.message);
+          const err = error as Error;
+          console.error(`❌ Track loading failed (시도 ${retryCount}/${MAX_RETRIES + 1}):`, err.message);
 
           // 네트워크 오류인지 확인
-          const isNetworkError = error.message.includes('ERR_CONNECTION_RESET') ||
-            error.message.includes('ERR_NETWORK_CHANGED') ||
-            error.message.includes('ERR_INTERNET_DISCONNECTED') ||
-            error.message.includes('Failed to fetch') ||
-            error.message.includes('Audio loading failed');
+          const isNetworkError = err.message.includes('ERR_CONNECTION_RESET') ||
+            err.message.includes('ERR_NETWORK_CHANGED') ||
+            err.message.includes('ERR_INTERNET_DISCONNECTED') ||
+            err.message.includes('Failed to fetch') ||
+            err.message.includes('Audio loading failed');
 
           if (retryCount <= MAX_RETRIES && isNetworkError) {
             console.log(`🔄 네트워크 오류 감지 - ${1000 * retryCount}ms 후 재시도...`);
@@ -1310,6 +1323,7 @@ export function VinylPlayer() {
     };
 
     setupNewTrack();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrack]);
 
   // 키보드 볼륨 조절 - 안전한 처리
@@ -1387,6 +1401,7 @@ export function VinylPlayer() {
       audioRef.current.currentTime = 0;
       audioRef.current.pause();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrackIndex]);
 
   // 에러 토스트 표시 (훅은 최상위 레벨에서 호출)
@@ -1610,15 +1625,16 @@ export function VinylPlayer() {
               console.log('🎵 Play request failed or was superseded');
               break;
             }
-          } catch (playError: any) {
+          } catch (playError: unknown) {
             retryCount++;
-            console.error(`❌ Play attempt ${retryCount} failed:`, playError.message);
+            const err = playError as Error;
+            console.error(`❌ Play attempt ${retryCount} failed:`, err.message);
 
             // 네트워크 오류인지 확인
-            const isNetworkError = playError.message.includes('ERR_CONNECTION_RESET') ||
-              playError.message.includes('ERR_NETWORK_CHANGED') ||
-              playError.message.includes('ERR_INTERNET_DISCONNECTED') ||
-              playError.message.includes('Failed to fetch');
+            const isNetworkError = err.message.includes('ERR_CONNECTION_RESET') ||
+              err.message.includes('ERR_NETWORK_CHANGED') ||
+              err.message.includes('ERR_INTERNET_DISCONNECTED') ||
+              err.message.includes('Failed to fetch');
 
             if (retryCount <= MAX_RETRIES && isNetworkError) {
               console.log(`🔄 네트워크 오류 감지 - ${1000 * retryCount}ms 후 재시도...`);
@@ -1626,7 +1642,7 @@ export function VinylPlayer() {
               await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
             } else {
               // 최대 재시도 횟수를 초과하거나 네트워크 오류가 아닌 경우
-              throw playError;
+              throw err;
             }
           }
         }
@@ -1636,11 +1652,13 @@ export function VinylPlayer() {
           setIsPlaying(false);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Error;
       console.error('❌ Play/pause error:', {
-        name: error.name,
-        message: error.message,
-        code: error.code,
+        name: err.name,
+        message: err.message,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        code: (err as any).code,
         trackTitle: currentTrack?.title,
         previewUrl: currentTrack?.preview_url
       });
@@ -1648,9 +1666,9 @@ export function VinylPlayer() {
       setIsLoading(false);
       setIsPlaying(false);
 
-      if (error.name === 'NotAllowedError') {
+      if (err.name === 'NotAllowedError') {
         toast.error('Click to allow audio playback');
-      } else if (error.message === 'Load timeout' || error.message === 'Audio loading timeout') {
+      } else if (err.message === 'Load timeout' || err.message === 'Audio loading timeout') {
         toast.error('Track loading timeout - trying next track');
         // 타임아웃 시 다음 재생 트랙으로 넘어가기
         const nextIndex = findNextPlayableTrack(currentTrackIndex);
@@ -1659,11 +1677,11 @@ export function VinylPlayer() {
         } else {
           toast.error('No more tracks available');
         }
-      } else if (error.name === 'AbortError') {
+      } else if (err.name === 'AbortError') {
         // AbortError는 트랙 변경 시 정상적인 동작이므로 무시
         console.log('🎵 Audio playback was interrupted (normal behavior)');
         // AbortError는 토스트나 상태 변경 없이 조용히 처리
-      } else if (error.name === 'NotSupportedError') {
+      } else if (err.name === 'NotSupportedError') {
         toast.error('Audio format not supported');
         // 지원되지 않는 형식인 경우 다음 재생 가능한 트랙으로
         const nextIndex = findNextPlayableTrack(currentTrackIndex);
@@ -1769,7 +1787,7 @@ export function VinylPlayer() {
 
 
 
-  const handleDragEnd = (_event: any, info: PanInfo) => {
+  const handleDragEnd = (_event: unknown, info: PanInfo) => {
     // 모바일에서는 더 민감하게, 데스크톱에서는 덜 민감하게
     const swipeThreshold = isMobile ? 30 : 50;
 
@@ -2091,7 +2109,7 @@ export function VinylPlayer() {
                           className="w-full h-full object-contain"
                           loading="eager"
                           decoding="async"
-                          fetchpriority="high"
+                          fetchPriority="high"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             console.log('🦆 Image failed, using duck fallback');
@@ -2446,7 +2464,7 @@ export function VinylPlayer() {
                           className="w-full h-full object-contain"
                           loading="eager"
                           decoding="async"
-                          fetchpriority="high"
+                          fetchPriority="high"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             console.log('🦆 Image failed, using duck fallback');

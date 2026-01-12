@@ -68,7 +68,13 @@ async function cleanupStrictDuplicates() {
     }
 }
 
+import { cleanupMissingData } from './cleanup';
+
+// ... (existing imports)
+
 (async () => {
+    // Also run missing data cleanup first
+    await cleanupMissingData();
     await cleanupStrictDuplicates();
     process.exit(0);
 })();

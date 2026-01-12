@@ -52,19 +52,22 @@ serve(async (req) => {
     if (error) throw error
 
     // 최저가 계산 등 가공 로직
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enrichedData = data.map((product: any) => {
-        const lowestPrice = product.offers
-            ?.filter((o: any) => o.inStock)
-            .reduce((min: number, curr: any) => {
-                const price = curr.base_price + curr.shipping_fee;
-                return price < min ? price : min;
-            }, Infinity);
-        
-        return {
-            ...product,
-            lowest_price: lowestPrice === Infinity ? null : lowestPrice,
-            offers_count: product.offers?.length || 0
-        };
+      const lowestPrice = product.offers
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ?.filter((o: any) => o.inStock)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .reduce((min: number, curr: any) => {
+          const price = curr.base_price + curr.shipping_fee;
+          return price < min ? price : min;
+        }, Infinity);
+
+      return {
+        ...product,
+        lowest_price: lowestPrice === Infinity ? null : lowestPrice,
+        offers_count: product.offers?.length || 0
+      };
     });
 
     return new Response(
