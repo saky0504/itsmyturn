@@ -24,46 +24,6 @@ export interface VendorOffer {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-/**
- * HTTP 요청 헬퍼
- */
-async function fetchWithRetry(url: string, retries = 2): Promise<string> {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.text();
-    } catch (err) {
-      if (i === retries) throw err;
-      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-    }
-  }
-  throw new Error('Failed to fetch');
-}
-
-/**
- * 숫자만 추출
- */
-function extractNumber(text: string): number {
-  const cleaned = text.replace(/[^0-9]/g, '');
-  return parseInt(cleaned, 10) || 0;
-}
 
 /**
  * 문자열 정규화 헬퍼
@@ -109,8 +69,6 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   if (!foundTitle || !identifier.title || !identifier.artist) return false;
 
   const lowerTitle = foundTitle.toLowerCase();
-  const lowerQueryTitle = identifier.title.toLowerCase();
-  const lowerArtist = identifier.artist.toLowerCase();
 
   // 1. LP 키워드 확인 (완화: LP 키워드가 없어도 아티스트+앨범명이 정확히 매칭되면 통과)
   const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치', 'lp판', 'lp판본'];
@@ -346,7 +304,9 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
 
 /**
  * 네이버 쇼핑 API로 가격 검색 (단일 결과, 하위 호환성)
+ * @deprecated fetchNaverPriceMultiple 사용
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOffer | null> {
   const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
   const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;

@@ -8,12 +8,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-// CORS 헤더
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// CORS 헤더는 jsonResponse 함수에서 처리
 
 export default async function handler(
   request: VercelRequest,
@@ -146,13 +141,26 @@ export default async function handler(
     }
 
     // 3. 실시간 가격 검색
-    console.log(`[가격 검색 API] 검색 시작:`, identifier);
+    console.log(`[가격 검색 API] 검색 시작:`, JSON.stringify(identifier, null, 2));
     const searchStartTime = Date.now();
     const { collectPricesForProduct } = await import('./lib/price-search');
     
-    const offers = await collectPricesForProduct(identifier);
-    const searchTime = ((Date.now() - searchStartTime) / 1000).toFixed(2);
-    console.log(`[가격 검색 API] 검색 완료: ${offers.length}개 (${searchTime}초)`);
+    let offers: any[] = [];
+    try {
+      offers = await collectPricesForProduct(identifier);
+      const searchTime = ((Date.now() - searchStartTime) / 1000).toFixed(2);
+      console.log(`[가격 검색 API] 검색 완료: ${offers.length}개 (${searchTime}초)`);
+      if (offers.length === 0) {
+        console.log(`[가격 검색 API] ⚠️ 결과 없음 - 검색 쿼리나 필터링 문제 가능성`);
+      }
+    } catch (error: any) {
+      console.error(`[가격 검색 API] ❌ 검색 오류:`, error.message, error.stack);
+      return jsonResponse(500, {
+        error: 'Price search failed',
+        message: error.message,
+        identifier,
+      });
+    }
 
     // 4. 검색 결과를 DB에 저장 (제품이 있는 경우)
     if (productId && offers.length > 0) {
