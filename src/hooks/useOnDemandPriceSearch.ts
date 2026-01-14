@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 
 export interface PriceOffer {
   vendorName: string;
@@ -75,7 +74,6 @@ export const useOnDemandPriceSearch = (): UseOnDemandPriceSearchResult => {
       }
 
       const data = await response.json();
-      const functionError = null; // Vercel Function은 error 객체를 반환하지 않음
 
       if (!data) {
         throw new Error('검색 결과가 없습니다.');
