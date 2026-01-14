@@ -21,20 +21,29 @@ export default async function handler(
 ) {
   // CORS preflight 처리
   if (request.method === 'OPTIONS') {
-    return response.status(200).json({ ok: true });
+    return response.status(200).setHeader('Access-Control-Allow-Origin', '*').setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS').setHeader('Access-Control-Allow-Headers', 'Content-Type').json({ ok: true });
   }
 
   // POST만 허용
   if (request.method !== 'POST') {
-    return response.status(405).json({ error: 'Method not allowed' });
+    return response.status(405).setHeader('Access-Control-Allow-Origin', '*').json({ error: 'Method not allowed' });
   }
+
+  // 모든 응답에 CORS 헤더 추가하는 헬퍼
+  const jsonResponse = (status: number, data: any) => {
+    return response.status(status)
+      .setHeader('Access-Control-Allow-Origin', '*')
+      .setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      .setHeader('Access-Control-Allow-Headers', 'Content-Type')
+      .json(data);
+  };
 
   try {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      return response.status(500).json({ 
+      return jsonResponse(500, { 
         error: 'Supabase credentials not configured' 
       });
     }
@@ -45,7 +54,7 @@ export default async function handler(
 
     // 파라미터 검증
     if (!productId && (!artist || !title)) {
-      return response.status(400).json({ 
+      return jsonResponse(400, { 
         error: 'productId 또는 (artist + title)이 필요합니다.' 
       });
     }
@@ -97,7 +106,7 @@ export default async function handler(
           affiliateParamKey: o.affiliate_param_key,
         }));
 
-        return response.status(200).json({
+        return jsonResponse(200, {
           offers,
           cached: true,
           searchTime: 0,
@@ -106,9 +115,9 @@ export default async function handler(
       }
     }
 
-    // 3. 실시간 가격 검색 (동적 import)
+    // 3. 실시간 가격 검색
     const searchStartTime = Date.now();
-    const { collectPricesForProduct } = await import('../scripts/sync-lp-data');
+    const { collectPricesForProduct } = await import('./lib/price-search');
     
     const offers = await collectPricesForProduct(identifier);
     const searchTime = ((Date.now() - searchStartTime) / 1000).toFixed(2);
@@ -152,7 +161,7 @@ export default async function handler(
         .eq('id', productId);
     }
 
-    return response.status(200).json({
+    return jsonResponse(200, {
       offers,
       cached: false,
       searchTime: parseFloat(searchTime),
@@ -161,8 +170,9 @@ export default async function handler(
 
   } catch (error: any) {
     console.error('[가격 검색 오류]', error);
-    return response.status(500).json({ 
-      error: error.message || 'Unknown error' 
+    return jsonResponse(500, { 
+      error: error.message || 'Unknown error',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 }
