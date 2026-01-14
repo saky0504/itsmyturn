@@ -144,21 +144,28 @@ export default async function handler(
 
     let identifier = { ean, discogsId, title, artist };
 
-    // 1. 제품 ID가 있으면 DB에서 제품 정보 가져오기
+    // 1. 제품 ID가 있으면 DB에서 제품 정보 가져오기 (없어도 계속 진행)
     if (productId) {
-      const { data, error } = await supabase
-        .from('lp_products')
-        .select('id, ean, discogs_id, title, artist')
-        .eq('id', productId)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('lp_products')
+          .select('id, ean, discogs_id, title, artist')
+          .eq('id', productId)
+          .single();
 
-      if (error) {
-        console.error('[가격 검색 API] ❌ 제품 조회 오류:', error);
-        return jsonResponse(500, {
-          error: 'Failed to fetch product',
-          message: error.message,
-          productId,
-        });
+        if (error) {
+          console.warn('[가격 검색 API] ⚠️ 제품 조회 실패 (계속 진행):', error.message);
+          // 제품 조회 실패해도 artist/title로 계속 진행
+        } else if (data) {
+          identifier = {
+            ean: data.ean || ean,
+            discogsId: data.discogs_id || discogsId,
+            title: data.title || title,
+            artist: data.artist || artist,
+          };
+        }
+      } catch (err: any) {
+        console.warn('[가격 검색 API] ⚠️ 제품 조회 예외 (계속 진행):', err.message);
       }
       if (data) {
         identifier = {
@@ -170,23 +177,22 @@ export default async function handler(
       }
     }
 
-    // 2. 캐시 확인 (24시간 이내 데이터)
+    // 2. 캐시 확인 (24시간 이내 데이터) - productId가 있을 때만
     if (!forceRefresh && productId) {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      
-      const { data: cachedOffers, error: offersError } = await supabase
-        .from('lp_offers')
-        .select('*')
-        .eq('product_id', productId)
-        .gte('last_checked', oneDayAgo)
-        .order('base_price', { ascending: true });
+      try {
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        
+        const { data: cachedOffers, error: offersError } = await supabase
+          .from('lp_offers')
+          .select('*')
+          .eq('product_id', productId)
+          .gte('last_checked', oneDayAgo)
+          .order('base_price', { ascending: true });
 
-      if (offersError) {
-        console.error('[가격 검색 API] ⚠️ 캐시 조회 오류 (무시하고 계속):', offersError);
-      }
-
-      if (!offersError && cachedOffers && cachedOffers.length > 0) {
-        const offers = cachedOffers.map((o: any) => ({
+        if (offersError) {
+          console.warn('[가격 검색 API] ⚠️ 캐시 조회 오류 (무시하고 계속):', offersError.message);
+        } else if (cachedOffers && cachedOffers.length > 0) {
+          const offers = cachedOffers.map((o: any) => ({
           vendorName: o.vendor_name,
           channelId: o.channel_id,
           basePrice: o.base_price,
@@ -198,12 +204,15 @@ export default async function handler(
           affiliateParamKey: o.affiliate_param_key,
         }));
 
-        return jsonResponse(200, {
-          offers,
-          cached: true,
-          searchTime: 0,
-          productId,
-        });
+          return jsonResponse(200, {
+            offers,
+            cached: true,
+            searchTime: 0,
+            productId,
+          });
+        }
+      } catch (cacheErr: any) {
+        console.warn('[가격 검색 API] ⚠️ 캐시 확인 예외 (계속 진행):', cacheErr.message);
       }
     }
 
@@ -230,9 +239,10 @@ export default async function handler(
       });
     }
 
-    // 4. 검색 결과를 DB에 저장 (제품이 있는 경우)
+    // 4. 검색 결과를 DB에 저장 (제품이 있고 offers가 있을 때만)
     if (productId && offers.length > 0) {
-      // 기존 offers 삭제
+      try {
+        // 기존 offers 삭제
       await supabase
         .from('lp_offers')
         .delete()
@@ -267,6 +277,14 @@ export default async function handler(
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId);
+      } catch (saveErr: any) {
+        console.warn('[가격 검색 API] ⚠️ DB 저장 실패 (결과는 반환):', saveErr.message);
+        // 저장 실패해도 검색 결과는 반환
+      }
+    } catch (saveErr: any) {
+        console.warn('[가격 검색 API] ⚠️ DB 저장 실패 (결과는 반환):', saveErr.message);
+        // 저장 실패해도 검색 결과는 반환
+      }
     }
 
     return jsonResponse(200, {
