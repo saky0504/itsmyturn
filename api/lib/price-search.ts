@@ -103,13 +103,6 @@ function isValidUrl(url: string): boolean {
 }
 
 /**
- * 문자열 정규화 헬퍼
- */
-function normalize(str: string): string {
-  return str.replace(/[\s_.,()[\]-]/g, '').toLowerCase();
-}
-
-/**
  * LP 매칭 검증 (완화된 버전)
  */
 function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): boolean {
@@ -265,12 +258,13 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
         continue;
       }
       
-      if (!isValidLpMatch(cleanTitle, identifier)) {
-        console.log(`[네이버] ❌ LP 매칭 실패: ${cleanTitle.substring(0, 50)}...`);
+      const isMatch = isValidLpMatch(cleanTitle, identifier);
+      if (!isMatch) {
+        console.log(`[네이버] ❌ LP 매칭 실패: "${cleanTitle.substring(0, 50)}..." (기대: ${identifier.artist} - ${identifier.title})`);
         continue;
       }
 
-      console.log(`[네이버] ✅ 매칭 성공: ${cleanTitle.substring(0, 50)}... (가격: ${price}원)`);
+      console.log(`[네이버] ✅ 매칭 성공: "${cleanTitle.substring(0, 50)}..." (가격: ${price}원)`);
       
       offers.push({
         vendorName: '네이버 쇼핑',
