@@ -1,0 +1,168 @@
+/**
+ * Vercel Serverless Function for On-Demand Price Search
+ * 
+ * Edge Function 대신 Vercel Serverless Function 사용
+ * 더 간단하고 안정적인 배포
+ */
+
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
+
+// CORS 헤더
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export default async function handler(
+  request: VercelRequest,
+  response: VercelResponse,
+) {
+  // CORS preflight 처리
+  if (request.method === 'OPTIONS') {
+    return response.status(200).json({ ok: true });
+  }
+
+  // POST만 허용
+  if (request.method !== 'POST') {
+    return response.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return response.status(500).json({ 
+        error: 'Supabase credentials not configured' 
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { productId, artist, title, ean, discogsId, forceRefresh } = request.body;
+
+    // 파라미터 검증
+    if (!productId && (!artist || !title)) {
+      return response.status(400).json({ 
+        error: 'productId 또는 (artist + title)이 필요합니다.' 
+      });
+    }
+
+    let product: any = null;
+    let identifier = { ean, discogsId, title, artist };
+
+    // 1. 제품 ID가 있으면 DB에서 제품 정보 가져오기
+    if (productId) {
+      const { data, error } = await supabase
+        .from('lp_products')
+        .select('id, ean, discogs_id, title, artist')
+        .eq('id', productId)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        product = data;
+        identifier = {
+          ean: data.ean || ean,
+          discogsId: data.discogs_id || discogsId,
+          title: data.title || title,
+          artist: data.artist || artist,
+        };
+      }
+    }
+
+    // 2. 캐시 확인 (24시간 이내 데이터)
+    if (!forceRefresh && productId) {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
+      const { data: cachedOffers, error: offersError } = await supabase
+        .from('lp_offers')
+        .select('*')
+        .eq('product_id', productId)
+        .gte('last_checked', oneDayAgo)
+        .order('base_price', { ascending: true });
+
+      if (!offersError && cachedOffers && cachedOffers.length > 0) {
+        const offers = cachedOffers.map((o: any) => ({
+          vendorName: o.vendor_name,
+          channelId: o.channel_id,
+          basePrice: o.base_price,
+          shippingFee: o.shipping_fee || 0,
+          shippingPolicy: o.shipping_policy || '',
+          url: o.url,
+          inStock: o.is_stock_available,
+          affiliateCode: o.affiliate_code,
+          affiliateParamKey: o.affiliate_param_key,
+        }));
+
+        return response.status(200).json({
+          offers,
+          cached: true,
+          searchTime: 0,
+          productId,
+        });
+      }
+    }
+
+    // 3. 실시간 가격 검색 (동적 import)
+    const searchStartTime = Date.now();
+    const { collectPricesForProduct } = await import('../scripts/sync-lp-data');
+    
+    const offers = await collectPricesForProduct(identifier);
+    const searchTime = ((Date.now() - searchStartTime) / 1000).toFixed(2);
+
+    // 4. 검색 결과를 DB에 저장 (제품이 있는 경우)
+    if (productId && offers.length > 0) {
+      // 기존 offers 삭제
+      await supabase
+        .from('lp_offers')
+        .delete()
+        .eq('product_id', productId);
+
+      // 새 offers 삽입
+      const offersToInsert = offers.map(offer => ({
+        product_id: productId,
+        vendor_name: offer.vendorName,
+        channel_id: offer.channelId,
+        price: offer.basePrice,
+        base_price: offer.basePrice,
+        currency: 'KRW',
+        shipping_fee: offer.shippingFee,
+        shipping_policy: offer.shippingPolicy,
+        url: offer.url,
+        affiliate_url: null,
+        is_stock_available: offer.inStock,
+        last_checked: new Date().toISOString(),
+        badge: null,
+      }));
+
+      await supabase
+        .from('lp_offers')
+        .insert(offersToInsert);
+
+      // 제품의 last_synced_at 업데이트
+      await supabase
+        .from('lp_products')
+        .update({
+          last_synced_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', productId);
+    }
+
+    return response.status(200).json({
+      offers,
+      cached: false,
+      searchTime: parseFloat(searchTime),
+      productId: productId || null,
+    });
+
+  } catch (error: any) {
+    console.error('[가격 검색 오류]', error);
+    return response.status(500).json({ 
+      error: error.message || 'Unknown error' 
+    });
+  }
+}

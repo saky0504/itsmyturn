@@ -53,21 +53,29 @@ export const useOnDemandPriceSearch = (): UseOnDemandPriceSearchResult => {
     setError(null);
 
     try {
-      // Edge Function 호출
-      const { data, error: functionError } = await supabase.functions.invoke('search-prices', {
-        body: {
+      // Vercel Serverless Function 호출
+      const response = await fetch('/api/search-prices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           productId: params.productId,
           artist: params.artist,
           title: params.title,
           ean: params.ean,
           discogsId: params.discogsId,
           forceRefresh: params.forceRefresh || false,
-        },
+        }),
       });
 
-      if (functionError) {
-        throw new Error(functionError.message || '가격 검색 실패');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
+
+      const data = await response.json();
+      const functionError = null; // Vercel Function은 error 객체를 반환하지 않음
 
       if (!data) {
         throw new Error('검색 결과가 없습니다.');

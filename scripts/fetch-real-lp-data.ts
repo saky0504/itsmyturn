@@ -8,7 +8,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { config } from 'dotenv';
+
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import OAuth from 'oauth-1.0a';
@@ -348,34 +348,94 @@ async function fetchAndStoreRealLpData() {
           }
 
           try {
-            // 변환 (검색 결과 -> LpProduct)
-            // 상세 API 호출 없이 검색 결과만으로 1차 저장 (Rate Limit 회피)
+            // 상세 API 호출 필수화: 정확한 정보 추출을 위해 각 앨범의 상세 정보 가져오기
+            const releaseId = result.id;
+            const detailUrl = `https://api.discogs.com/releases/${releaseId}`;
+            const detailHeaders = getDiscogsHeaders(detailUrl, 'GET');
+            
+            let detailData: any = null;
+            try {
+              const detailResponse = await fetch(detailUrl, {
+                headers: detailHeaders as HeadersInit,
+              });
+              
+              if (detailResponse.ok) {
+                detailData = await detailResponse.json();
+              } else {
+                console.log(`⚠️ 상세 API 호출 실패 (${releaseId}): ${detailResponse.status}`);
+                // 상세 API 실패 시 스킵 (정확한 정보 없이는 저장하지 않음)
+                continue;
+              }
+              
+              // Rate limit 보호: 상세 API 호출 사이 딜레이
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            } catch (detailError) {
+              console.error(`❌ 상세 API 호출 오류 (${releaseId}):`, detailError);
+              continue; // 상세 API 실패 시 스킵
+            }
+
+            if (!detailData) {
+              continue;
+            }
+
+            // 포맷 재확인 (상세 정보에서)
+            const detailFormats = detailData.formats || [];
+            const detailFormatNames = detailFormats.map((f: { name?: string }) => f.name?.toLowerCase() || '').join(' ');
+            const isDetailVinyl = detailFormatNames.includes('lp') || detailFormatNames.includes('vinyl') || detailFormatNames.includes('12"');
+            const isDetailCD = detailFormatNames.includes('cd') || detailFormatNames.includes('compact disc');
+            
+            // CD인 경우 즉시 제외
+            if (isDetailCD && !isDetailVinyl) {
+              continue;
+            }
+            
+            // Vinyl/LP가 아니면 제외
+            if (!isDetailVinyl) {
+              continue;
+            }
+
+            // EAN/바코드 필수 체크
+            const identifiers = detailData.identifiers || [];
+            const barcode = identifiers.find((id: { type: string; value: string }) => id.type === 'Barcode')?.value;
+            
+            if (!barcode) {
+              console.log(`⚠️ EAN/바코드 없음, 스킵: ${detailData.title || result.title}`);
+              continue; // EAN이 없으면 저장하지 않음
+            }
+
+            // 아티스트 정확 추출: Discogs API의 artists 필드 사용
+            const artists = detailData.artists || [];
+            const artistName = artists.length > 0 ? artists[0].name : 'Unknown Artist';
+            const albumTitle = detailData.title || result.title;
+            
+            // 제목에서 아티스트명 제거 로직 개선
+            let finalTitle = albumTitle;
+            if (artistName !== 'Unknown Artist' && albumTitle.includes(artistName)) {
+              // 아티스트명이 제목에 포함되어 있으면 제거
+              finalTitle = albumTitle.replace(new RegExp(`^${artistName}\\s*-\\s*`, 'i'), '').trim();
+              if (!finalTitle) {
+                finalTitle = albumTitle; // 제거 후 빈 문자열이면 원본 사용
+              }
+            }
+
+            // 변환 (상세 정보 -> LpProduct)
             const product = {
-              title: result.title,
-              artist: 'Unknown Artist',
-              release_date: result.year ? String(result.year) : null,
-              cover: result.cover_image || result.thumb || '/images/DJ_duic.jpg',
-              thumbnail_url: result.thumb || null,
-              format: (result.format || []).join(', ') || 'Vinyl',
-              genres: [],
-              styles: [],
-              discogs_id: String(result.id),
-              ean: result.barcode?.[0] || null,
-              description: `${result.title} (${result.year || 'Unknown'}) - ${result.country || 'Unknown'}`,
+              title: finalTitle,
+              artist: artistName,
+              release_date: detailData.year ? String(detailData.year) : (result.year ? String(result.year) : null),
+              cover: detailData.images?.[0]?.uri || detailData.thumb || result.cover_image || result.thumb || '/images/DJ_duic.jpg',
+              thumbnail_url: detailData.thumb || result.thumb || null,
+              format: detailFormatNames || (result.format || []).join(', ') || 'Vinyl',
+              genres: detailData.genres || [],
+              styles: detailData.styles || [],
+              discogs_id: String(releaseId),
+              ean: barcode,
+              description: `${artistName} - ${finalTitle} (${detailData.year || result.year || 'Unknown'}) - ${detailData.country || result.country || 'Unknown'}`,
               last_synced_at: new Date().toISOString(),
             };
 
-            // 제목에서 아티스트 분리
-            if (result.title.includes(' - ')) {
-              const parts = result.title.split(' - ');
-              product.artist = parts[0].trim();
-              product.title = parts.slice(1).join(' - ').trim();
-            } else {
-              product.artist = result.title; // Fallback
-            }
-
             productsToAdd.push(product);
-            existingDiscogsIds.add(String(result.id)); // 중복 방지 업데이트
+            existingDiscogsIds.add(String(releaseId)); // 중복 방지 업데이트
 
           } catch (err) {
             console.error(`❌ 처리 오류 (${result.id}):`, err);
@@ -399,8 +459,8 @@ async function fetchAndStoreRealLpData() {
           process.stdout.write('.'); // 진행 상황 표시
         }
 
-        // Rate Limit 보호
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Rate Limit 보호 (상세 API 호출이 추가되었으므로 더 긴 딜레이)
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
       } catch (err) {
         console.error(`❌ 페이지 ${page} 오류:`, err);

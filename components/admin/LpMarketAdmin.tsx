@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
@@ -25,7 +26,6 @@ const emptyOffer = (): LpOffer => ({
 });
 
 const createBlankProduct = (): LpProduct => {
-  // 더미 데이터 제거 - 빈 템플릿 생성
   return {
     id: `lp-${Date.now()}`,
     title: '',
@@ -60,6 +60,7 @@ const createBlankProduct = (): LpProduct => {
       cartridge: '',
       phonoStage: '',
     },
+    checked: false,
   };
 };
 
@@ -67,6 +68,7 @@ export function LpMarketAdmin() {
   const { products, isReady, updateProducts } = useLpProducts();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<LpProduct>(createBlankProduct());
+  const [filter, setFilter] = useState<'all' | 'verified' | 'unverified'>('all');
 
   useEffect(() => {
     if (isReady && products.length > 0 && !selectedId) {
@@ -160,6 +162,14 @@ export function LpMarketAdmin() {
     setDraft(createBlankProduct());
   };
 
+  const handleVerify = () => {
+    setDraft(prev => ({ ...prev, checked: true }));
+    updateProducts(prev => {
+      return prev.map(p => p.id === draft.id ? { ...p, checked: true } : p);
+    });
+    toast.success('상품이 검증되었습니다.');
+  };
+
   const handleLoadFromJSON = async () => {
     try {
       const response = await fetch('/data/lp-products.json');
@@ -172,13 +182,10 @@ export function LpMarketAdmin() {
       updateProducts((prev) => {
         const existingIds = new Set(prev.map(p => p.id));
         const allProducts = [...prev];
-        // let addedCount = 0;
-        // let updatedCount = 0;
 
         jsonProducts.forEach((product: LpProduct) => {
           if (!existingIds.has(product.id)) {
             allProducts.push(product);
-            // addedCount++;
           } else {
             const existingIndex = prev.findIndex(p => p.id === product.id);
             if (existingIndex !== -1) {
@@ -202,7 +209,6 @@ export function LpMarketAdmin() {
                 ...product,
                 offers: newOffers
               };
-              // updatedCount++;
             }
           }
         });
@@ -260,10 +266,22 @@ export function LpMarketAdmin() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-6">
-        <aside className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+        <aside className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 h-[800px] flex flex-col">
+          <div className="flex gap-1 mb-2">
+            {['all', 'unverified', 'verified'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f as any)}
+                className={`flex-1 text-xs py-1 rounded-lg border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200'}`}
+              >
+                {f === 'all' ? '전체' : f === 'verified' ? '검증됨' : '미검증'}
+              </button>
+            ))}
+          </div>
+
           <Button
             variant="outline"
-            className="w-full rounded-2xl border-dashed border-slate-300 text-slate-600"
+            className="w-full rounded-2xl border-dashed border-slate-300 text-slate-600 shrink-0"
             onClick={() => {
               const blank = createBlankProduct();
               setDraft(blank);
@@ -272,20 +290,25 @@ export function LpMarketAdmin() {
           >
             + 새 상품 추가
           </Button>
-          <div className="space-y-2">
-            {products.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => setSelectedId(product.id)}
-                className={`w-full rounded-2xl border px-3 py-2 text-left text-sm ${product.id === selectedId
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
-              >
-                <div className="font-medium">{product.title || '제목 미입력'}</div>
-                <div className="text-xs opacity-70">{product.discogsId || 'Discogs 없음'}</div>
-              </button>
-            ))}
+          <div className="space-y-2 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+            {products
+              .filter(p => filter === 'all' || (filter === 'verified' ? p.checked : !p.checked))
+              .map((product) => (
+                <button
+                  key={product.id}
+                  onClick={() => setSelectedId(product.id)}
+                  className={`w-full rounded-2xl border px-3 py-2 text-left text-sm ${product.id === selectedId
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                    }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="font-medium truncate">{product.title || '제목 미입력'}</div>
+                    {product.checked && <span className="text-xs text-green-500">✓</span>}
+                  </div>
+                  <div className="text-xs opacity-70">{product.discogsId || 'Discogs 없음'}</div>
+                </button>
+              ))}
           </div>
         </aside>
 
@@ -479,7 +502,12 @@ export function LpMarketAdmin() {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {!draft.checked && (
+              <Button variant="outline" className="rounded-2xl text-green-600 border-green-200" onClick={handleVerify}>
+                ✓ 검증 완료
+              </Button>
+            )}
             <Button variant="outline" className="rounded-2xl text-rose-600 border-rose-200" onClick={handleDelete}>
               상품 삭제
             </Button>
@@ -517,5 +545,3 @@ function InputField({ label, value, onChange, textarea, type = 'text' }: InputFi
     </div>
   );
 }
-
-

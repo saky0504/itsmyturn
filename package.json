@@ -20,6 +20,7 @@
     "hourly-sync": "tsx scripts/hourly-sync.ts",
     "test-price-crawling": "tsx scripts/test-price-crawling.ts",
     "add-products": "tsx scripts/add-products-with-prices.ts",
+    "aggressive-cleanup": "tsx scripts/aggressive-cleanup.ts",
     "deploy-edge-functions": "supabase functions deploy search-prices"
   },
   "dependencies": {

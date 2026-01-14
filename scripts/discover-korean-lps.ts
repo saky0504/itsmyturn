@@ -113,20 +113,21 @@ async function processAladinItems(items: any[]) {
             continue;
         }
 
-        // B. Price Guard for Accessories
+        // B. Price Guard for Accessories (강화)
         const price = item.priceSales || item.priceStandard || 0;
+        // 가격 범위 검증: 너무 저렴하면 악세서리일 가능성
         if (price < 15000) {
-            // console.log(`🚫 Skipped (Low Price): ${title} (${price} KRW)`);
             continue;
         }
 
-        // C. Positive Match Logic
+        // C. LP 키워드 필수 확인 (강화)
+        const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치'];
         const isStrictCategory = lowerCat.includes('vinyl') || lowerCat.includes('lp') || lowerCat.includes('records');
-        // Strict title match required if category is not explicitly Vinyl
-        const hasLPParams = lowerTitle.includes('lp') || lowerTitle.includes('vinyl') || lowerTitle.includes('limited edition');
+        const hasLPParams = lpKeywords.some(k => lowerTitle.includes(k));
 
+        // 카테고리와 제목 모두 LP 키워드가 없으면 제외
         if (!isStrictCategory && !hasLPParams) {
-            continue; // Must have some LP indication
+            continue; // LP 키워드 필수
         }
 
         // 2. Map to DB Schema
@@ -192,54 +193,46 @@ export async function discoverKoreanLPs() {
     console.log('🇰🇷 Starting Korean LP Discovery (Aladin)...');
     let totalAdded = 0;
 
-    // 1. Fetch New Releases (Vinyl Specific CID)
-    console.log('📚 Fetching New Releases (Pages 1-5)...');
-    for (let page = 1; page <= 5; page++) {
+    // 1. Fetch New Releases (Vinyl Specific CID) - 페이지 축소: 5페이지 → 2페이지
+    console.log('📚 Fetching New Releases (Pages 1-2)...');
+    for (let page = 1; page <= 2; page++) {
         const newItems = await fetchAladinLPs('ItemNewAll', undefined, String(TARGET_CID), page);
         if (!newItems || newItems.length === 0) break; // Stop if no data returned
         const count = await processAladinItems(newItems);
         totalAdded += count;
         // Do NOT break just because count is 0 (items might already exist, keep digging)
-        await new Promise(r => setTimeout(r, 1000)); // Rate limit
+        await new Promise(r => setTimeout(r, 2000)); // Rate limit: 1초 → 2초
     }
 
-    // 2. Fetch Bestsellers (Vinyl Specific CID)
-    console.log('🏆 Fetching Bestsellers (Pages 1-5)...');
-    for (let page = 1; page <= 5; page++) {
+    // 2. Fetch Bestsellers (Vinyl Specific CID) - 페이지 축소: 5페이지 → 2페이지
+    console.log('🏆 Fetching Bestsellers (Pages 1-2)...');
+    for (let page = 1; page <= 2; page++) {
         const bestItems = await fetchAladinLPs('Bestseller', undefined, String(TARGET_CID), page);
         if (!bestItems || bestItems.length === 0) break;
         const count = await processAladinItems(bestItems);
         totalAdded += count;
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 2000)); // Rate limit: 1초 → 2초
     }
     // Strategy A: Broad General Category "Music" (CID 3887) but we filter strictly
     // Strategy B: Specific Korean Music Categories if mapped, but "Gayo" specific CID in Vinyl might be tricky to guess.
     // Instead, let's use Keyword Search for broad terms.
 
-    // Additional Keywords to boost Korean LP discovery
+    // 핵심 키워드만 사용 (8개 → 3개로 축소)
     const searchQueries = [
         '가요 LP',
-        '가요 바이닐',
         '한국 인디 LP',
-        '영화 OST LP',
-        '드라마 OST LP',
-        'City Pop LP',
-        'Korea Vinyl',
         'K-Pop Vinyl'
     ];
 
-    console.log(`🔎 Executing Expanded Keyword Search (${searchQueries.length} queries)...`);
+    console.log(`🔎 Executing Keyword Search (${searchQueries.length} 핵심 키워드만)...`);
 
     for (const query of searchQueries) {
-        // Use default Vinyl CID to keep it focused, or broader Music CID? 
-        // Using Vinyl CID (53533) ensures we get LPs, but "Keyword" search in Aladin might ignore CID if not careful.
-        // Let's try searching within Vinyl category first.
         const items = await fetchAladinLPs('Keyword', query); // Uses default CID 53533
         const added = await processAladinItems(items);
         totalAdded += added;
 
-        // Respect API rate limits slightly
-        await new Promise(r => setTimeout(r, 1000));
+        // Rate limit 보호: 2초 딜레이
+        await new Promise(r => setTimeout(r, 2000));
     }
 
     console.log(`🎉 Discovery Complete. Added ${totalAdded} new Korean LPs.`);

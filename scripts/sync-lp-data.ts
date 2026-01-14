@@ -89,56 +89,180 @@ function extractNumber(text: string): number {
 }
 
 // Helper to validate if the found item is the exact LP we're looking for
-// Helper to validate if the found item is the exact LP we're looking for
+/**
+ * URL 검증 함수: 잘못된 상품 링크 필터링
+ * URL 경로와 쿼리 파라미터를 분석하여 실제 상품 카테고리를 확인
+ * 앨범 제목에 키워드가 들어가 있어도 정상 LP는 통과시킴
+ * 
+ * 예: "The Weight" 앨범의 URL이 /music/lp/the-weight 이면 통과
+ *     체중계 상품의 URL이 /health/scale/weight 이면 차단
+ * 
+ * 특별 처리: 네이버 스마트스토어 URL은 제품 ID만 있어서 URL 검증이 어려움
+ *           따라서 제품명 검증에 의존해야 함 (이 함수는 기본 검증만 수행)
+ */
+function isValidUrl(url: string): boolean {
+  if (!url) return false;
+
+  try {
+    const urlObj = new URL(url);
+    const lowerPath = urlObj.pathname.toLowerCase();
+    const lowerSearch = urlObj.search.toLowerCase();
+    const lowerHost = urlObj.hostname.toLowerCase();
+
+    // 네이버 스마트스토어 URL 특별 처리
+    // smartstore.naver.com/main/products/숫자 형태는 제품명 검증에 의존
+    if (lowerHost.includes('smartstore.naver.com')) {
+      // 네이버 스마트스토어는 URL만으로는 판단 어려우므로 기본적으로 통과
+      // 제품명 검증(isValidLpMatch)에서 엄격하게 필터링됨
+      // 단, 명시적으로 잘못된 패턴만 차단
+      if (lowerPath.includes('/health/') || lowerPath.includes('/book/') || lowerPath.includes('/clothing/')) {
+        return false;
+      }
+      return true; // 나머지는 제품명 검증에 의존
+    }
+
+    // URL 경로에서 카테고리 확인 (더 정확한 필터링)
+    // 음악/LP 카테고리가 아닌 경우만 차단
+    const musicCategories = ['/music/', '/lp/', '/vinyl/', '/record/', '/album/', '/음악/', '/레코드/', '/앨범/'];
+    const isMusicCategory = musicCategories.some(cat => lowerPath.includes(cat));
+
+    // 책/의류/전자제품 카테고리 명시적 차단
+    const invalidCategories = [
+      '/book/', '/책/', '/novel/', '/소설/',
+      '/clothing/', '/의류/', '/apparel/', '/fashion/',
+      '/electronics/', '/전자/', '/health/', '/건강/',
+      '/scale/', '/체중계/', '/inbody/', '/인바디/',
+      '/poster/', '/포스터/', '/goods/', '/굿즈/',
+      '/cd/', '/compact-disc/', '/cassette/', '/카세트/',
+      '/turntable/', '/턴테이블/', '/needle/', '/stylus/',
+    ];
+
+    // 명시적으로 잘못된 카테고리인 경우 차단
+    const hasInvalidCategory = invalidCategories.some(cat => lowerPath.includes(cat));
+    if (hasInvalidCategory && !isMusicCategory) {
+      // 잘못된 카테고리이고 음악 카테고리가 아니면 차단
+      return false;
+    }
+
+    // 쿼리 파라미터에서 카테고리 확인
+    const categoryParam = urlObj.searchParams.get('category') || urlObj.searchParams.get('cat') || urlObj.searchParams.get('c');
+    if (categoryParam) {
+      const lowerCategory = categoryParam.toLowerCase();
+      const invalidCategoryParams = ['book', '책', 'clothing', '의류', 'electronics', '전자', 'health', '건강', 'scale', '체중계'];
+      if (invalidCategoryParams.some(cat => lowerCategory.includes(cat))) {
+        return false;
+      }
+    }
+
+    // URL에 명시적으로 잘못된 상품 타입이 포함된 경우만 차단
+    // 예: /product/scale/, /item/체중계/ 등
+    const explicitInvalidPatterns = [
+      '/product/scale', '/item/scale', '/goods/scale',
+      '/product/체중계', '/item/체중계', '/goods/체중계',
+      '/product/poster', '/item/poster', '/goods/poster',
+      '/product/포스터', '/item/포스터', '/goods/포스터',
+      '/product/cd/', '/item/cd/', '/goods/cd/',
+    ];
+
+    if (explicitInvalidPatterns.some(pattern => lowerPath.includes(pattern))) {
+      return false;
+    }
+
+    // 기본적으로 통과 (제목에 키워드가 있어도 URL 경로가 정상이면 OK)
+    // 예: "The Weight" 앨범의 URL이 /music/lp/the-weight 이면 통과
+    return true;
+
+  } catch (error) {
+    // URL 파싱 실패 시 기본적으로 통과 (너무 엄격하게 차단하지 않음)
+    console.warn(`[URL 검증] URL 파싱 실패: ${url}`, error);
+    return true;
+  }
+}
+
+/**
+ * LP 매칭 검증 함수 (강화된 버전)
+ * 95% 이상의 정확한 매칭만 허용하여 부정확한 데이터 수집을 차단
+ */
 function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): boolean {
   if (!foundTitle) return false;
 
   const lowerTitle = foundTitle.toLowerCase();
 
-  // 1. Exclude non-music items FIRST
+  // 1. CD/디지털 음원 명시적 차단 (가장 먼저 체크)
+  const digitalKeywords = [
+    'cd', 'compact disc', 'compact disc', '디지털', 'digital', 'mp3', 'flac', 'wav',
+    '오디오 cd', 'audio cd', 'cd single', 'cd 싱글', 'cd 앨범'
+  ];
+  if (digitalKeywords.some(k => lowerTitle.includes(k) && !lowerTitle.includes('lp') && !lowerTitle.includes('vinyl'))) {
+    return false;
+  }
+
+  // 2. 포스터/굿즈 확장된 키워드 리스트로 차단
   const nonMusicKeywords = [
-    // Clothing
-    '원피스', 'dress', '티셔츠', 't-shirt', '후드', 'hoodie',
-    // Books/Media
-    '책', 'book', '만화', 'comic', '소설', 'novel',
-    // Electronics/Health
+    '원피스', 'dress', '티셔츠', 't-shirt', 'shirt', '후드', 'hoodie', 'sweatshirt',
+    '책', 'book', '만화', 'comic', '소설', 'novel', '전집', '문고',
     '체중계', 'scale', '체중', '저울', '블루투스', 'bluetooth', '스마트', 'smart',
     '인바디', 'inbody', '측정', 'measure', '디지털',
-    // Other
-    '굿즈', 'goods', '키링', 'keyring', '패키지박스', '포토카드'
+    '굿즈', 'goods', 'merch', 'merchandise', '키링', 'keyring', '키체인', 'keychain',
+    '패키지박스', '포토카드', 'photocard', '스티커', 'sticker', '패치', 'patch',
+    'calendar', '달력', 'poster', '포스터', 'magazine', '잡지', 'journal',
+    'cassette', 'tape', '카세트', 'vhs', 'dvd', 'blu-ray', '블루레이',
+    'frame', '액자', 'metronome', '메트로놈', 'cleaner', '클리너', '청소',
+    'turntable', '턴테이블', 'needle', 'stylus', 'cartridge', '카트리지', '톤암', 'tonearm'
   ];
-  if (nonMusicKeywords.some(k => lowerTitle.includes(k))) return false;
+  if (nonMusicKeywords.some(k => lowerTitle.includes(k))) {
+    return false;
+  }
 
-  // 2. Check artist/album name match
+  // 3. LP 키워드 필수 확인 (반드시 포함되어야 함)
+  const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치'];
+  const hasLpKeyword = lpKeywords.some(k => lowerTitle.includes(k));
+  if (!hasLpKeyword) {
+    return false;
+  }
+
+  // 4. 아티스트명 및 앨범명 정확 매칭 (95% 이상)
   const normalize = (str: string) => str.replace(/[\s_.,()[\]-]/g, '').toLowerCase();
 
   const normalizedFoundTitle = normalize(foundTitle);
   const normalizedQueryTitle = normalize(identifier.title || '');
   const normalizedArtist = normalize(identifier.artist || '');
 
-  // Check if artist is present
-  const artistMatch = normalizedArtist && normalizedFoundTitle.includes(normalizedArtist);
+  // 아티스트명: 정확히 포함되어야 함 (부분 매칭 불가 - 전체 아티스트명이 포함되어야 함)
+  let artistMatch = false;
+  if (normalizedArtist && normalizedArtist.length > 0) {
+    // 아티스트명이 정확히 포함되어 있는지 확인
+    artistMatch = normalizedFoundTitle.includes(normalizedArtist);
+    
+  } else {
+    // 아티스트명이 없으면 매칭 실패
+    return false;
+  }
 
-  // Check if significant part of album title is present (at least 50% of words)
+  // 앨범명: 95% 이상 단어 매칭 필수
   let titleMatch = false;
-  if (normalizedQueryTitle) {
+  if (normalizedQueryTitle && normalizedQueryTitle.length > 0) {
     const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 2);
     if (titleWords.length > 0) {
       const matchCount = titleWords.filter(w => normalizedFoundTitle.includes(w)).length;
-      titleMatch = matchCount >= Math.ceil(titleWords.length * 0.5); // At least 50% match
+      const matchRatio = matchCount / titleWords.length;
+      // 95% 이상 매칭 필수 (0.95)
+      titleMatch = matchRatio >= 0.95;
+    } else {
+      // 단어가 없으면 전체 문자열 매칭 확인
+      titleMatch = normalizedFoundTitle.includes(normalizedQueryTitle);
     }
+  } else {
+    // 앨범명이 없으면 매칭 실패
+    return false;
   }
 
-  // 3. CRITICAL: Must have BOTH artist AND album match
+  // 5. CRITICAL: 아티스트명과 앨범명 모두 정확히 매칭되어야 함
   if (!artistMatch || !titleMatch) {
-    return false; // Must have both artist AND album name
+    return false;
   }
 
-  // 4. Finally, confirm it's actually an LP
-  const isLp = lowerTitle.includes('lp') || lowerTitle.includes('vinyl') || lowerTitle.includes('바이닐');
-  if (!isLp) return false;
-
-  // Passed all checks
+  // 모든 검증 통과
   return true;
 }
 
@@ -149,20 +273,14 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
 /**
  * 가격 유효성 검사 (Price Guard)
  */
+// Price Guard - Adjusted range
 function isValidPrice(price: number): boolean {
-  // 너무 싸거나(2만원 미만) 너무 비싼(30만원 초과) 경우는 의심 (CD 오인 방지)
-  return price >= 20000 && price <= 300000;
+  // Too cheap (< 20,000) = Likely CD or accessory
+  // Too expensive (> 1,000,000) = Likely rare or set, but safer to block for now unless Verified
+  return price >= 20000 && price <= 1000000;
 }
 
-/**
- * 필수 포맷 키워드 포함 여부 확인
- */
-function hasRequiredKeywords(text: string): boolean {
-  const lower = text.toLowerCase();
-  const required = ['lp', 'vinyl', '바이닐', '레코드', 'limited', 'edition'];
-  // 최소 하나는 있어야 함 (단, EAN 검색 결과 등 신뢰도 높은 경우는 제외하고 텍스트 검색 결과 검증용)
-  return required.some(k => lower.includes(k));
-}
+
 
 interface VendorOffer {
   vendorName: string;
@@ -183,16 +301,7 @@ interface ProductIdentifier {
   artist?: string; // 아티스트명 (검색용)
 }
 
-interface NaverShopItem {
-  title: string;
-  category1?: string;
-  category2?: string;
-  lprice: string;
-  hprice?: string;
-  mallName: string;
-  link: string;
-  [key: string]: unknown;
-}
+
 
 async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOffer | null> {
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
@@ -219,16 +328,90 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
     // Use isValidLpMatch for consistent validation
     for (const item of data.items) {
       const rawTitle = item.title || '';
-      const cleanTitle = rawTitle.replace(/<[^>]+>/g, '');
+      const cleanTitle = rawTitle.replace(/<[^>]+>/g, '').trim();
       const price = parseInt(item.lprice, 10);
 
       if (price === 0) continue;
       if (!isValidPrice(price)) continue;
 
+      // 제품명이 너무 짧거나 의미 없는 경우 차단
+      if (cleanTitle.length < 5) {
+        console.log(`[네이버] ❌ 제품명 너무 짧음: ${cleanTitle}`);
+        continue;
+      }
+
+      // 제품명에 숫자만 있거나 의미 없는 경우 차단
+      if (/^[\d\s\-]+$/.test(cleanTitle)) {
+        console.log(`[네이버] ❌ 제품명이 숫자만: ${cleanTitle}`);
+        continue;
+      }
+
       // CRITICAL: Use isValidLpMatch instead of old similarity logic
       if (!isValidLpMatch(cleanTitle, identifier)) {
         console.log(`[네이버] ❌ Invalid Match: ${cleanTitle.substring(0, 50)}...`);
         continue;
+      }
+
+      // DOMAIN WHITELIST: Reject unknown junk stores (jajae09, partsvalley, etc)
+      const allowedDomains = [
+        'smartstore.naver.com',
+        'brand.naver.com',
+        'shopping.naver.com',
+        'www.yes24.com',
+        'www.aladin.co.kr',
+        'www.synnara.co.kr',
+        'hottracks.kyobobook.co.kr',
+        'book.interpark.com',
+        'shopping.interpark.com'
+      ];
+
+      // Extract domain from link
+      let linkDomain = '';
+      try {
+        linkDomain = new URL(item.link).hostname;
+      } catch (e) {
+        // If invalid URL, skip
+        continue;
+      }
+
+      const isAllowed = allowedDomains.some(d => linkDomain.includes(d));
+      if (!isAllowed) {
+        console.log(`[네이버] 🚫 Blocked Domain: ${linkDomain}`);
+        continue;
+      }
+
+      // 네이버 스마트스토어 URL 추가 검증
+      // smartstore.naver.com/main/products/숫자 형태는 제품명 검증이 더 중요
+      if (linkDomain.includes('smartstore.naver.com')) {
+        // 제품명에 아티스트와 앨범명이 모두 포함되어 있는지 재확인
+        const lowerTitle = cleanTitle.toLowerCase();
+        const lowerArtist = (identifier.artist || '').toLowerCase();
+        const lowerAlbum = (identifier.title || '').toLowerCase();
+        
+        // 아티스트명이 없거나 제품명에 포함되지 않으면 차단
+        if (!lowerArtist || lowerArtist.length < 2) {
+          console.log(`[네이버] ❌ 아티스트명 없음: ${cleanTitle}`);
+          continue;
+        }
+        
+        // 아티스트명이 제품명에 포함되어 있는지 확인
+        if (!lowerTitle.includes(lowerArtist)) {
+          console.log(`[네이버] ❌ 아티스트명 불일치: ${cleanTitle} (기대: ${identifier.artist})`);
+          continue;
+        }
+        
+        // 앨범명도 확인 (95% 이상 매칭)
+        if (lowerAlbum && lowerAlbum.length > 2) {
+          const albumWords = lowerAlbum.split(/\s+/).filter(w => w.length > 2);
+          if (albumWords.length > 0) {
+            const matchCount = albumWords.filter(w => lowerTitle.includes(w)).length;
+            const matchRatio = matchCount / albumWords.length;
+            if (matchRatio < 0.95) {
+              console.log(`[네이버] ❌ 앨범명 매칭 부족: ${cleanTitle} (기대: ${identifier.title}, 매칭률: ${(matchRatio * 100).toFixed(1)}%)`);
+              continue;
+            }
+          }
+        }
       }
 
       console.log(`[네이버] ✅ Found: ${cleanTitle.substring(0, 50)}... - ${price.toLocaleString()}원`);
@@ -430,7 +613,7 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
 async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOffer | null> {
   try {
     const keyword = identifier.ean || `${identifier.artist} ${identifier.title} LP`;
-    const searchUrl = `https://search.kyobobook.co.kr/search?keyword=${encodeURIComponent(keyword)}&gbCode=TOT&target=total`;
+    const searchUrl = `https://search.kyobobook.co.kr/search?keyword=${encodeURIComponent(keyword)}&gbCode=MUC&target=total`;
 
     const response = await fetch(searchUrl, {
       headers: {
@@ -454,7 +637,7 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
       const titleEl = item.find('.prod_link, [id^="cmdtName"]');
       const title = titleEl.text().trim();
       const link = item.find('.prod_link').attr('href');
-      const priceText = item.find('.price .val').text().replace(/[^0-9]/g, '');
+      const priceText = item.find('.price > .val').first().text().replace(/[^0-9]/g, '');
       const price = priceText ? parseInt(priceText) : 0;
 
       if (!title || !price || !link) continue;
@@ -473,7 +656,13 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
           productLink = `https://product.kyobobook.co.kr${productLink.startsWith('/') ? '' : '/'}${productLink}`;
         }
 
-        console.log(`[교보문고] ✅ Match Found: ${title} (${price.toLocaleString()}원)`);
+        // Stock check based on text flags
+        const fullText = item.text();
+        const isSoldOut = fullText.includes('품절') || fullText.includes('일시품절');
+        // If not explicitly sold out, assume in stock (Kyobo UI usually shows status clearly)
+        const inStock = !isSoldOut;
+
+        console.log(`[교보문고] ✅ Match Found: ${title} (${price.toLocaleString()}원) - Stock: ${inStock ? 'Yes' : 'No'}`);
 
         return {
           vendorName: '교보문고',
@@ -482,7 +671,7 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
           shippingFee: 0,
           shippingPolicy: '5만원 이상 무료배송',
           url: productLink,
-          inStock: true,
+          inStock: inStock,
           affiliateCode: 'itsmyturn',
           affiliateParamKey: 'KyoboCode'
         };
@@ -826,6 +1015,18 @@ async function fetchMajangMusicPrice(identifier: ProductIdentifier): Promise<Ven
  * EAN과 Discogs ID를 모두 활용하여 검색
  */
 export async function collectPricesForProduct(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  // 수집 전 검증 강화: EAN 또는 Discogs ID 필수
+  if (!identifier.ean && !identifier.discogsId) {
+    console.log(`[가격 수집] ❌ 스킵: EAN 또는 Discogs ID가 없습니다.`);
+    return [];
+  }
+
+  // 수집 전 검증: 제목과 아티스트 모두 있어야 함
+  if (!identifier.title || !identifier.artist) {
+    console.log(`[가격 수집] ❌ 스킵: 제목 또는 아티스트 정보가 없습니다. (제목: ${identifier.title || '없음'}, 아티스트: ${identifier.artist || '없음'})`);
+    return [];
+  }
+
   const offers: VendorOffer[] = [];
 
   // Discogs ID가 있지만 EAN이 없는 경우, Discogs API에서 EAN 가져오기
@@ -846,6 +1047,12 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
     }
   }
 
+  // 최종 검증: Discogs에서 가져온 후에도 제목과 아티스트가 있어야 함
+  if (!title || !artist) {
+    console.log(`[가격 수집] ❌ 스킵: Discogs 정보 수집 후에도 제목 또는 아티스트가 없습니다.`);
+    return [];
+  }
+
   // 최종 식별자
   const finalIdentifier: ProductIdentifier = {
     ean: ean,
@@ -854,78 +1061,174 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
     artist: artist,
   };
 
-  // 모든 판매처 병렬 처리 for faster execution
-  console.log(`[가격 수집] 모든 판매처 검색 시작...`);
+  // 순차 호출로 변경 (Rate Limit 준수)
+  // 우선순위: 알라딘, 네이버 먼저 시도
+  console.log(`[가격 수집] 판매처 순차 검색 시작...`);
 
-  const [
-    yes24, aladin, kyobo, interpark,
-    naver,  // Re-enabled to debug issue
-    hyang, kimbap, majang
-  ] = await Promise.all([
-    // 1. 대형 서점 (음악 전문)
-    fetchYes24Price(finalIdentifier),
-    fetchAladinPrice(finalIdentifier),
-    fetchKyoboPrice(finalIdentifier),
-    fetchInterparkPrice(finalIdentifier),
-    // 2. 네이버 쇼핑 API
-    fetchNaverPrice(finalIdentifier),
-
-    // 3. 전문 레코드샵
-    fetchHyangMusicPrice(finalIdentifier),
-    fetchKimbapRecordPrice(finalIdentifier),
-    fetchMajangMusicPrice(finalIdentifier),
-  ]);
-
-  const results = [
-    { name: 'YES24', data: yes24 },
-    { name: '알라딘', data: aladin },
-    { name: '교보문고', data: kyobo },
-    { name: '인터파크', data: interpark },
-    { name: '네이버', data: naver },
-
-    { name: '향뮤직', data: hyang },
-    { name: '김밥레코드', data: kimbap },
-    { name: '마장뮤직', data: majang },
+  // 우선순위 판매처 (알라딘, 네이버)
+  const priorityVendors = [
+    { name: '알라딘', fetch: () => fetchAladinPrice(finalIdentifier) },
+    { name: '네이버', fetch: () => fetchNaverPrice(finalIdentifier) },
   ];
 
-  results.forEach(({ name, data }) => {
-    if (data) {
-      offers.push(data);
-      console.log(`[가격 수집] ✅ ${name}: ${data.basePrice.toLocaleString()}원`);
-    }
-  });
+  // 일반 판매처
+  const otherVendors = [
+    { name: 'YES24', fetch: () => fetchYes24Price(finalIdentifier) },
+    { name: '교보문고', fetch: () => fetchKyoboPrice(finalIdentifier) },
+    { name: '인터파크', fetch: () => fetchInterparkPrice(finalIdentifier) },
+    { name: '향뮤직', fetch: () => fetchHyangMusicPrice(finalIdentifier) },
+    { name: '김밥레코드', fetch: () => fetchKimbapRecordPrice(finalIdentifier) },
+    { name: '마장뮤직', fetch: () => fetchMajangMusicPrice(finalIdentifier) },
+  ];
 
-  // Deduplicate offers based on URL or Vendor+Price to prevent redundancy
-  const uniqueOffers = offers.reduce((acc, current) => {
-    const isDuplicate = acc.some(item =>
-      item.url === current.url ||
-      (item.vendorName === current.vendorName && item.basePrice === current.basePrice)
-    );
-    if (!isDuplicate) {
-      acc.push(current);
+  // 우선순위 판매처 먼저 시도
+  for (const vendor of priorityVendors) {
+    try {
+      const data = await vendor.fetch();
+      if (data) {
+        // URL 검증: 잘못된 링크 필터링
+        if (!isValidUrl(data.url)) {
+          console.log(`[가격 수집] 🚫 ${vendor.name} 잘못된 URL 스킵: ${data.url.substring(0, 60)}...`);
+          continue;
+        }
+        offers.push(data);
+        console.log(`[가격 수집] ✅ ${vendor.name}: ${data.basePrice.toLocaleString()}원`);
+      }
+      // Rate limit 보호: 각 호출 사이 딜레이 (테스트용: 2초로 축소)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+      console.error(`[가격 수집] ❌ ${vendor.name} 오류:`, error);
+      // 에러가 발생해도 계속 진행
     }
-    return acc;
-  }, [] as VendorOffer[]);
+  }
 
-  console.log(`[가격 수집] 총 ${uniqueOffers.length}개의 가격 정보를 찾았습니다.`);
+  // 일반 판매처 시도 (우선순위 판매처에서 결과를 찾지 못한 경우에만)
+  // 하지만 모든 판매처를 확인하는 것이 좋으므로 계속 진행
+  for (const vendor of otherVendors) {
+    try {
+      const data = await vendor.fetch();
+      if (data) {
+        // URL 검증: 잘못된 링크 필터링
+        if (!isValidUrl(data.url)) {
+          console.log(`[가격 수집] 🚫 ${vendor.name} 잘못된 URL 스킵: ${data.url.substring(0, 60)}...`);
+          continue;
+        }
+        offers.push(data);
+        console.log(`[가격 수집] ✅ ${vendor.name}: ${data.basePrice.toLocaleString()}원`);
+      }
+      // Rate limit 보호: 각 호출 사이 딜레이 (테스트용: 2초로 축소)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+      console.error(`[가격 수집] ❌ ${vendor.name} 오류:`, error);
+      // 에러가 발생해도 계속 진행
+    }
+  }
+
+  // Deduplicate offers based on URL to prevent redundancy
+  // Enhanced Deduplication: Filter out offers with identical URLs (normalized)
+  const normalizeUrl = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      // 프로토콜, 호스트, 경로만 비교 (쿼리 파라미터 제거)
+      return `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`.toLowerCase();
+    } catch {
+      return url.trim().toLowerCase();
+    }
+  };
+
+  const seenUrls = new Set<string>();
+  const uniqueOffers: VendorOffer[] = [];
+
+  for (const offer of offers) {
+    if (!offer.url) continue;
+    const normalizedUrl = normalizeUrl(offer.url);
+
+    // Check if we already have this URL for this product
+    if (seenUrls.has(normalizedUrl)) {
+      console.log(`[가격 수집] 중복 URL 스킵: ${offer.url.substring(0, 60)}...`);
+      continue;
+    }
+
+    seenUrls.add(normalizedUrl);
+    uniqueOffers.push(offer);
+  }
+
+  const skippedCount = offers.length - uniqueOffers.length;
+  if (skippedCount > 0) {
+    console.log(`[가격 수집] 총 ${uniqueOffers.length}개의 고유 가격 정보를 찾았습니다. (${skippedCount}개 중복 제거됨)`);
+  } else {
+    console.log(`[가격 수집] 총 ${uniqueOffers.length}개의 고유 가격 정보를 찾았습니다.`);
+  }
   return uniqueOffers;
 }
 
 /**
  * 제품의 가격 정보 업데이트
+ * 중복 방지: URL 기반으로 중복 체크 후 삽입
  */
 async function updateProductOffers(productId: string, offers: VendorOffer[]) {
-  // 기존 offers 삭제
   if (!supabase) return;
 
+  // 기존 offers 가져오기 (중복 체크용)
+  const { data: existingOffers } = await supabase
+    .from('lp_offers')
+    .select('id, url')
+    .eq('product_id', productId);
+
+  const existingUrls = new Set(
+    (existingOffers || [])
+      .map(o => o.url?.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  // URL 정규화 함수 (쿼리 파라미터 제거하여 비교)
+  const normalizeUrl = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      // 프로토콜, 호스트, 경로만 비교 (쿼리 파라미터 제거)
+      return `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`.toLowerCase();
+    } catch {
+      return url.trim().toLowerCase();
+    }
+  };
+
+  // 중복 제거: 같은 URL이 이미 있으면 제외
+  const uniqueOffers: VendorOffer[] = [];
+  const seenNormalizedUrls = new Set<string>();
+
+  for (const offer of offers) {
+    if (!offer.url) continue;
+
+    const normalizedUrl = normalizeUrl(offer.url);
+    
+    // 이미 본 URL이거나 기존 DB에 있는 URL이면 스킵
+    if (seenNormalizedUrls.has(normalizedUrl) || existingUrls.has(normalizedUrl)) {
+      console.log(`[중복 방지] 스킵: ${offer.url.substring(0, 60)}...`);
+      continue;
+    }
+
+    seenNormalizedUrls.add(normalizedUrl);
+    uniqueOffers.push(offer);
+  }
+
+  // 기존 offers 삭제 (전체 삭제 후 재삽입 방식)
   await supabase
     .from('lp_offers')
     .delete()
     .eq('product_id', productId);
 
-  // 새 offers 삽입
-  if (offers.length > 0) {
-    const offersToInsert = offers.map(offer => ({
+  // URL 검증: 잘못된 링크 필터링
+  const validOffers = uniqueOffers.filter(offer => {
+    if (!isValidUrl(offer.url)) {
+      console.log(`[중복 방지] 🚫 잘못된 URL 스킵: ${offer.url.substring(0, 60)}...`);
+      return false;
+    }
+    return true;
+  });
+
+  // 고유하고 유효한 offers만 삽입
+  if (validOffers.length > 0) {
+    const offersToInsert = validOffers.map(offer => ({
       product_id: productId,
       vendor_name: offer.vendorName,
       channel_id: offer.channelId,
@@ -949,10 +1252,15 @@ async function updateProductOffers(productId: string, offers: VendorOffer[]) {
     if (insertError) {
       console.error(`[DB Error] Failed to insert offers for ${productId}:`, insertError);
     } else {
-      console.log(`[DB Success] Inserted ${offers.length} offers for ${productId}`);
+      const skippedCount = offers.length - validOffers.length;
+      if (skippedCount > 0) {
+        console.log(`[DB Success] Inserted ${validOffers.length} offers for ${productId} (${skippedCount}개 중복/잘못된 링크 제거됨)`);
+      } else {
+        console.log(`[DB Success] Inserted ${validOffers.length} offers for ${productId}`);
+      }
     }
   } else {
-    console.log(`[DB Info] No offers to insert for ${productId}`);
+    console.log(`[DB Info] No offers to insert for ${productId} (모두 중복 또는 잘못된 링크)`);
   }
 
   // 제품의 last_synced_at 업데이트
@@ -972,12 +1280,17 @@ export async function syncAllProducts() {
   try {
     if (!supabase) return;
 
-    // 모든 제품 가져오기 (오래된 순서대로 1000개만 - API 제한 고려)
+    // 테스트용: 10개만 수집
+    // 모든 제품 가져오기 (오래된 순서대로 10개만 - 테스트용)
+    // 최근 24시간 내 동기화된 제품은 스킵
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
     const { data: products, error } = await supabase
       .from('lp_products')
-      .select('id, ean, discogs_id, title, artist')
+      .select('id, ean, discogs_id, title, artist, last_synced_at')
+      .or(`last_synced_at.is.null,last_synced_at.lt.${oneDayAgo}`) // 최근 24시간 내 동기화된 제품 제외
       .order('last_synced_at', { ascending: true, nullsFirst: true }) // 가장 오래된(또는 한번도 안한) 것부터
-      .limit(1000); // 하루 API 제한(5000)을 고려하여 배치 크기 제한
+      .limit(10); // 테스트용: 10개만 수집
 
     if (error) {
       console.error('Error fetching products:', error);
@@ -1037,8 +1350,10 @@ export async function syncAllProducts() {
           console.log(`⚠️  No offers found for product ${product.id} (${product.title || 'Unknown'}) - 기존 offers 제거됨`);
         }
 
-        // API rate limit 고려하여 딜레이 추가 (크롤링이므로 더 긴 딜레이)
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2초 대기
+        // API rate limit 고려하여 딜레이 추가
+        // collectPricesForProduct 내부에서 이미 각 판매처별 딜레이가 있으므로
+        // 제품 간 추가 딜레이는 최소화 (0.5초만 추가 - 테스트용)
+        await new Promise(resolve => setTimeout(resolve, 500)); // 0.5초 대기
       } catch (error) {
         console.error(`Error syncing product ${product.id}:`, error);
         // 계속 진행

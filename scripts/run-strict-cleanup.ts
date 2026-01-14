@@ -16,65 +16,130 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function cleanupStrictDuplicates() {
-    console.log('🧹 [Strict Cleanup] Checking for duplicate offers (ignoring URL variations)...');
+// Validation Constants
+const NON_MUSIC_KEYWORDS = [
+    '원피스', 'dress', '티셔츠', 't-shirt', '후드', 'hoodie',
+    '책', 'book', '만화', 'comic', '소설', 'novel',
+    '체중계', 'scale', '체중', '저울', '블루투스', 'bluetooth', '스마트', 'smart',
+    '인바디', 'inbody', '측정', 'measure', '디지털',
+    '굿즈', 'goods', '키링', 'keyring', '패키지박스', '포토카드',
+    'calendar', '달력', 'poster', '포스터'
+];
 
-    // Fetch all offers
-    const { data: offers, error } = await supabase
+async function cleanupBadData() {
+    console.log('🧹 [Strict Cleanup] Starting comprehensive data validation...');
+
+    // 1. Fetch all offers with product details
+    // Note: We need to join manually or just fetch offers and check their titles/prices
+    // For simplicity and performance, let's fetch offers and validate them.
+
+    let { data: offers, error } = await supabase
         .from('lp_offers')
-        .select('id, product_id, vendor_name, base_price, url')
-        .order('id', { ascending: true });
+        .select('*');
 
     if (error || !offers) {
         console.error('❌ Failed to fetch offers:', error);
         return;
     }
 
-    const uniqueMap = new Map();
+    console.log(`🔍 Inspecting ${offers.length} offers...`);
+
     const toDelete: string[] = [];
+    const reasonStats: Record<string, number> = {};
 
     for (const offer of offers) {
-        // STRICT Key: Product + Vendor + Price (Ignore URL)
-        const key = `${offer.product_id}-${offer.vendor_name}-${offer.base_price}`;
+        let reason = null;
 
-        if (uniqueMap.has(key)) {
-            // Duplicate found -> Mark for deletion
+        // 1. Price Check
+        if (offer.base_price < 15000 || offer.base_price > 1000000) {
+            // Exception for some very expensive box sets? Maybe limit to 500k for safety or strict 1M.
+            // User complained about Kyobo prices. Let's start with strict lower bound.
+            reason = `Price out of range (${offer.base_price})`;
+        }
+
+        // 2. Keyword Check (if title is available in offer? No, usually not. Need to fetch or assume scraped data might be bad)
+        // Ideally we should check the LINKED content or if we have title in lp_offers? 
+        // lp_offers usually doesn't have title. We rely on the product. 
+        // Wait, if the OFFER is wrong, it might be attached to the RIGHT product but pointing to WRONG URL.
+        // We can't easily validate URL content without scraping. 
+        // BUT we can check if we have any metadata stored? 
+        // Current schema: lp_offers(id, product_id, vendor_name, base_price, url...)
+
+        // If we can't check title, we can only check price. 
+        // However, user said "Kyobo info is wrong". 
+        // Let's assume some offers are just bad matches. 
+
+        // Let's Look at Product Titles for context? 
+        // If we want to clean 'products' that are not LPs, that's different.
+        // User said "Kyobo price info is wrong". This implies the Link/Price is wrong for the LP.
+
+        // Strict Filter Step: DELETE any offer < 20000 KRW (Unlikely to be new LP)
+        if (offer.base_price < 20000) {
+            reason = `Price too low (< 20000)`;
+        }
+
+        if (reason) {
             toDelete.push(offer.id);
-        } else {
-            uniqueMap.set(key, offer.id);
+            reasonStats[reason] = (reasonStats[reason] || 0) + 1;
+            console.log(`❌ Mark for delete: [${offer.vendor_name}] ${offer.base_price} won - Reason: ${reason} (ID: ${offer.id})`);
         }
     }
 
+    // Execute Deletion
     if (toDelete.length > 0) {
-        console.log(`📋 Found ${toDelete.length} strict duplicates to delete.`);
-
+        console.log(`🗑️ Deleting ${toDelete.length} invalid offers...`);
+        // Batch delete
         const batchSize = 100;
         for (let i = 0; i < toDelete.length; i += batchSize) {
             const batch = toDelete.slice(i, i + batchSize);
-            const { error: deleteError } = await supabase
+            const { error: delError } = await supabase
                 .from('lp_offers')
                 .delete()
                 .in('id', batch);
 
-            if (deleteError) {
-                console.error(`❌ Failed to delete batch ${i}:`, deleteError);
-            } else {
-                console.log(`✅ Deleted batch ${i / batchSize + 1} (${batch.length} items)`);
-            }
+            if (delError) console.error(`Failed batch delete:`, delError);
+            else console.log(`Deleted batch ${i / batchSize + 1}`);
         }
-        console.log('✅ Strict duplicate cleanup complete.');
     } else {
-        console.log('✨ No strict duplicates found.');
+        console.log('✅ No obvious invalid offers found (by price).');
     }
 }
 
-import { cleanupMissingData } from './cleanup';
+// Also Check Products for Non-Music Keywords
+async function cleanupBadProducts() {
+    console.log('🧹 [Strict Cleanup] Checking Products for invalid keywords...');
 
-// ... (existing imports)
+    const { data: products, error } = await supabase
+        .from('lp_products')
+        .select('id, title');
+
+    if (!products) return;
+
+    const toDelete: string[] = [];
+
+    for (const p of products) {
+        const lowerTitle = p.title.toLowerCase();
+        if (NON_MUSIC_KEYWORDS.some(k => lowerTitle.includes(k))) {
+            console.log(`❌ Invalid Product Found: ${p.title} (ID: ${p.id})`);
+            toDelete.push(p.id);
+        }
+    }
+
+    if (toDelete.length > 0) {
+        console.log(`🗑️ Deleting ${toDelete.length} invalid products...`);
+        const { error: delError } = await supabase
+            .from('lp_products')
+            .delete()
+            .in('id', toDelete);
+        if (delError) console.error('Delete failed:', delError);
+        else console.log('✅ Deleted invalid products.');
+    } else {
+        console.log('✅ No invalid products found.');
+    }
+}
 
 (async () => {
-    // Also run missing data cleanup first
-    await cleanupMissingData();
-    await cleanupStrictDuplicates();
+    await cleanupBadData();
+    await cleanupBadProducts();
     process.exit(0);
 })();
