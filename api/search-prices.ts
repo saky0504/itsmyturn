@@ -75,6 +75,35 @@ export default async function handler(
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Supabase 연결 테스트 (테이블 존재 확인)
+    try {
+      const { error: testError } = await supabase
+        .from('lp_products')
+        .select('id')
+        .limit(1);
+      
+      if (testError) {
+        console.error('[가격 검색 API] ❌ Supabase 테이블 접근 오류:', testError);
+        return jsonResponse(500, {
+          error: 'Database connection failed',
+          message: testError.message,
+          hint: 'Supabase URL과 Service Role Key가 올바른지 확인하세요. 테이블이 존재하는지 확인하세요.',
+          details: {
+            errorCode: testError.code,
+            errorMessage: testError.message,
+            supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '없음',
+          }
+        });
+      }
+    } catch (testErr: any) {
+      console.error('[가격 검색 API] ❌ Supabase 연결 테스트 실패:', testErr);
+      return jsonResponse(500, {
+        error: 'Database connection test failed',
+        message: testErr.message,
+        hint: 'Supabase URL과 Service Role Key를 확인하세요.',
+      });
+    }
+
     const { productId, artist, title, ean, discogsId, forceRefresh } = request.body;
 
     // 파라미터 검증
@@ -94,7 +123,14 @@ export default async function handler(
         .eq('id', productId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[가격 검색 API] ❌ 제품 조회 오류:', error);
+        return jsonResponse(500, {
+          error: 'Failed to fetch product',
+          message: error.message,
+          productId,
+        });
+      }
       if (data) {
         identifier = {
           ean: data.ean || ean,
@@ -115,6 +151,10 @@ export default async function handler(
         .eq('product_id', productId)
         .gte('last_checked', oneDayAgo)
         .order('base_price', { ascending: true });
+
+      if (offersError) {
+        console.error('[가격 검색 API] ⚠️ 캐시 조회 오류 (무시하고 계속):', offersError);
+      }
 
       if (!offersError && cachedOffers && cachedOffers.length > 0) {
         const offers = cachedOffers.map((o: any) => ({
