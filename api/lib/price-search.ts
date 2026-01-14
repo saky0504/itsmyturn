@@ -182,7 +182,12 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
   const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    console.error('[네이버 가격 검색] ❌ 환경 변수 없음: NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET');
+    const naverEnvKeys = Object.keys(process.env).filter(k => k.includes('NAVER'));
+    console.error('[네이버 가격 검색] ❌ 환경 변수 없음:', {
+      hasClientId: !!NAVER_CLIENT_ID,
+      hasClientSecret: !!NAVER_CLIENT_SECRET,
+      foundNaverKeys: naverEnvKeys
+    });
     return [];
   }
 

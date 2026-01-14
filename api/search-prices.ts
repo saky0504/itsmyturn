@@ -44,16 +44,37 @@ export default async function handler(
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error('[가격 검색 API] ❌ Supabase 환경 변수 없음:', {
+      // 모든 환경 변수 확인 (디버깅용)
+      const allEnvKeys = Object.keys(process.env).sort();
+      const relevantKeys = allEnvKeys.filter(k => 
+        k.includes('SUPABASE') || 
+        k.includes('NAVER') || 
+        k.includes('VITE')
+      );
+      
+      const envInfo = {
         hasUrl: !!process.env.SUPABASE_URL,
         hasViteUrl: !!process.env.VITE_SUPABASE_URL,
         hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
         hasViteKey: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-        allEnvKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
-      });
+        relevantEnvKeys: relevantKeys,
+        supabaseUrlValue: supabaseUrl ? '***설정됨***' : '없음',
+        supabaseKeyValue: supabaseKey ? '***설정됨***' : '없음'
+      };
+      
+      console.error('[가격 검색 API] ❌ Supabase 환경 변수 없음:', JSON.stringify(envInfo, null, 2));
+      
+      // 프로덕션에서도 디버깅 정보 반환 (환경 변수 값은 제외)
       return jsonResponse(500, { 
         error: 'Supabase credentials not configured',
-        hint: 'Vercel 대시보드에서 SUPABASE_URL과 SUPABASE_SERVICE_ROLE_KEY 환경 변수를 설정하세요 (VITE_ 접두사 없이)'
+        hint: 'Vercel 대시보드 > Settings > Environment Variables에서 다음을 설정하세요: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET',
+        debug: {
+          hasUrl: !!process.env.SUPABASE_URL,
+          hasViteUrl: !!process.env.VITE_SUPABASE_URL,
+          hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+          hasViteKey: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+          foundEnvKeys: relevantKeys
+        }
       });
     }
 
