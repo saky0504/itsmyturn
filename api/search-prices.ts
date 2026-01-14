@@ -84,7 +84,6 @@ export default async function handler(
       });
     }
 
-    let product: any = null;
     let identifier = { ean, discogsId, title, artist };
 
     // 1. 제품 ID가 있으면 DB에서 제품 정보 가져오기
@@ -146,9 +145,10 @@ export default async function handler(
     const { collectPricesForProduct } = await import('./lib/price-search');
     
     let offers: any[] = [];
+    let searchTime = 0;
     try {
       offers = await collectPricesForProduct(identifier);
-      const searchTime = ((Date.now() - searchStartTime) / 1000).toFixed(2);
+      searchTime = parseFloat(((Date.now() - searchStartTime) / 1000).toFixed(2));
       console.log(`[가격 검색 API] 검색 완료: ${offers.length}개 (${searchTime}초)`);
       if (offers.length === 0) {
         console.log(`[가격 검색 API] ⚠️ 결과 없음 - 검색 쿼리나 필터링 문제 가능성`);
@@ -204,7 +204,7 @@ export default async function handler(
     return jsonResponse(200, {
       offers,
       cached: false,
-      searchTime: parseFloat(searchTime),
+      searchTime,
       productId: productId || null,
     });
 

@@ -22,7 +22,7 @@ export interface VendorOffer {
   affiliateParamKey?: string;
 }
 
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+// USER_AGENT는 현재 사용하지 않음 (네이버 API는 헤더 불필요)
 
 
 /**
@@ -306,8 +306,8 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
  * 네이버 쇼핑 API로 가격 검색 (단일 결과, 하위 호환성)
  * @deprecated fetchNaverPriceMultiple 사용
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOffer | null> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+async function fetchNaverPrice(_identifier: ProductIdentifier): Promise<VendorOffer | null> {
   const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
   const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
