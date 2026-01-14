@@ -69,8 +69,25 @@ export const useOnDemandPriceSearch = (): UseOnDemandPriceSearchResult => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        let errorData: any;
+        try {
+          const text = await response.text();
+          try {
+            errorData = JSON.parse(text);
+          } catch {
+            errorData = { error: text || `HTTP ${response.status}`, status: response.status };
+          }
+        } catch {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}`, status: response.status };
+        }
+        
+        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`;
+        console.error('[온디맨드 가격 검색] API 에러:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+        });
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();

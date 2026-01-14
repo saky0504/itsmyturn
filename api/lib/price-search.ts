@@ -435,8 +435,14 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
     const naverOffers = await fetchNaverPriceMultiple(identifier);
     offers.push(...naverOffers);
     console.log(`[가격 수집] 네이버에서 ${naverOffers.length}개 수집`);
-  } catch (error) {
-    console.error('[네이버 가격 검색 오류]', error);
+  } catch (error: any) {
+    console.error('[네이버 가격 검색 오류]', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      identifier,
+    });
+    // 에러가 나도 다른 판매처 시도는 계속
   }
 
   // TODO: 다른 판매처 추가 (Yes24, 알라딘, 교보문고 등)

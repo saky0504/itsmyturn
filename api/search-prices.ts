@@ -190,6 +190,16 @@ export default async function handler(
 
     // 3. 실시간 가격 검색
     console.log(`[가격 검색 API] 검색 시작:`, JSON.stringify(identifier, null, 2));
+    
+    // identifier 검증
+    if (!identifier.artist || !identifier.title) {
+      return jsonResponse(400, {
+        error: 'Missing required fields',
+        message: 'artist and title are required for price search',
+        identifier,
+      });
+    }
+    
     const searchStartTime = Date.now();
     const { collectPricesForProduct } = await import('./lib/price-search');
     
@@ -203,10 +213,16 @@ export default async function handler(
         console.log(`[가격 검색 API] ⚠️ 결과 없음 - 검색 쿼리나 필터링 문제 가능성`);
       }
     } catch (error: any) {
-      console.error(`[가격 검색 API] ❌ 검색 오류:`, error.message, error.stack);
+      console.error(`[가격 검색 API] ❌ 검색 오류:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        identifier,
+      });
       return jsonResponse(500, {
         error: 'Price search failed',
-        message: error.message,
+        message: error.message || 'Unknown error during price search',
+        errorName: error.name,
         identifier,
       });
     }
