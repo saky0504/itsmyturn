@@ -96,7 +96,6 @@ export default async function handler(
 
       if (error) throw error;
       if (data) {
-        product = data;
         identifier = {
           ean: data.ean || ean,
           discogsId: data.discogs_id || discogsId,

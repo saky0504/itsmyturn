@@ -316,7 +316,7 @@ async function fetchNaverPrice(_identifier: ProductIdentifier): Promise<VendorOf
   }
 
   try {
-    const query = identifier.ean || `${identifier.artist} ${identifier.title} LP`;
+    const query = _identifier.ean || `${_identifier.artist} ${_identifier.title} LP`;
     const response = await fetch(
       `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=20&sort=sim`,
       {
@@ -369,7 +369,7 @@ async function fetchNaverPrice(_identifier: ProductIdentifier): Promise<VendorOf
       }
 
       if (!isValidUrl(item.link)) continue;
-      if (!isValidLpMatch(cleanTitle, identifier)) continue;
+      if (!isValidLpMatch(cleanTitle, _identifier)) continue;
 
       // 첫 번째 매칭되는 항목 반환 (가장 관련성 높은 것)
       return {
