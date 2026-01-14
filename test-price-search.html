@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>가격 검색 API 테스트</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #0070f3;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #0051cc;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #0070f3;
+    }
+    .error {
+      border-left-color: #e00;
+      background: #fee;
+    }
+    .success {
+      border-left-color: #0a0;
+      background: #efe;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 가격 검색 API 테스트</h1>
+    
+    <div class="form-group">
+      <label>아티스트</label>
+      <input type="text" id="artist" value="Lana Del Rey" placeholder="예: Lana Del Rey">
+    </div>
+    
+    <div class="form-group">
+      <label>앨범 제목</label>
+      <input type="text" id="title" value="Born To Die" placeholder="예: Born To Die">
+    </div>
+    
+    <div class="form-group">
+      <label>EAN (선택사항)</label>
+      <input type="text" id="ean" value="602527240420" placeholder="예: 602527240420">
+    </div>
+    
+    <button id="testBtn" onclick="testAPI()">가격 검색 테스트</button>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function testAPI() {
+      const btn = document.getElementById('testBtn');
+      const resultDiv = document.getElementById('result');
+      const artist = document.getElementById('artist').value;
+      const title = document.getElementById('title').value;
+      const ean = document.getElementById('ean').value;
+
+      btn.disabled = true;
+      resultDiv.innerHTML = '<div class="loading">⏳ 검색 중...</div>';
+
+      try {
+        const response = await fetch('/api/search-prices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            artist: artist,
+            title: title,
+            ean: ean || undefined,
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+
+        resultDiv.className = 'result success';
+        resultDiv.innerHTML = `
+          <h3>✅ 검색 성공!</h3>
+          <p><strong>캐시 여부:</strong> ${data.cached ? '예 (24시간 이내 데이터)' : '아니오 (실시간 검색)'}</p>
+          <p><strong>검색 시간:</strong> ${data.searchTime}초</p>
+          <p><strong>검색된 가격:</strong> ${data.offers.length}개</p>
+          <h4>검색 결과:</h4>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.innerHTML = `
+          <h3>❌ 검색 실패</h3>
+          <p><strong>오류:</strong> ${error.message}</p>
+          <h4>상세 정보:</h4>
+          <pre>${JSON.stringify(error, null, 2)}</pre>
+          <p style="margin-top: 20px; color: #666; font-size: 14px;">
+            <strong>확인 사항:</strong><br>
+            1. Vercel 환경 변수 설정 확인 (NAVER_CLIENT_ID, NAVER_CLIENT_SECRET)<br>
+            2. 브라우저 콘솔에서 네트워크 탭 확인<br>
+            3. Vercel 함수 로그 확인
+          </p>
+        `;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Enter 키로도 검색 가능
+    document.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        testAPI();
+      }
+    });
+  </script>
+</body>
+</html>
