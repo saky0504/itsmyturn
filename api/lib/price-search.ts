@@ -66,6 +66,13 @@ function extractNumber(text: string): number {
 }
 
 /**
+ * 문자열 정규화 헬퍼
+ */
+function normalize(str: string): string {
+  return str.replace(/[\s_.,()[\]-]/g, '').toLowerCase();
+}
+
+/**
  * URL 검증
  */
 function isValidUrl(url: string): boolean {
@@ -96,7 +103,14 @@ function isValidUrl(url: string): boolean {
 }
 
 /**
- * LP 매칭 검증
+ * 문자열 정규화 헬퍼
+ */
+function normalize(str: string): string {
+  return str.replace(/[\s_.,()[\]-]/g, '').toLowerCase();
+}
+
+/**
+ * LP 매칭 검증 (완화된 버전)
  */
 function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): boolean {
   if (!foundTitle || !identifier.title || !identifier.artist) return false;
@@ -105,61 +119,43 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   const lowerQueryTitle = identifier.title.toLowerCase();
   const lowerArtist = identifier.artist.toLowerCase();
 
-  // CD/디지털 차단
-  const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3'];
-  if (digitalKeywords.some(k => lowerTitle.includes(k) && !lowerTitle.includes('lp') && !lowerTitle.includes('vinyl'))) {
+  // CD/디지털 명시적 차단 (LP 키워드가 있으면 통과)
+  const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac'];
+  const hasDigitalKeyword = digitalKeywords.some(k => lowerTitle.includes(k));
+  const hasLpKeyword = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치'].some(k => lowerTitle.includes(k));
+  
+  // CD/디지털 키워드가 있고 LP 키워드가 없으면 차단
+  if (hasDigitalKeyword && !hasLpKeyword) {
     return false;
   }
 
-  // LP 키워드 확인 (완화: LP 키워드가 없어도 아티스트+앨범명이 정확히 매칭되면 통과)
-  const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치'];
-  const hasLpKeyword = lpKeywords.some(k => lowerTitle.includes(k));
-  
-  // LP 키워드가 없으면 더 엄격한 매칭 필요
-  if (!hasLpKeyword) {
-    // 아티스트명과 앨범명이 모두 정확히 포함되어야 함
-    const normalizedFoundTitle = normalize(foundTitle);
-    const normalizedArtist = normalize(identifier.artist);
-    const normalizedQueryTitle = normalize(identifier.title);
-    
-    // 아티스트명과 앨범명이 모두 정확히 포함되어 있는지 확인
-    if (!normalizedFoundTitle.includes(normalizedArtist) || !normalizedFoundTitle.includes(normalizedQueryTitle)) {
-      return false;
-    }
-    
-    // CD/디지털 키워드가 명시적으로 있으면 차단
-    const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac'];
-    if (digitalKeywords.some(k => lowerTitle.includes(k))) {
-      return false;
-    }
-    
-    // LP 키워드가 없어도 통과 (아티스트+앨범명이 정확히 매칭되면)
-    // 하지만 검증은 계속 진행
-  }
-
-  // 아티스트명 매칭
-  const normalize = (str: string) => str.replace(/[\s_.,()[\]-]/g, '').toLowerCase();
+  // 정규화
   const normalizedFoundTitle = normalize(foundTitle);
   const normalizedArtist = normalize(identifier.artist);
   const normalizedQueryTitle = normalize(identifier.title);
 
+  // 아티스트명 매칭 (필수)
+  if (!normalizedArtist || normalizedArtist.length < 2) {
+    return false;
+  }
+  
+  // 아티스트명이 제목에 포함되어야 함 (부분 매칭 허용)
   if (!normalizedFoundTitle.includes(normalizedArtist)) {
     return false;
   }
 
-  // 앨범명 매칭 (완화: 85% 이상으로 낮춤, LP 키워드가 있으면 더 완화)
-  const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 2);
+  // 앨범명 매칭 (완화: 70% 이상으로 낮춤)
+  const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
   if (titleWords.length > 0) {
     const matchCount = titleWords.filter(w => normalizedFoundTitle.includes(w)).length;
     const matchRatio = matchCount / titleWords.length;
-    // LP 키워드가 있으면 80%, 없으면 85% 이상 매칭 필요
-    const requiredRatio = hasLpKeyword ? 0.80 : 0.85;
-    if (matchRatio < requiredRatio) {
+    // 70% 이상 매칭이면 통과 (매우 완화)
+    if (matchRatio < 0.70) {
       return false;
     }
   } else {
     // 단어가 없으면 전체 문자열 매칭 확인
-    if (!normalizedFoundTitle.includes(normalizedQueryTitle)) {
+    if (normalizedQueryTitle.length > 3 && !normalizedFoundTitle.includes(normalizedQueryTitle)) {
       return false;
     }
   }
