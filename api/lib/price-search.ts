@@ -111,10 +111,30 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     return false;
   }
 
-  // LP 키워드 필수
-  const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"'];
-  if (!lpKeywords.some(k => lowerTitle.includes(k))) {
-    return false;
+  // LP 키워드 확인 (완화: LP 키워드가 없어도 아티스트+앨범명이 정확히 매칭되면 통과)
+  const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치'];
+  const hasLpKeyword = lpKeywords.some(k => lowerTitle.includes(k));
+  
+  // LP 키워드가 없으면 더 엄격한 매칭 필요
+  if (!hasLpKeyword) {
+    // 아티스트명과 앨범명이 모두 정확히 포함되어야 함
+    const normalizedFoundTitle = normalize(foundTitle);
+    const normalizedArtist = normalize(identifier.artist);
+    const normalizedQueryTitle = normalize(identifier.title);
+    
+    // 아티스트명과 앨범명이 모두 정확히 포함되어 있는지 확인
+    if (!normalizedFoundTitle.includes(normalizedArtist) || !normalizedFoundTitle.includes(normalizedQueryTitle)) {
+      return false;
+    }
+    
+    // CD/디지털 키워드가 명시적으로 있으면 차단
+    const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac'];
+    if (digitalKeywords.some(k => lowerTitle.includes(k))) {
+      return false;
+    }
+    
+    // LP 키워드가 없어도 통과 (아티스트+앨범명이 정확히 매칭되면)
+    // 하지만 검증은 계속 진행
   }
 
   // 아티스트명 매칭
@@ -127,12 +147,19 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     return false;
   }
 
-  // 앨범명 95% 이상 매칭
+  // 앨범명 매칭 (완화: 85% 이상으로 낮춤, LP 키워드가 있으면 더 완화)
   const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 2);
   if (titleWords.length > 0) {
     const matchCount = titleWords.filter(w => normalizedFoundTitle.includes(w)).length;
     const matchRatio = matchCount / titleWords.length;
-    if (matchRatio < 0.95) {
+    // LP 키워드가 있으면 80%, 없으면 85% 이상 매칭 필요
+    const requiredRatio = hasLpKeyword ? 0.80 : 0.85;
+    if (matchRatio < requiredRatio) {
+      return false;
+    }
+  } else {
+    // 단어가 없으면 전체 문자열 매칭 확인
+    if (!normalizedFoundTitle.includes(normalizedQueryTitle)) {
       return false;
     }
   }
@@ -148,7 +175,106 @@ function isValidPrice(price: number): boolean {
 }
 
 /**
- * 네이버 쇼핑 API로 가격 검색
+ * 네이버 쇼핑 API로 가격 검색 (여러 결과)
+ */
+async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
+  const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
+
+  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+    return [];
+  }
+
+  try {
+    const query = identifier.ean || `${identifier.artist} ${identifier.title} LP`;
+    const response = await fetch(
+      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=20&sort=sim`,
+      {
+        headers: {
+          'X-Naver-Client-Id': NAVER_CLIENT_ID,
+          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
+        },
+      }
+    );
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    if (!data.items || data.items.length === 0) return [];
+
+    const offers: VendorOffer[] = [];
+    const seenUrls = new Set<string>();
+
+    // 도메인 화이트리스트 (신뢰할 수 있는 판매처만)
+    const allowedDomains = [
+      'smartstore.naver.com',
+      'brand.naver.com',
+      'shopping.naver.com',
+      'www.yes24.com',
+      'www.aladin.co.kr',
+      'www.synnara.co.kr',
+      'hottracks.kyobobook.co.kr',
+      'book.interpark.com',
+      'shopping.interpark.com',
+      'www.coupang.com',
+      'www.gmarket.co.kr',
+      'www.auction.co.kr',
+    ];
+
+    for (const item of data.items) {
+      const cleanTitle = (item.title || '').replace(/<[^>]+>/g, '').trim();
+      const price = parseInt(item.lprice, 10);
+
+      if (price === 0 || !isValidPrice(price)) continue;
+      if (cleanTitle.length < 5) continue;
+      
+      // URL 도메인 확인
+      let linkDomain = '';
+      try {
+        linkDomain = new URL(item.link).hostname;
+      } catch (e) {
+        continue;
+      }
+
+      const isAllowed = allowedDomains.some(d => linkDomain.includes(d));
+      if (!isAllowed) {
+        continue;
+      }
+
+      // URL 중복 확인
+      if (seenUrls.has(item.link)) {
+        continue;
+      }
+      seenUrls.add(item.link);
+
+      if (!isValidUrl(item.link)) continue;
+      if (!isValidLpMatch(cleanTitle, identifier)) continue;
+
+      offers.push({
+        vendorName: '네이버 쇼핑',
+        channelId: 'naver',
+        basePrice: price,
+        shippingFee: 0,
+        shippingPolicy: '별도',
+        url: item.link,
+        inStock: true,
+      });
+
+      // 최대 5개까지만 수집 (너무 많으면 의미 없음)
+      if (offers.length >= 5) {
+        break;
+      }
+    }
+
+    return offers;
+  } catch (error) {
+    console.error('[네이버 가격 검색 오류]', error);
+    return [];
+  }
+}
+
+/**
+ * 네이버 쇼핑 API로 가격 검색 (단일 결과, 하위 호환성)
  */
 async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOffer | null> {
   const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
@@ -175,15 +301,46 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
     const data = await response.json();
     if (!data.items || data.items.length === 0) return null;
 
+    // 도메인 화이트리스트 (신뢰할 수 있는 판매처만)
+    const allowedDomains = [
+      'smartstore.naver.com',
+      'brand.naver.com',
+      'shopping.naver.com',
+      'www.yes24.com',
+      'www.aladin.co.kr',
+      'www.synnara.co.kr',
+      'hottracks.kyobobook.co.kr',
+      'book.interpark.com',
+      'shopping.interpark.com',
+      'www.coupang.com',
+      'www.gmarket.co.kr',
+      'www.auction.co.kr',
+    ];
+
     for (const item of data.items) {
       const cleanTitle = (item.title || '').replace(/<[^>]+>/g, '').trim();
       const price = parseInt(item.lprice, 10);
 
       if (price === 0 || !isValidPrice(price)) continue;
       if (cleanTitle.length < 5) continue;
-      if (!isValidLpMatch(cleanTitle, identifier)) continue;
-      if (!isValidUrl(item.link)) continue;
+      
+      // URL 도메인 확인
+      let linkDomain = '';
+      try {
+        linkDomain = new URL(item.link).hostname;
+      } catch (e) {
+        continue;
+      }
 
+      const isAllowed = allowedDomains.some(d => linkDomain.includes(d));
+      if (!isAllowed) {
+        continue; // 신뢰할 수 없는 판매처 제외
+      }
+
+      if (!isValidUrl(item.link)) continue;
+      if (!isValidLpMatch(cleanTitle, identifier)) continue;
+
+      // 첫 번째 매칭되는 항목 반환 (가장 관련성 높은 것)
       return {
         vendorName: '네이버 쇼핑',
         channelId: 'naver',
@@ -214,18 +371,25 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
 
   const offers: VendorOffer[] = [];
 
-  // 네이버 쇼핑 (가장 빠르고 안정적)
+  // 네이버 쇼핑 (가장 빠르고 안정적) - 여러 결과 수집
   try {
-    const naverOffer = await fetchNaverPrice(identifier);
-    if (naverOffer) {
-      offers.push(naverOffer);
-    }
+    const naverOffers = await fetchNaverPriceMultiple(identifier);
+    offers.push(...naverOffers);
   } catch (error) {
     console.error('[네이버 가격 검색 오류]', error);
   }
 
   // 각 API 호출 사이에 딜레이 (Rate Limit 방지)
   await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // 여러 개의 결과를 반환하도록 수정 (첫 번째만 반환하지 않고)
+  // 네이버 쇼핑에서 여러 결과 수집
+  try {
+    const naverOffers = await fetchNaverPriceMultiple(identifier);
+    offers.push(...naverOffers);
+  } catch (error) {
+    console.error('[네이버 가격 검색 오류]', error);
+  }
 
   // TODO: 다른 판매처 추가 (Yes24, 알라딘, 교보문고 등)
   // 현재는 네이버만 구현 (안정성 우선)
