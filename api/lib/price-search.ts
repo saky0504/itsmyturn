@@ -103,7 +103,7 @@ function isValidUrl(url: string): boolean {
 }
 
 /**
- * LP 매칭 검증 (완화된 버전)
+ * LP 매칭 검증 (엄격한 버전)
  */
 function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): boolean {
   if (!foundTitle || !identifier.title || !identifier.artist) return false;
@@ -112,44 +112,68 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   const lowerQueryTitle = identifier.title.toLowerCase();
   const lowerArtist = identifier.artist.toLowerCase();
 
-  // CD/디지털 명시적 차단 (LP 키워드가 있으면 통과)
-  const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac'];
-  const hasDigitalKeyword = digitalKeywords.some(k => lowerTitle.includes(k));
-  const hasLpKeyword = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치'].some(k => lowerTitle.includes(k));
+  // 1. LP 키워드 필수 확인 (CD/디지털 차단)
+  const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치', 'lp판', 'lp판본'];
+  const hasLpKeyword = lpKeywords.some(k => lowerTitle.includes(k));
   
-  // CD/디지털 키워드가 있고 LP 키워드가 없으면 차단
-  if (hasDigitalKeyword && !hasLpKeyword) {
-    return false;
+  if (!hasLpKeyword) {
+    return false; // LP 키워드가 없으면 무조건 차단
   }
 
-  // 정규화
+  // 2. CD/디지털 키워드 명시적 차단
+  const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac', 'cassette', '카세트'];
+  const hasDigitalKeyword = digitalKeywords.some(k => lowerTitle.includes(k));
+  
+  if (hasDigitalKeyword) {
+    return false; // CD/디지털 키워드가 있으면 무조건 차단
+  }
+
+  // 3. 정규화
   const normalizedFoundTitle = normalize(foundTitle);
   const normalizedArtist = normalize(identifier.artist);
   const normalizedQueryTitle = normalize(identifier.title);
 
-  // 아티스트명 매칭 (필수)
+  // 4. 아티스트명 매칭 (필수, 90% 이상 일치)
   if (!normalizedArtist || normalizedArtist.length < 2) {
     return false;
   }
   
-  // 아티스트명이 제목에 포함되어야 함 (부분 매칭 허용)
+  // 아티스트명이 제목에 포함되어야 함
   if (!normalizedFoundTitle.includes(normalizedArtist)) {
     return false;
   }
 
-  // 앨범명 매칭 (완화: 70% 이상으로 낮춤)
+  // 아티스트명 단어별 매칭 확인 (90% 이상)
+  const artistWords = normalizedArtist.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
+  if (artistWords.length > 0) {
+    const artistMatchCount = artistWords.filter(w => normalizedFoundTitle.includes(w)).length;
+    const artistMatchRatio = artistMatchCount / artistWords.length;
+    if (artistMatchRatio < 0.90) {
+      return false; // 아티스트명 90% 미만 매칭 시 차단
+    }
+  }
+
+  // 5. 앨범명 매칭 (필수, 90% 이상 일치)
   const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
   if (titleWords.length > 0) {
     const matchCount = titleWords.filter(w => normalizedFoundTitle.includes(w)).length;
     const matchRatio = matchCount / titleWords.length;
-    // 70% 이상 매칭이면 통과 (매우 완화)
-    if (matchRatio < 0.70) {
-      return false;
+    if (matchRatio < 0.90) {
+      return false; // 앨범명 90% 미만 매칭 시 차단
     }
   } else {
     // 단어가 없으면 전체 문자열 매칭 확인
     if (normalizedQueryTitle.length > 3 && !normalizedFoundTitle.includes(normalizedQueryTitle)) {
       return false;
+    }
+  }
+
+  // 6. EAN이 있으면 EAN도 확인 (선택사항, 있으면 더 정확)
+  if (identifier.ean && identifier.ean.length >= 8) {
+    const eanDigits = identifier.ean.replace(/[^0-9]/g, '');
+    if (eanDigits.length >= 8 && !normalizedFoundTitle.includes(eanDigits)) {
+      // EAN이 제목에 없어도 통과 (EAN은 제목에 없을 수 있음)
+      // 하지만 EAN이 제목에 있으면 더 확실함
     }
   }
 
@@ -181,11 +205,25 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
   }
 
   try {
-    const query = identifier.ean || `${identifier.artist} ${identifier.title} LP`;
+    // 검색 쿼리 생성: EAN 우선, 없으면 정확한 아티스트+앨범명 검색
+    let query = '';
+    if (identifier.ean && identifier.ean.length >= 8) {
+      // EAN이 있으면 EAN으로 정확 검색 (LP 키워드 추가)
+      query = `${identifier.ean} LP`;
+    } else if (identifier.artist && identifier.title) {
+      // EAN이 없으면 아티스트명과 앨범명을 따옴표로 감싸서 정확 검색
+      const artist = identifier.artist.trim();
+      const title = identifier.title.trim();
+      query = `"${artist}" "${title}" LP`;
+    } else {
+      console.log(`[네이버 가격 검색] ❌ 검색 불가: EAN 또는 (아티스트+앨범명) 필요`);
+      return [];
+    }
+    
     console.log(`[네이버 가격 검색] 검색 쿼리: ${query}`);
     
     const response = await fetch(
-      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=20&sort=sim`,
+      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=50&sort=sim`,
       {
         headers: {
           'X-Naver-Client-Id': NAVER_CLIENT_ID,
@@ -276,8 +314,8 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
         inStock: true,
       });
 
-      // 최대 5개까지만 수집 (너무 많으면 의미 없음)
-      if (offers.length >= 5) {
+      // 최대 10개까지만 수집 (더 많은 옵션 제공)
+      if (offers.length >= 10) {
         break;
       }
     }
