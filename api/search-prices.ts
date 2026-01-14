@@ -81,7 +81,8 @@ export default async function handler(
       },
     });
 
-    // Supabase 연결 테스트 (테이블 존재 확인)
+    // Supabase 연결 테스트 (테이블 존재 확인) - 실패해도 계속 진행
+    let dbAvailable = false;
     try {
       console.log('[가격 검색 API] Supabase 연결 테스트 시작...');
       const { data, error: testError } = await supabase
@@ -90,47 +91,18 @@ export default async function handler(
         .limit(1);
       
       if (testError) {
-        console.error('[가격 검색 API] ❌ Supabase 테이블 접근 오류:', {
+        console.warn('[가격 검색 API] ⚠️ Supabase 테이블 접근 불가 (가격 검색은 계속 진행):', {
           code: testError.code,
           message: testError.message,
-          details: testError.details,
-          hint: testError.hint,
         });
-        
-        // 에러 코드별 상세 메시지
-        let errorHint = 'Supabase URL과 Service Role Key가 올바른지 확인하세요.';
-        if (testError.code === 'PGRST116') {
-          errorHint = '테이블이 존재하지 않습니다. Supabase SQL Editor에서 create-supabase-schema.sql을 실행하세요.';
-        } else if (testError.code === '42P01') {
-          errorHint = '테이블이 존재하지 않습니다. 스키마를 확인하세요.';
-        } else if (testError.message?.includes('schema cache')) {
-          errorHint = '테이블이 스키마 캐시에 없습니다. Supabase 프로젝트가 올바른지 확인하세요.';
-        }
-        
-        return jsonResponse(500, {
-          error: 'Database connection failed',
-          message: testError.message,
-          errorCode: testError.code,
-          errorDetails: testError.details,
-          errorHint: testError.hint,
-          hint: errorHint,
-          debug: {
-            supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '없음',
-            hasKey: !!supabaseKey,
-            keyLength: supabaseKey?.length || 0,
-          }
-        });
+        dbAvailable = false;
+      } else {
+        console.log('[가격 검색 API] ✅ Supabase 연결 성공, 테이블 접근 가능');
+        dbAvailable = true;
       }
-      
-      console.log('[가격 검색 API] ✅ Supabase 연결 성공, 테이블 접근 가능');
     } catch (testErr: any) {
-      console.error('[가격 검색 API] ❌ Supabase 연결 테스트 실패:', testErr);
-      return jsonResponse(500, {
-        error: 'Database connection test failed',
-        message: testErr.message,
-        stack: testErr.stack,
-        hint: 'Supabase URL과 Service Role Key를 확인하세요.',
-      });
+      console.warn('[가격 검색 API] ⚠️ Supabase 연결 테스트 실패 (가격 검색은 계속 진행):', testErr.message);
+      dbAvailable = false;
     }
 
     const { productId, artist, title, ean, discogsId, forceRefresh } = request.body;
@@ -177,8 +149,8 @@ export default async function handler(
       }
     }
 
-    // 2. 캐시 확인 (24시간 이내 데이터) - productId가 있을 때만
-    if (!forceRefresh && productId) {
+    // 2. 캐시 확인 (24시간 이내 데이터) - productId가 있고 DB가 사용 가능할 때만
+    if (!forceRefresh && productId && dbAvailable) {
       try {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         
@@ -239,8 +211,8 @@ export default async function handler(
       });
     }
 
-    // 4. 검색 결과를 DB에 저장 (제품이 있고 offers가 있을 때만)
-    if (productId && offers.length > 0) {
+    // 4. 검색 결과를 DB에 저장 (제품이 있고 offers가 있고 DB가 사용 가능할 때만)
+    if (productId && offers.length > 0 && dbAvailable) {
       try {
         // 기존 offers 삭제
       await supabase
