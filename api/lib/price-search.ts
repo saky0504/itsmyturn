@@ -112,13 +112,12 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   const lowerQueryTitle = identifier.title.toLowerCase();
   const lowerArtist = identifier.artist.toLowerCase();
 
-  // 1. LP 키워드 필수 확인 (CD/디지털 차단)
+  // 1. LP 키워드 확인 (완화: LP 키워드가 없어도 아티스트+앨범명이 정확히 매칭되면 통과)
   const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치', 'lp판', 'lp판본'];
   const hasLpKeyword = lpKeywords.some(k => lowerTitle.includes(k));
   
-  if (!hasLpKeyword) {
-    return false; // LP 키워드가 없으면 무조건 차단
-  }
+  // LP 키워드가 없으면 더 엄격한 검증 필요
+  const needsStrictMatch = !hasLpKeyword;
 
   // 2. CD/디지털 키워드 명시적 차단
   const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac', 'cassette', '카세트'];
@@ -133,7 +132,7 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   const normalizedArtist = normalize(identifier.artist);
   const normalizedQueryTitle = normalize(identifier.title);
 
-  // 4. 아티스트명 매칭 (필수, 90% 이상 일치)
+  // 4. 아티스트명 매칭 (필수)
   if (!normalizedArtist || normalizedArtist.length < 2) {
     return false;
   }
@@ -143,23 +142,25 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     return false;
   }
 
-  // 아티스트명 단어별 매칭 확인 (90% 이상)
+  // 아티스트명 단어별 매칭 확인 (LP 키워드가 있으면 80%, 없으면 90% 이상)
   const artistWords = normalizedArtist.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
   if (artistWords.length > 0) {
     const artistMatchCount = artistWords.filter(w => normalizedFoundTitle.includes(w)).length;
     const artistMatchRatio = artistMatchCount / artistWords.length;
-    if (artistMatchRatio < 0.90) {
-      return false; // 아티스트명 90% 미만 매칭 시 차단
+    const requiredArtistRatio = needsStrictMatch ? 0.90 : 0.80;
+    if (artistMatchRatio < requiredArtistRatio) {
+      return false;
     }
   }
 
-  // 5. 앨범명 매칭 (필수, 90% 이상 일치)
+  // 5. 앨범명 매칭 (LP 키워드가 있으면 80%, 없으면 90% 이상)
   const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
   if (titleWords.length > 0) {
     const matchCount = titleWords.filter(w => normalizedFoundTitle.includes(w)).length;
     const matchRatio = matchCount / titleWords.length;
-    if (matchRatio < 0.90) {
-      return false; // 앨범명 90% 미만 매칭 시 차단
+    const requiredTitleRatio = needsStrictMatch ? 0.90 : 0.80;
+    if (matchRatio < requiredTitleRatio) {
+      return false;
     }
   } else {
     // 단어가 없으면 전체 문자열 매칭 확인
@@ -211,10 +212,10 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
       // EAN이 있으면 EAN으로 정확 검색 (LP 키워드 추가)
       query = `${identifier.ean} LP`;
     } else if (identifier.artist && identifier.title) {
-      // EAN이 없으면 아티스트명과 앨범명을 따옴표로 감싸서 정확 검색
+      // EAN이 없으면 아티스트명과 앨범명으로 검색 (따옴표 없이, LP 키워드 추가)
       const artist = identifier.artist.trim();
       const title = identifier.title.trim();
-      query = `"${artist}" "${title}" LP`;
+      query = `${artist} ${title} LP`;
     } else {
       console.log(`[네이버 가격 검색] ❌ 검색 불가: EAN 또는 (아티스트+앨범명) 필요`);
       return [];
@@ -265,12 +266,22 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
       'www.auction.co.kr',
     ];
 
+    let filteredByPrice = 0;
+    let filteredByDomain = 0;
+    let filteredByUrl = 0;
+    let filteredByMatch = 0;
+
     for (const item of data.items) {
       const cleanTitle = (item.title || '').replace(/<[^>]+>/g, '').trim();
       const price = parseInt(item.lprice, 10);
 
-      if (price === 0 || !isValidPrice(price)) continue;
-      if (cleanTitle.length < 5) continue;
+      if (price === 0 || !isValidPrice(price)) {
+        filteredByPrice++;
+        continue;
+      }
+      if (cleanTitle.length < 5) {
+        continue;
+      }
       
       // URL 도메인 확인
       let linkDomain = '';
@@ -282,6 +293,7 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
 
       const isAllowed = allowedDomains.some(d => linkDomain.includes(d));
       if (!isAllowed) {
+        filteredByDomain++;
         continue;
       }
 
@@ -292,12 +304,14 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
       seenUrls.add(item.link);
 
       if (!isValidUrl(item.link)) {
+        filteredByUrl++;
         console.log(`[네이버] ❌ URL 검증 실패: ${item.link.substring(0, 50)}...`);
         continue;
       }
       
       const isMatch = isValidLpMatch(cleanTitle, identifier);
       if (!isMatch) {
+        filteredByMatch++;
         console.log(`[네이버] ❌ LP 매칭 실패: "${cleanTitle.substring(0, 50)}..." (기대: ${identifier.artist} - ${identifier.title})`);
         continue;
       }
@@ -319,6 +333,8 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
         break;
       }
     }
+
+    console.log(`[네이버 가격 검색] 필터링 통계: 가격(${filteredByPrice}) 도메인(${filteredByDomain}) URL(${filteredByUrl}) 매칭(${filteredByMatch}) → 최종: ${offers.length}개`);
 
     console.log(`[네이버 가격 검색] 최종 결과: ${offers.length}개`);
     return offers;
@@ -424,24 +440,15 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
     return [];
   }
 
+  console.log(`[가격 수집] 시작: ${identifier.artist} - ${identifier.title} (EAN: ${identifier.ean || '없음'})`);
+
   const offers: VendorOffer[] = [];
 
   // 네이버 쇼핑 (가장 빠르고 안정적) - 여러 결과 수집
   try {
     const naverOffers = await fetchNaverPriceMultiple(identifier);
     offers.push(...naverOffers);
-  } catch (error) {
-    console.error('[네이버 가격 검색 오류]', error);
-  }
-
-  // 각 API 호출 사이에 딜레이 (Rate Limit 방지)
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // 여러 개의 결과를 반환하도록 수정 (첫 번째만 반환하지 않고)
-  // 네이버 쇼핑에서 여러 결과 수집
-  try {
-    const naverOffers = await fetchNaverPriceMultiple(identifier);
-    offers.push(...naverOffers);
+    console.log(`[가격 수집] 네이버에서 ${naverOffers.length}개 수집`);
   } catch (error) {
     console.error('[네이버 가격 검색 오류]', error);
   }
@@ -449,5 +456,6 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
   // TODO: 다른 판매처 추가 (Yes24, 알라딘, 교보문고 등)
   // 현재는 네이버만 구현 (안정성 우선)
 
+  console.log(`[가격 수집] 완료: 총 ${offers.length}개 수집`);
   return offers;
 }
