@@ -74,8 +74,16 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치', 'lp판', 'lp판본'];
   const hasLpKeyword = lpKeywords.some(k => lowerTitle.includes(k));
   
-  // LP 키워드가 없으면 더 엄격한 검증 필요
+  // LP 키워드가 없으면 더 엄격한 검증 필요 (하지만 완화)
   const needsStrictMatch = !hasLpKeyword;
+  
+  // CD/디지털 키워드가 명시적으로 있으면 차단 (LP 키워드가 있어도)
+  const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac', 'cassette', '카세트'];
+  const hasDigitalKeyword = digitalKeywords.some(k => lowerTitle.includes(k));
+  
+  if (hasDigitalKeyword && !hasLpKeyword) {
+    return false; // CD/디지털 키워드가 있고 LP 키워드가 없으면 차단
+  }
 
   // 2. CD/디지털 키워드 명시적 차단
   const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac', 'cassette', '카세트'];
@@ -90,33 +98,35 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   const normalizedArtist = normalize(identifier.artist);
   const normalizedQueryTitle = normalize(identifier.title);
 
-  // 4. 아티스트명 매칭 (필수)
+  // 4. 아티스트명 매칭 (완화: 70% 이상)
   if (!normalizedArtist || normalizedArtist.length < 2) {
     return false;
   }
   
-  // 아티스트명이 제목에 포함되어야 함
-  if (!normalizedFoundTitle.includes(normalizedArtist)) {
-    return false;
-  }
-
-  // 아티스트명 단어별 매칭 확인 (LP 키워드가 있으면 80%, 없으면 90% 이상)
+  // 아티스트명이 제목에 포함되어야 함 (부분 매칭 허용)
   const artistWords = normalizedArtist.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
   if (artistWords.length > 0) {
     const artistMatchCount = artistWords.filter(w => normalizedFoundTitle.includes(w)).length;
     const artistMatchRatio = artistMatchCount / artistWords.length;
-    const requiredArtistRatio = needsStrictMatch ? 0.90 : 0.80;
+    // LP 키워드가 있으면 60%, 없으면 70% 이상
+    const requiredArtistRatio = needsStrictMatch ? 0.70 : 0.60;
     if (artistMatchRatio < requiredArtistRatio) {
+      return false;
+    }
+  } else {
+    // 단어가 없으면 전체 문자열 포함 확인
+    if (!normalizedFoundTitle.includes(normalizedArtist)) {
       return false;
     }
   }
 
-  // 5. 앨범명 매칭 (LP 키워드가 있으면 80%, 없으면 90% 이상)
+  // 5. 앨범명 매칭 (완화: 60% 이상)
   const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
   if (titleWords.length > 0) {
     const matchCount = titleWords.filter(w => normalizedFoundTitle.includes(w)).length;
     const matchRatio = matchCount / titleWords.length;
-    const requiredTitleRatio = needsStrictMatch ? 0.90 : 0.80;
+    // LP 키워드가 있으면 60%, 없으면 70% 이상
+    const requiredTitleRatio = needsStrictMatch ? 0.70 : 0.60;
     if (matchRatio < requiredTitleRatio) {
       return false;
     }
@@ -164,25 +174,38 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
   }
 
   try {
-    // 검색 쿼리 생성: EAN 우선, 없으면 정확한 아티스트+앨범명 검색
-    let query = '';
+    // 검색 쿼리 생성: 여러 전략 시도
+    const queries: string[] = [];
+    
     if (identifier.ean && identifier.ean.length >= 8) {
-      // EAN이 있으면 EAN으로 정확 검색 (LP 키워드 추가)
-      query = `${identifier.ean} LP`;
-    } else if (identifier.artist && identifier.title) {
-      // EAN이 없으면 아티스트명과 앨범명으로 검색 (따옴표 없이, LP 키워드 추가)
+      // 전략 1: EAN으로 검색
+      queries.push(`${identifier.ean} LP`);
+      queries.push(identifier.ean); // LP 없이도 시도
+    }
+    
+    if (identifier.artist && identifier.title) {
       const artist = identifier.artist.trim();
       const title = identifier.title.trim();
-      query = `${artist} ${title} LP`;
-    } else {
+      // 전략 2: 아티스트 + 앨범명 + LP
+      queries.push(`${artist} ${title} LP`);
+      queries.push(`${artist} ${title} 바이닐`);
+      // 전략 3: 앨범명만 + LP (아티스트명이 너무 길면)
+      if (title.length < 30) {
+        queries.push(`${title} LP`);
+      }
+    }
+    
+    if (queries.length === 0) {
       console.log(`[네이버 가격 검색] ❌ 검색 불가: EAN 또는 (아티스트+앨범명) 필요`);
       return [];
     }
     
-    console.log(`[네이버 가격 검색] 검색 쿼리: ${query}`);
+    // 첫 번째 쿼리로 검색
+    const query = queries[0];
+    console.log(`[네이버 가격 검색] 검색 쿼리: ${query} (대체 쿼리: ${queries.slice(1).join(', ')})`);
     
     const response = await fetch(
-      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=50&sort=sim`,
+      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=100&sort=sim`,
       {
         headers: {
           'X-Naver-Client-Id': NAVER_CLIENT_ID,
@@ -286,8 +309,8 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
         inStock: true,
       });
 
-      // 최대 10개까지만 수집 (더 많은 옵션 제공)
-      if (offers.length >= 10) {
+      // 최대 20개까지만 수집 (더 많은 옵션 제공)
+      if (offers.length >= 20) {
         break;
       }
     }
