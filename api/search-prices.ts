@@ -116,11 +116,13 @@ export default async function handler(
     }
 
     // 3. 실시간 가격 검색
+    console.log(`[가격 검색 API] 검색 시작:`, identifier);
     const searchStartTime = Date.now();
     const { collectPricesForProduct } = await import('./lib/price-search');
     
     const offers = await collectPricesForProduct(identifier);
     const searchTime = ((Date.now() - searchStartTime) / 1000).toFixed(2);
+    console.log(`[가격 검색 API] 검색 완료: ${offers.length}개 (${searchTime}초)`);
 
     // 4. 검색 결과를 DB에 저장 (제품이 있는 경우)
     if (productId && offers.length > 0) {

@@ -182,11 +182,14 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
   const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+    console.error('[네이버 가격 검색] ❌ 환경 변수 없음: NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET');
     return [];
   }
 
   try {
     const query = identifier.ean || `${identifier.artist} ${identifier.title} LP`;
+    console.log(`[네이버 가격 검색] 검색 쿼리: ${query}`);
+    
     const response = await fetch(
       `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=20&sort=sim`,
       {
@@ -197,10 +200,19 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
       }
     );
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[네이버 가격 검색] ❌ API 오류: ${response.status} ${response.statusText}`, errorText);
+      return [];
+    }
 
     const data = await response.json();
-    if (!data.items || data.items.length === 0) return [];
+    console.log(`[네이버 가격 검색] 검색 결과: ${data.items?.length || 0}개`);
+    
+    if (!data.items || data.items.length === 0) {
+      console.log('[네이버 가격 검색] 검색 결과 없음');
+      return [];
+    }
 
     const offers: VendorOffer[] = [];
     const seenUrls = new Set<string>();
@@ -247,9 +259,18 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
       }
       seenUrls.add(item.link);
 
-      if (!isValidUrl(item.link)) continue;
-      if (!isValidLpMatch(cleanTitle, identifier)) continue;
+      if (!isValidUrl(item.link)) {
+        console.log(`[네이버] ❌ URL 검증 실패: ${item.link.substring(0, 50)}...`);
+        continue;
+      }
+      
+      if (!isValidLpMatch(cleanTitle, identifier)) {
+        console.log(`[네이버] ❌ LP 매칭 실패: ${cleanTitle.substring(0, 50)}...`);
+        continue;
+      }
 
+      console.log(`[네이버] ✅ 매칭 성공: ${cleanTitle.substring(0, 50)}... (가격: ${price}원)`);
+      
       offers.push({
         vendorName: '네이버 쇼핑',
         channelId: 'naver',
@@ -266,6 +287,7 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
       }
     }
 
+    console.log(`[네이버 가격 검색] 최종 결과: ${offers.length}개`);
     return offers;
   } catch (error) {
     console.error('[네이버 가격 검색 오류]', error);

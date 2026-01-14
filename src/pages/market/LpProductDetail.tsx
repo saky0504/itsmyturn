@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -25,6 +25,7 @@ export function LpProductDetail() {
   const { product, isLoading, refetch } = useSupabaseAlbum(productId);
   const { searchPrices, isLoading: isSearchingPrice } = useOnDemandPriceSearch();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasAutoSearched = useRef(false); // 자동 검색 중복 방지
 
   const sortedOffers = useMemo(() => {
     if (!product) return [];
@@ -48,6 +49,63 @@ export function LpProductDetail() {
       (a, b) => calculateOfferFinalPrice(a) - calculateOfferFinalPrice(b)
     );
   }, [product]);
+
+  // 제품이 로드되면 자동으로 가격 검색
+  useEffect(() => {
+    if (!product || isLoading || hasAutoSearched.current) return;
+
+    // offers가 없거나, 24시간 이상 오래된 경우 자동 검색
+    const shouldAutoSearch = (() => {
+      if (!product.offers || product.offers.length === 0) {
+        return true; // offers가 없으면 검색
+      }
+
+      // 가장 최근에 확인된 offer의 날짜 확인
+      const lastChecked = product.offers
+        .map(o => o.lastChecked ? new Date(o.lastChecked).getTime() : 0)
+        .sort((a, b) => b - a)[0];
+
+      if (!lastChecked) {
+        return true; // 날짜 정보가 없으면 검색
+      }
+
+      // 24시간 이상 지났으면 새로 검색
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      return lastChecked < oneDayAgo;
+    })();
+
+    if (shouldAutoSearch) {
+      hasAutoSearched.current = true;
+      setIsRefreshing(true);
+      
+      searchPrices({
+        productId: product.id,
+        artist: product.artist,
+        title: product.title,
+        ean: product.barcode,
+        discogsId: product.discogsId,
+        forceRefresh: false, // 캐시된 데이터가 있으면 사용
+      })
+        .then((result) => {
+          if (result) {
+            // 검색 성공 시 제품 정보 다시 불러오기
+            refetch();
+          }
+        })
+        .catch((err) => {
+          console.error('자동 가격 검색 실패:', err);
+          console.error('자동 가격 검색 실패 상세:', {
+            productId: product.id,
+            artist: product.artist,
+            title: product.title,
+            error: err
+          });
+        })
+        .finally(() => {
+          setIsRefreshing(false);
+        });
+    }
+  }, [product, isLoading, searchPrices, refetch]);
 
   if (isLoading) {
     return (
@@ -342,7 +400,14 @@ export function LpProductDetail() {
             </>
           ) : (
             <div className="text-center py-12 space-y-4">
-              <p className="text-sm text-muted-foreground">현재 가격 정보가 없습니다.</p>
+              <p className="text-sm text-muted-foreground">
+                {isSearchingPrice || isRefreshing 
+                  ? '가격 검색 중...' 
+                  : '현재 가격 정보가 없습니다.'}
+              </p>
+              {(isSearchingPrice || isRefreshing) && (
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" />
+              )}
               <Button
                 onClick={async () => {
                   if (!product) return;
