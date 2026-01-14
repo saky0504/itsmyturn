@@ -305,7 +305,9 @@ async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<V
 /**
  * 네이버 쇼핑 API로 가격 검색 (단일 결과, 하위 호환성)
  * @deprecated fetchNaverPriceMultiple 사용
+ * 현재 사용하지 않으므로 주석 처리
  */
+/*
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
 async function fetchNaverPrice(_identifier: ProductIdentifier): Promise<VendorOffer | null> {
   const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
@@ -389,6 +391,7 @@ async function fetchNaverPrice(_identifier: ProductIdentifier): Promise<VendorOf
     return null;
   }
 }
+*/
 
 /**
  * 모든 판매처에서 가격 수집

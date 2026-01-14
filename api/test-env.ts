@@ -6,7 +6,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(
-  request: VercelRequest,
+  _request: VercelRequest,
   response: VercelResponse,
 ) {
   // 모든 환경 변수 확인 (민감한 값은 마스킹)
