@@ -39,12 +39,21 @@ export default async function handler(
   };
 
   try {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Vercel Serverless Function에서는 VITE_ 접두사가 없어야 함
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
+      console.error('[가격 검색 API] ❌ Supabase 환경 변수 없음:', {
+        hasUrl: !!process.env.SUPABASE_URL,
+        hasViteUrl: !!process.env.VITE_SUPABASE_URL,
+        hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        hasViteKey: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+        allEnvKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+      });
       return jsonResponse(500, { 
-        error: 'Supabase credentials not configured' 
+        error: 'Supabase credentials not configured',
+        hint: 'Vercel 대시보드에서 SUPABASE_URL과 SUPABASE_SERVICE_ROLE_KEY 환경 변수를 설정하세요 (VITE_ 접두사 없이)'
       });
     }
 
