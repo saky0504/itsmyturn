@@ -99,6 +99,7 @@
     "@vercel/node": "^5.5.15",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.21",
+    "baseline-browser-mapping": "^2.10.0",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
     "eslint": "^8.55.0",
