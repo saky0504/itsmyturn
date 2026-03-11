@@ -27,6 +27,7 @@ export interface UseOnDemandPriceSearchResult {
     ean?: string;
     discogsId?: string;
     forceRefresh?: boolean;
+    vendor?: string;
   }) => Promise<PriceSearchResult | null>;
   isLoading: boolean;
   error: Error | null;
@@ -47,6 +48,7 @@ export const useOnDemandPriceSearch = (): UseOnDemandPriceSearchResult => {
     ean?: string;
     discogsId?: string;
     forceRefresh?: boolean;
+    vendor?: string;
   }): Promise<PriceSearchResult | null> => {
     setIsLoading(true);
     setError(null);
@@ -65,6 +67,7 @@ export const useOnDemandPriceSearch = (): UseOnDemandPriceSearchResult => {
           ean: params.ean,
           discogsId: params.discogsId,
           forceRefresh: params.forceRefresh || false,
+          vendor: params.vendor,
         }),
       });
 
@@ -80,7 +83,7 @@ export const useOnDemandPriceSearch = (): UseOnDemandPriceSearchResult => {
         } catch {
           errorData = { error: `HTTP ${response.status}: ${response.statusText}`, status: response.status };
         }
-        
+
         const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`;
         console.error('[온디맨드 가격 검색] API 에러:', {
           status: response.status,

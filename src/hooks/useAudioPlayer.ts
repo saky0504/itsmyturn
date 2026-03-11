@@ -421,7 +421,7 @@ export function useAudioPlayer({
                     }
 
                     setIsAudioReady(false);
-                    let shouldAutoPlay = shouldAutoPlayRef.current;
+                    const shouldAutoPlay = shouldAutoPlayRef.current;
                     if (shouldAutoPlayRef.current) shouldAutoPlayRef.current = false;
 
                     if (shouldAutoPlay && audioRef.current && isValidPreviewUrl(currentTrack.preview_url)) {

@@ -1,13 +1,11 @@
-/**
- * 가격 검색 로직 (Vercel Serverless Function용)
- * scripts/sync-lp-data.ts의 핵심 로직만 추출
- */
+import * as cheerio from 'cheerio';
 
 export interface ProductIdentifier {
   ean?: string;
   discogsId?: string;
   title?: string;
   artist?: string;
+  vendor?: string;
 }
 
 export interface VendorOffer {
@@ -22,432 +20,361 @@ export interface VendorOffer {
   affiliateParamKey?: string;
 }
 
-// USER_AGENT는 현재 사용하지 않음 (네이버 API는 헤더 불필요)
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-
-/**
- * 문자열 정규화 헬퍼
- */
-function normalize(str: string): string {
-  return str.replace(/[\s_.,()[\]-]/g, '').toLowerCase();
-}
-
-/**
- * URL 검증
- */
-function isValidUrl(url: string): boolean {
-  if (!url) return false;
-
-  try {
-    const urlObj = new URL(url);
-    const lowerPath = urlObj.pathname.toLowerCase();
-
-    const invalidCategories = [
-      '/book/', '/책/', '/novel/', '/소설/',
-      '/clothing/', '/의류/', '/apparel/', '/fashion/',
-      '/health/', '/건강/', '/scale/', '/체중계/',
-      '/poster/', '/포스터/', '/goods/', '/굿즈/',
-      '/cd/', '/compact-disc/', '/cassette/', '/카세트/',
-      '/turntable/', '/턴테이블/', '/needle/', '/stylus/',
-    ];
-
-    const hasInvalidCategory = invalidCategories.some(cat => lowerPath.includes(cat));
-    if (hasInvalidCategory) {
-      return false;
+async function fetchWithRetry(url: string, retries = 1): Promise<string> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cache-Control': 'no-cache',
+          'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1'
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.text();
+    } catch {
+      await new Promise(r => setTimeout(r, 1000));
     }
-
-    return true;
-  } catch {
-    return false;
   }
+  return '';
 }
 
-/**
- * LP 매칭 검증 (엄격한 버전)
- */
+function extractNumber(text: string): number {
+  return parseInt(text.replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+function tokenize(str: string): string[] {
+  return str.toLowerCase().replace(/[^a-z0-9가-힣]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+}
+
 function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): boolean {
-  if (!foundTitle || !identifier.title || !identifier.artist) return false;
+  if (!foundTitle) return false;
 
   const lowerTitle = foundTitle.toLowerCase();
 
-  // 1. LP 키워드 확인 (완화: LP 키워드가 없어도 아티스트+앨범명이 정확히 매칭되면 통과)
-  const lpKeywords = ['lp', 'vinyl', '바이닐', '엘피', '레코드', 'record', '12"', '12인치', 'lp판', 'lp판본'];
-  const hasLpKeyword = lpKeywords.some(k => lowerTitle.includes(k));
-  
-  // LP 키워드가 없으면 더 엄격한 검증 필요 (하지만 완화)
-  const needsStrictMatch = !hasLpKeyword;
-  
-  // CD/디지털 키워드가 명시적으로 있으면 차단 (LP 키워드가 있어도)
-  const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac', 'cassette', '카세트'];
-  const hasDigitalKeyword = digitalKeywords.some(k => lowerTitle.includes(k));
-  
-  if (hasDigitalKeyword && !hasLpKeyword) {
-    return false; // CD/디지털 키워드가 있고 LP 키워드가 없으면 차단
+  // 1. Strict Blacklist
+  const blackListExact = ['cd', 'dvd', 'mp3', 'wav', 'flac'];
+  const blackListIncludes = [
+    '디지털', '오디오', 'cassette', '카세트', 'tape', '테이프', 'blu-ray', '블루레이',
+    '포스터', 'poster', '티셔츠', '의류', '굿즈', '잡지', 'magazine', '액자',
+    '키링', 'keyring', '체중계', 'scale', '저울', '달력', 'calendar',
+    '보호', '슬리브', '클리너', '브러쉬'
+  ];
+
+  // 영어 단어(cd, dvd 등)는 독립된 단어일 때만 필터링 (e.g. MacDemarco에서 cd가 걸리는 것 방지)
+  for (const word of blackListExact) {
+    const rx = new RegExp(`\\b${word}\\b`);
+    if (rx.test(lowerTitle)) return false;
   }
 
-  // 2. CD/디지털 키워드 명시적 차단
-  const digitalKeywords = ['cd', 'compact disc', '디지털', 'digital', 'mp3', 'flac', 'cassette', '카세트'];
-  const hasDigitalKeyword = digitalKeywords.some(k => lowerTitle.includes(k));
-  
-  if (hasDigitalKeyword) {
-    return false; // CD/디지털 키워드가 있으면 무조건 차단
+  // 한글/그 외 단어는 부분 일치로 필터링
+  if (blackListIncludes.some(k => lowerTitle.includes(k))) return false;
+
+  // 2. Token Matching
+  const titleTokensStr = tokenize(lowerTitle).join(' ');
+  const artistTokens = identifier.artist ? tokenize(identifier.artist) : [];
+  const albumTokens = identifier.title ? tokenize(identifier.title) : [];
+
+  if (artistTokens.length === 0 && albumTokens.length === 0) return true;
+
+  let matchCount = 0;
+  for (const token of artistTokens) {
+    if (titleTokensStr.includes(token)) matchCount++;
+  }
+  for (const token of albumTokens) {
+    if (titleTokensStr.includes(token)) matchCount++;
   }
 
-  // 3. 정규화
-  const normalizedFoundTitle = normalize(foundTitle);
-  const normalizedArtist = normalize(identifier.artist);
-  const normalizedQueryTitle = normalize(identifier.title);
+  const totalTokens = artistTokens.length + albumTokens.length;
+  // 번역(한국어/영어) 차이를 고려하여, 아티스트나 앨범명 토큰 중 30% 이상 또는 최소 1개 이상만 일치하면 승인
+  const requiredMatches = Math.max(1, Math.floor(totalTokens * 0.3));
 
-  // 4. 아티스트명 매칭 (완화: 70% 이상)
-  if (!normalizedArtist || normalizedArtist.length < 2) {
+  if (matchCount < requiredMatches) {
     return false;
   }
-  
-  // 아티스트명이 제목에 포함되어야 함 (부분 매칭 허용)
-  const artistWords = normalizedArtist.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
-  if (artistWords.length > 0) {
-    const artistMatchCount = artistWords.filter(w => normalizedFoundTitle.includes(w)).length;
-    const artistMatchRatio = artistMatchCount / artistWords.length;
-    // LP 키워드가 있으면 60%, 없으면 70% 이상
-    const requiredArtistRatio = needsStrictMatch ? 0.70 : 0.60;
-    if (artistMatchRatio < requiredArtistRatio) {
-      return false;
-    }
-  } else {
-    // 단어가 없으면 전체 문자열 포함 확인
-    if (!normalizedFoundTitle.includes(normalizedArtist)) {
-      return false;
-    }
-  }
 
-  // 5. 앨범명 매칭 (완화: 60% 이상)
-  const titleWords = normalizedQueryTitle.split(/[^a-z0-9가-힣]+/).filter(w => w.length > 1);
-  if (titleWords.length > 0) {
-    const matchCount = titleWords.filter(w => normalizedFoundTitle.includes(w)).length;
-    const matchRatio = matchCount / titleWords.length;
-    // LP 키워드가 있으면 60%, 없으면 70% 이상
-    const requiredTitleRatio = needsStrictMatch ? 0.70 : 0.60;
-    if (matchRatio < requiredTitleRatio) {
-      return false;
-    }
-  } else {
-    // 단어가 없으면 전체 문자열 매칭 확인
-    if (normalizedQueryTitle.length > 3 && !normalizedFoundTitle.includes(normalizedQueryTitle)) {
-      return false;
-    }
-  }
-
-  // 6. EAN이 있으면 EAN도 확인 (선택사항, 있으면 더 정확)
-  if (identifier.ean && identifier.ean.length >= 8) {
-    const eanDigits = identifier.ean.replace(/[^0-9]/g, '');
-    if (eanDigits.length >= 8 && !normalizedFoundTitle.includes(eanDigits)) {
-      // EAN이 제목에 없어도 통과 (EAN은 제목에 없을 수 있음)
-      // 하지만 EAN이 제목에 있으면 더 확실함
-    }
+  // 최후의 보루: 타이틀에 반드시 lp, vinyl, 바이닐 중 하나가 포함되어야 함 (단어의 일부여도 됨)
+  // CD가 섞여 들어오는 것을 막기 위한 강력한 필터
+  const hasLpKeyword = ['lp', 'vinyl', '바이닐'].some(k => lowerTitle.includes(k));
+  if (!hasLpKeyword) {
+    return false;
   }
 
   return true;
 }
 
-/**
- * 가격 유효성 검사
- */
 function isValidPrice(price: number): boolean {
-  return price >= 20000 && price <= 1000000;
+  return price >= 15000 && price <= 500000;
 }
 
-/**
- * 네이버 쇼핑 API로 가격 검색 (여러 결과)
- */
-async function fetchNaverPriceMultiple(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOffer[]> {
   const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
   const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
+  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) return [];
 
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    const naverEnvKeys = Object.keys(process.env).filter(k => k.includes('NAVER'));
-    console.error('[네이버 가격 검색] ❌ 환경 변수 없음:', {
-      hasClientId: !!NAVER_CLIENT_ID,
-      hasClientSecret: !!NAVER_CLIENT_SECRET,
-      foundNaverKeys: naverEnvKeys
-    });
-    return [];
-  }
-
-  try {
-    // 검색 쿼리 생성: 여러 전략 시도
-    const queries: string[] = [];
-    
-    if (identifier.ean && identifier.ean.length >= 8) {
-      // 전략 1: EAN으로 검색
-      queries.push(`${identifier.ean} LP`);
-      queries.push(identifier.ean); // LP 없이도 시도
-    }
-    
-    if (identifier.artist && identifier.title) {
-      const artist = identifier.artist.trim();
-      const title = identifier.title.trim();
-      // 전략 2: 아티스트 + 앨범명 + LP
-      queries.push(`${artist} ${title} LP`);
-      queries.push(`${artist} ${title} 바이닐`);
-      // 전략 3: 앨범명만 + LP (아티스트명이 너무 길면)
-      if (title.length < 30) {
-        queries.push(`${title} LP`);
-      }
-    }
-    
-    if (queries.length === 0) {
-      console.log(`[네이버 가격 검색] ❌ 검색 불가: EAN 또는 (아티스트+앨범명) 필요`);
-      return [];
-    }
-    
-    // 첫 번째 쿼리로 검색
-    const query = queries[0];
-    console.log(`[네이버 가격 검색] 검색 쿼리: ${query} (대체 쿼리: ${queries.slice(1).join(', ')})`);
-    
-    const response = await fetch(
-      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=100&sort=sim`,
-      {
-        headers: {
-          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[네이버 가격 검색] ❌ API 오류: ${response.status} ${response.statusText}`, errorText);
-      return [];
-    }
-
-    const data = await response.json();
-    console.log(`[네이버 가격 검색] 검색 결과: ${data.items?.length || 0}개`);
-    
-    if (!data.items || data.items.length === 0) {
-      console.log('[네이버 가격 검색] 검색 결과 없음');
-      return [];
-    }
-
-    const offers: VendorOffer[] = [];
-    const seenUrls = new Set<string>();
-
-    // 도메인 화이트리스트 (신뢰할 수 있는 판매처만)
-    const allowedDomains = [
-      'smartstore.naver.com',
-      'brand.naver.com',
-      'shopping.naver.com',
-      'www.yes24.com',
-      'www.aladin.co.kr',
-      'www.synnara.co.kr',
-      'hottracks.kyobobook.co.kr',
-      'book.interpark.com',
-      'shopping.interpark.com',
-      'www.coupang.com',
-      'www.gmarket.co.kr',
-      'www.auction.co.kr',
-    ];
-
-    let filteredByPrice = 0;
-    let filteredByDomain = 0;
-    let filteredByUrl = 0;
-    let filteredByMatch = 0;
-
-    for (const item of data.items) {
-      const cleanTitle = (item.title || '').replace(/<[^>]+>/g, '').trim();
-      const price = parseInt(item.lprice, 10);
-
-      if (price === 0 || !isValidPrice(price)) {
-        filteredByPrice++;
-        continue;
-      }
-      if (cleanTitle.length < 5) {
-        continue;
-      }
-      
-      // URL 도메인 확인
-      let linkDomain = '';
-      try {
-        linkDomain = new URL(item.link).hostname;
-      } catch (e) {
-        continue;
-      }
-
-      const isAllowed = allowedDomains.some(d => linkDomain.includes(d));
-      if (!isAllowed) {
-        filteredByDomain++;
-        continue;
-      }
-
-      // URL 중복 확인
-      if (seenUrls.has(item.link)) {
-        continue;
-      }
-      seenUrls.add(item.link);
-
-      if (!isValidUrl(item.link)) {
-        filteredByUrl++;
-        console.log(`[네이버] ❌ URL 검증 실패: ${item.link.substring(0, 50)}...`);
-        continue;
-      }
-      
-      const isMatch = isValidLpMatch(cleanTitle, identifier);
-      if (!isMatch) {
-        filteredByMatch++;
-        console.log(`[네이버] ❌ LP 매칭 실패: "${cleanTitle.substring(0, 50)}..." (기대: ${identifier.artist} - ${identifier.title})`);
-        continue;
-      }
-
-      console.log(`[네이버] ✅ 매칭 성공: "${cleanTitle.substring(0, 50)}..." (가격: ${price}원)`);
-      
-      offers.push({
-        vendorName: '네이버 쇼핑',
-        channelId: 'naver',
-        basePrice: price,
-        shippingFee: 0,
-        shippingPolicy: '별도',
-        url: item.link,
-        inStock: true,
+  const searchNaver = async (query: string) => {
+    try {
+      const res = await fetch(`https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=20`, {
+        headers: { 'X-Naver-Client-Id': NAVER_CLIENT_ID, 'X-Naver-Client-Secret': NAVER_CLIENT_SECRET }
       });
+      if (!res.ok) return [];
+      const data = await res.json();
 
-      // 최대 20개까지만 수집 (더 많은 옵션 제공)
-      if (offers.length >= 20) {
-        break;
+      const offers: VendorOffer[] = [];
+      const allowedDomains = ['smartstore.naver.com', 'brand.naver.com', 'shopping.naver.com', 'yes24.com', 'aladin.co.kr', 'kyobobook.co.kr'];
+
+      for (const item of data.items || []) {
+        const cleanTitle = (item.title || '').replace(/<[^>]+>/g, '').trim();
+        const price = parseInt(item.lprice, 10);
+        if (!isValidPrice(price)) continue;
+
+        let domain = '';
+        try { domain = new URL(item.link).hostname; } catch (e) { }
+        if (!allowedDomains.some(d => domain.includes(d))) continue;
+
+        if (!isValidLpMatch(cleanTitle, identifier)) continue;
+
+        offers.push({
+          vendorName: '네이버 쇼핑',
+          channelId: 'naver',
+          basePrice: price,
+          shippingFee: parseInt(item.deliveryFee || "0", 10),
+          shippingPolicy: '상세조건 확인',
+          url: item.link,
+          inStock: true
+        });
       }
+      return offers;
+    } catch (e) {
+      return [];
     }
+  };
 
-    console.log(`[네이버 가격 검색] 필터링 통계: 가격(${filteredByPrice}) 도메인(${filteredByDomain}) URL(${filteredByUrl}) 매칭(${filteredByMatch}) → 최종: ${offers.length}개`);
-
-    console.log(`[네이버 가격 검색] 최종 결과: ${offers.length}개`);
-    return offers;
-  } catch (error) {
-    console.error('[네이버 가격 검색 오류]', error);
-    return [];
+  const cleanEan = identifier.ean ? identifier.ean.replace(/[^0-9]/g, '') : '';
+  let offers: VendorOffer[] = [];
+  if (cleanEan) {
+    offers = await searchNaver(cleanEan);
   }
+
+  if (offers.length === 0) {
+    const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
+    offers = await searchNaver(keywordQuery);
+  }
+
+  return offers;
 }
 
-/**
- * 네이버 쇼핑 API로 가격 검색 (단일 결과, 하위 호환성)
- * @deprecated fetchNaverPriceMultiple 사용
- * 현재 사용하지 않으므로 주석 처리
- */
-/*
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-async function fetchNaverPrice(_identifier: ProductIdentifier): Promise<VendorOffer | null> {
-  const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
-  const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
+async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  const aladinTtbKey = process.env.ALADIN_TTB_KEY;
+  if (!aladinTtbKey) return [];
 
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    return null;
+  const searchAladin = async (query: string) => {
+    try {
+      const url = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${aladinTtbKey}&QueryType=Keyword&Query=${encodeURIComponent(query)}&MaxResults=5&start=1&SearchTarget=Music&Output=JS&Version=20131101`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      const offers: VendorOffer[] = [];
+      for (const item of data.item || []) {
+        const title = item.title;
+        const price = item.priceSales || item.priceStandard;
+        if (!isValidPrice(price)) continue;
+        if (!isValidLpMatch(title, identifier)) continue;
+
+        offers.push({
+          vendorName: '알라딘',
+          channelId: 'aladin',
+          basePrice: price,
+          shippingFee: 0,
+          shippingPolicy: '조건부 무료',
+          url: item.link,
+          inStock: item.stockStatus !== ''
+        });
+      }
+      return offers;
+    } catch (e) { return []; }
+  };
+
+  const cleanEan = identifier.ean ? identifier.ean.replace(/[^0-9]/g, '') : '';
+  let offers: VendorOffer[] = [];
+  if (cleanEan) {
+    offers = await searchAladin(cleanEan);
   }
 
-  try {
-    const query = _identifier.ean || `${_identifier.artist} ${_identifier.title} LP`;
-    const response = await fetch(
-      `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(query)}&display=20&sort=sim`,
-      {
+  if (offers.length === 0) {
+    const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
+    offers = await searchAladin(keywordQuery);
+  }
+
+  return offers;
+}
+
+async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  const searchYes24 = async (query: string) => {
+    try {
+      const url = `https://www.yes24.com/Product/Search?domain=ALL&query=${encodeURIComponent(query)}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+      const response = await fetch(url, {
+        redirect: 'manual', // DO NOT follow the 302 redirect for EANs!
         headers: {
-          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
+          'User-Agent': USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cache-Control': 'no-cache',
+          'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1'
         },
-      }
-    );
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    if (!response.ok) return null;
+      if (!response.ok || response.status === 302) return []; // 302 means NO RESULTS
 
-    const data = await response.json();
-    if (!data.items || data.items.length === 0) return null;
+      const html = await response.text();
+      if (!html) return [];
 
-    // 도메인 화이트리스트 (신뢰할 수 있는 판매처만)
-    const allowedDomains = [
-      'smartstore.naver.com',
-      'brand.naver.com',
-      'shopping.naver.com',
-      'www.yes24.com',
-      'www.aladin.co.kr',
-      'www.synnara.co.kr',
-      'hottracks.kyobobook.co.kr',
-      'book.interpark.com',
-      'shopping.interpark.com',
-      'www.coupang.com',
-      'www.gmarket.co.kr',
-      'www.auction.co.kr',
-    ];
+      const $ = cheerio.load(html);
+      const offers: VendorOffer[] = [];
 
-    for (const item of data.items) {
-      const cleanTitle = (item.title || '').replace(/<[^>]+>/g, '').trim();
-      const price = parseInt(item.lprice, 10);
+      $('.itemUnit').slice(0, 5).each((_, el) => {
+        const item = $(el);
+        const title = item.find('a.gd_name').text().trim() || item.find('.gd_name').text().trim() || item.find('.goods_name a').first().text().trim();
+        const link = item.find('a').first().attr('href');
+        const priceText = item.find('.yes_price, .price, .yes_b').first().text();
+        const price = extractNumber(priceText);
 
-      if (price === 0 || !isValidPrice(price)) continue;
-      if (cleanTitle.length < 5) continue;
-      
-      // URL 도메인 확인
-      let linkDomain = '';
-      try {
-        linkDomain = new URL(item.link).hostname;
-      } catch (e) {
-        continue;
-      }
+        if (!title || !link || !isValidPrice(price)) return;
+        if (!isValidLpMatch(title, identifier)) return;
 
-      const isAllowed = allowedDomains.some(d => linkDomain.includes(d));
-      if (!isAllowed) {
-        continue; // 신뢰할 수 없는 판매처 제외
-      }
+        const inStock = price > 0;
+        offers.push({
+          vendorName: 'YES24',
+          channelId: 'yes24',
+          basePrice: price,
+          shippingFee: 0,
+          shippingPolicy: '5만원 무료',
+          url: link.startsWith('http') ? link : `https://www.yes24.com${link}`,
+          inStock
+        });
+      });
+      return offers;
+    } catch (e) { return []; }
+  };
 
-      if (!isValidUrl(item.link)) continue;
-      if (!isValidLpMatch(cleanTitle, _identifier)) continue;
-
-      // 첫 번째 매칭되는 항목 반환 (가장 관련성 높은 것)
-      return {
-        vendorName: '네이버 쇼핑',
-        channelId: 'naver',
-        basePrice: price,
-        shippingFee: 0,
-        shippingPolicy: '별도',
-        url: item.link,
-        inStock: true,
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.error('[네이버 가격 검색 오류]', error);
-    return null;
+  const cleanEan = identifier.ean ? identifier.ean.replace(/[^0-9]/g, '') : '';
+  let offers: VendorOffer[] = [];
+  if (cleanEan) {
+    offers = await searchYes24(cleanEan);
   }
+
+  if (offers.length === 0) {
+    const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
+    offers = await searchYes24(keywordQuery);
+  }
+
+  return offers;
 }
-*/
 
-/**
- * 모든 판매처에서 가격 수집
- */
-export async function collectPricesForProduct(identifier: ProductIdentifier): Promise<VendorOffer[]> {
-  // 검증
-  if (!identifier.title || !identifier.artist) {
-    console.log('[가격 수집] ❌ 제목 또는 아티스트 정보가 없습니다.');
-    return [];
+async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  const searchKyobo = async (query: string) => {
+    try {
+      const url = `https://search.kyobobook.co.kr/search?keyword=${encodeURIComponent(query)}&gbCode=TOT&target=total`;
+      const html = await fetchWithRetry(url);
+      if (!html) return [];
+
+      const $ = cheerio.load(html);
+      const offers: VendorOffer[] = [];
+
+      $('.prod_item').slice(0, 5).each((_, el) => {
+        const item = $(el);
+        const titleSpan = item.find('a.prod_info span[id^="cmdtName"]');
+        const title = titleSpan.length ? titleSpan.text().trim() : item.find('.prod_info').text().replace(/\s+/g, ' ').trim();
+        const link = item.find('a.prod_info').attr('href');
+        const priceText = item.find('.price .val').text();
+        const price = extractNumber(priceText);
+
+        if (!title || !link || !isValidPrice(price)) return;
+        if (!isValidLpMatch(title, identifier)) return;
+
+        // In Kyobo, if there is a price it usually means it can be bought
+        const inStock = price > 0;
+
+        offers.push({
+          vendorName: '교보문고',
+          channelId: 'kyobo',
+          basePrice: price,
+          shippingFee: 0,
+          shippingPolicy: '조건부 무료',
+          url: link.startsWith('http') ? link : `https://product.kyobobook.co.kr${link}`,
+          inStock
+        });
+      });
+      return offers;
+    } catch (e) { return []; }
+  };
+
+  const cleanEan = identifier.ean ? identifier.ean.replace(/[^0-9]/g, '') : '';
+  let offers: VendorOffer[] = [];
+  if (cleanEan) {
+    offers = await searchKyobo(cleanEan);
   }
 
-  console.log(`[가격 수집] 시작: ${identifier.artist} - ${identifier.title} (EAN: ${identifier.ean || '없음'})`);
+  if (offers.length === 0) {
+    const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
+    offers = await searchKyobo(keywordQuery);
+  }
 
+  return offers;
+}
+
+export async function collectPricesForProduct(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  const { vendor } = identifier;
   const offers: VendorOffer[] = [];
 
-  // 네이버 쇼핑 (가장 빠르고 안정적) - 여러 결과 수집
-  try {
-    const naverOffers = await fetchNaverPriceMultiple(identifier);
-    offers.push(...naverOffers);
-    console.log(`[가격 수집] 네이버에서 ${naverOffers.length}개 수집`);
-  } catch (error: any) {
-    console.error('[네이버 가격 검색 오류]', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      identifier,
-    });
-    // 에러가 나도 다른 판매처 시도는 계속
+  if (vendor === 'naver') {
+    return await fetchNaverPrice(identifier);
+  } else if (vendor === 'aladin') {
+    return await fetchAladinPrice(identifier);
+  } else if (vendor === 'yes24') {
+    return await fetchYes24Price(identifier);
+  } else if (vendor === 'kyobo') {
+    return await fetchKyoboPrice(identifier);
+  } else {
+    const results = await Promise.allSettled([
+      fetchNaverPrice(identifier),
+      fetchAladinPrice(identifier),
+      fetchYes24Price(identifier),
+      fetchKyoboPrice(identifier)
+    ]);
+    for (const res of results) {
+      if (res.status === 'fulfilled') offers.push(...res.value);
+    }
   }
 
-  // TODO: 다른 판매처 추가 (Yes24, 알라딘, 교보문고 등)
-  // 현재는 네이버만 구현 (안정성 우선)
-
-  console.log(`[가격 수집] 완료: 총 ${offers.length}개 수집`);
   return offers;
 }

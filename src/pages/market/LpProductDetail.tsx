@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Loader2,
-  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { MarketHeader } from '../../components/market/MarketHeader';
@@ -50,26 +49,21 @@ export function LpProductDetail() {
     );
   }, [product]);
 
-  // 제품이 로드되면 자동으로 가격 검색
+  // 제품이 로드되면 자동으로 스태거드(교차 지연) 가격 검색
   useEffect(() => {
     if (!product || isLoading || hasAutoSearched.current) return;
 
     // offers가 없거나, 24시간 이상 오래된 경우 자동 검색
     const shouldAutoSearch = (() => {
       if (!product.offers || product.offers.length === 0) {
-        return true; // offers가 없으면 검색
+        return true;
       }
-
-      // 가장 최근에 확인된 offer의 날짜 확인
       const lastChecked = product.offers
         .map(o => o.lastChecked ? new Date(o.lastChecked).getTime() : 0)
         .sort((a, b) => b - a)[0];
-
       if (!lastChecked) {
-        return true; // 날짜 정보가 없으면 검색
+        return true;
       }
-
-      // 24시간 이상 지났으면 새로 검색
       const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
       return lastChecked < oneDayAgo;
     })();
@@ -77,37 +71,39 @@ export function LpProductDetail() {
     if (shouldAutoSearch) {
       hasAutoSearched.current = true;
       setIsRefreshing(true);
-      
-      searchPrices({
-        productId: product.id,
-        artist: product.artist,
-        title: product.title,
-        ean: product.barcode,
-        discogsId: product.discogsId,
-        forceRefresh: false, // 캐시된 데이터가 있으면 사용
-      })
-        .then((result) => {
-          if (result) {
-            // 검색 성공 시 제품 정보 다시 불러오기
-            refetch();
+
+      const vendors = ['naver', 'aladin', 'yes24', 'kyobo'];
+
+      const fetchSequentially = async () => {
+        for (const vendor of vendors) {
+          try {
+            const result = await searchPrices({
+              productId: product.id,
+              artist: product.artist,
+              title: product.title,
+              ean: product.barcode,
+              discogsId: product.discogsId,
+              forceRefresh: true, // Auto-fetch when stale should force refresh the cache
+              vendor: vendor
+            });
+            if (result) {
+              // 성공 시 DB에 바로 반영되므로 화면을 즉시 업데이트
+              await refetch();
+            }
+          } catch (err) {
+            console.error(`[${vendor}] 가격 검색 실패:`, err);
           }
-        })
-        .catch((err) => {
-          console.error('자동 가격 검색 실패:', err);
-          console.error('자동 가격 검색 실패 상세:', {
-            productId: product.id,
-            artist: product.artist,
-            title: product.title,
-            error: err
-          });
-        })
-        .finally(() => {
-          setIsRefreshing(false);
-        });
+          // API Ban 방지 및 서버 과부하 방지를 위한 1.5초 대기
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        setIsRefreshing(false);
+      };
+
+      fetchSequentially();
     }
   }, [product, isLoading, searchPrices, refetch]);
 
-  if (isLoading) {
+  if (isLoading && !product) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-10 h-10 animate-spin text-muted-foreground" />
@@ -219,41 +215,17 @@ export function LpProductDetail() {
               <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                 가격 비교
                 <span className="text-sm font-normal text-muted-foreground ml-1">({sortedOffers.length}개 판매처)</span>
+                {(isRefreshing || isSearchingPrice) && (
+                  <div className="flex items-center gap-1.5 ml-3 bg-primary/10 px-2 py-1 rounded-full">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                    <span className="text-xs font-medium text-primary">실시간 재검색 중...</span>
+                  </div>
+                )}
               </h2>
               <p className="text-sm text-muted-foreground mt-1.5">
                 배송비 정책, 쿠폰 등을 고려한 실질적인 구매 혜택을 비교해보세요.
               </p>
             </div>
-            <Button
-              onClick={async () => {
-                if (!product) return;
-                setIsRefreshing(true);
-                try {
-                  const result = await searchPrices({
-                    productId: product.id,
-                    artist: product.artist,
-                    title: product.title,
-                    ean: product.barcode,
-                    discogsId: product.discogsId,
-                    forceRefresh: true,
-                  });
-                  if (result) {
-                    // 검색 성공 시 제품 정보 다시 불러오기
-                    await refetch();
-                  }
-                } catch (err) {
-                  console.error('가격 검색 실패:', err);
-                } finally {
-                  setIsRefreshing(false);
-                }
-              }}
-              disabled={isSearchingPrice || isRefreshing}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${(isSearchingPrice || isRefreshing) ? 'animate-spin' : ''}`} />
-              {(isSearchingPrice || isRefreshing) ? '검색 중...' : '가격 새로고침'}
-            </Button>
           </div>
 
           {sortedOffers.length > 0 ? (
@@ -279,7 +251,7 @@ export function LpProductDetail() {
                         <tr
                           key={offer.id}
                           className="hover:bg-muted/30 transition-colors duration-200 cursor-pointer group"
-                          onClick={() => window.open(affiliateUrl, '_blank', 'noopener,noreferrer')}
+                          onClick={() => window.open(affiliateUrl, '_blank', 'noopener')}
                         >
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
@@ -339,7 +311,7 @@ export function LpProductDetail() {
                     <div
                       key={offer.id}
                       className="rounded-xl border border-border bg-card p-5 space-y-4 cursor-pointer active:scale-[0.99] transition-transform duration-200 shadow-sm"
-                      onClick={() => window.open(affiliateUrl, '_blank', 'noopener,noreferrer')}
+                      onClick={() => window.open(affiliateUrl, '_blank', 'noopener')}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -399,44 +371,15 @@ export function LpProductDetail() {
               </div>
             </>
           ) : (
-            <div className="text-center py-12 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {isSearchingPrice || isRefreshing 
-                  ? '가격 검색 중...' 
-                  : '현재 가격 정보가 없습니다.'}
-              </p>
-              {(isSearchingPrice || isRefreshing) && (
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" />
+            <div className="text-center py-16 space-y-4">
+              {isSearchingPrice || isRefreshing ? (
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground font-medium">가격 검색 중...</p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">현재 등록된 판매 가격 정보가 없습니다.</p>
               )}
-              <Button
-                onClick={async () => {
-                  if (!product) return;
-                  setIsRefreshing(true);
-                  try {
-                    const result = await searchPrices({
-                      productId: product.id,
-                      artist: product.artist,
-                      title: product.title,
-                      ean: product.barcode,
-                      discogsId: product.discogsId,
-                      forceRefresh: true,
-                    });
-                    if (result) {
-                      await refetch();
-                    }
-                  } catch (err) {
-                    console.error('가격 검색 실패:', err);
-                  } finally {
-                    setIsRefreshing(false);
-                  }
-                }}
-                disabled={isSearchingPrice || isRefreshing}
-                variant="default"
-                className="flex items-center gap-2 mx-auto"
-              >
-                <RefreshCw className={`w-4 h-4 ${(isSearchingPrice || isRefreshing) ? 'animate-spin' : ''}`} />
-                {(isSearchingPrice || isRefreshing) ? '검색 중...' : '가격 검색하기'}
-              </Button>
             </div>
           )}
         </section>

@@ -59,7 +59,7 @@ export function VinylPlayer() {
   // 오디오 모드 설정 (iOS 무음 모드 무시)
   useEffect(() => {
     // Web only - no setup needed
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // 초기 추천 트랙 로딩

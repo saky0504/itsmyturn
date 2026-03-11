@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Grid, List, Search, ChevronLeft, ChevronRight, Loader2, X, RefreshCw } from 'lucide-react';
+import { Grid, List, Search, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
 import { MarketHeader } from '../../components/market/MarketHeader';
 import {
   calculateOfferFinalPrice,
@@ -8,7 +8,6 @@ import {
   type LpProduct,
 } from '../../data/lpMarket';
 import { useSupabaseProducts } from '../../hooks/useSupabaseProducts';
-import { useOnDemandPriceSearch } from '../../hooks/useOnDemandPriceSearch';
 import { getDailyLpRecommendations } from '../../lib/recommendation';
 import { useIsMobile } from '../../../components/ui/use-mobile';
 
@@ -23,11 +22,9 @@ const getBestOffer = (offers: LpProduct['offers']) => {
 interface ProductCardProps {
   product: LpProduct;
   variant?: 'default' | 'featured' | 'compact' | 'list';
-  onPriceSearch?: (productId: string) => void;
-  isSearchingPrice?: boolean;
 }
 
-function ProductCard({ product, variant = 'default', onPriceSearch, isSearchingPrice = false }: ProductCardProps) {
+function ProductCard({ product, variant = 'default' }: ProductCardProps) {
   const bestOffer = getBestOffer(product.offers);
   const finalPrice = bestOffer ? calculateOfferFinalPrice(bestOffer) : null;
 
@@ -108,20 +105,6 @@ function ProductCard({ product, variant = 'default', onPriceSearch, isSearchingP
             ) : (
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-muted-foreground">Price info not available</span>
-                {onPriceSearch && (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onPriceSearch(product.id);
-                    }}
-                    disabled={isSearchingPrice}
-                    className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${isSearchingPrice ? 'animate-spin' : ''}`} />
-                    {isSearchingPrice ? 'Searching...' : 'Search prices'}
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -149,30 +132,6 @@ function ProductCard({ product, variant = 'default', onPriceSearch, isSearchingP
               }
             }}
           />
-          <div
-            role="button"
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm hover:bg-white transition-colors z-10 shadow-sm cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              // Wishlist logic here
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-slate-900"
-            >
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-            </svg>
-          </div>
         </div>
         <div className="space-y-1">
           <h3 className="text-[17px] font-bold text-slate-900 line-clamp-1 group-hover:text-black leading-tight">
@@ -221,20 +180,6 @@ function ProductCard({ product, variant = 'default', onPriceSearch, isSearchingP
         ) : (
           <div className="flex flex-col gap-1 pt-1">
             <span className="text-sm text-muted-foreground">No price</span>
-            {onPriceSearch && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onPriceSearch(product.id);
-                }}
-                disabled={isSearchingPrice}
-                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <RefreshCw className={`w-3 h-3 ${isSearchingPrice ? 'animate-spin' : ''}`} />
-                {isSearchingPrice ? 'Searching...' : 'Search'}
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -328,36 +273,8 @@ export function LpHome() {
   }, [debouncedQuery]);
 
   // Supabase 데이터 훅 사용
-  const { products, allProducts, totalCount, isLoading, error, refetch } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
-  const { searchPrices } = useOnDemandPriceSearch();
-  const [searchingProductId, setSearchingProductId] = useState<string | null>(null);
+  const { products, allProducts, totalCount, isLoading, error } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
   const isMobile = useIsMobile();
-
-  // 온디맨드 가격 검색 핸들러
-  const handlePriceSearch = async (productId: string) => {
-    const product = allProducts.find(p => p.id === productId);
-    if (!product) return;
-
-    setSearchingProductId(productId);
-    try {
-      const result = await searchPrices({
-        productId: product.id,
-        artist: product.artist,
-        title: product.title,
-        ean: product.barcode,
-        discogsId: product.discogsId,
-      });
-
-      if (result && result.offers.length > 0) {
-        // 검색 성공 시 제품 목록 다시 불러오기
-        refetch();
-      }
-    } catch (err) {
-      console.error('가격 검색 실패:', err);
-    } finally {
-      setSearchingProductId(null);
-    }
-  };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
@@ -469,8 +386,6 @@ export function LpHome() {
                       key={product.id}
                       product={product}
                       variant="list"
-                      onPriceSearch={handlePriceSearch}
-                      isSearchingPrice={searchingProductId === product.id}
                     />
                   ))}
                 </div>
@@ -480,8 +395,6 @@ export function LpHome() {
                     <ProductCard
                       key={product.id}
                       product={product}
-                      onPriceSearch={handlePriceSearch}
-                      isSearchingPrice={searchingProductId === product.id}
                     />
                   ))}
                 </div>

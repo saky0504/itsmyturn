@@ -41,12 +41,12 @@ export default async function handler(
     if (!supabaseUrl || !supabaseKey) {
       // 모든 환경 변수 확인 (디버깅용)
       const allEnvKeys = Object.keys(process.env).sort();
-      const relevantKeys = allEnvKeys.filter(k => 
-        k.includes('SUPABASE') || 
-        k.includes('NAVER') || 
+      const relevantKeys = allEnvKeys.filter(k =>
+        k.includes('SUPABASE') ||
+        k.includes('NAVER') ||
         k.includes('VITE')
       );
-      
+
       const envInfo = {
         hasUrl: !!process.env.SUPABASE_URL,
         hasViteUrl: !!process.env.VITE_SUPABASE_URL,
@@ -56,11 +56,11 @@ export default async function handler(
         supabaseUrlValue: supabaseUrl ? '***설정됨***' : '없음',
         supabaseKeyValue: supabaseKey ? '***설정됨***' : '없음'
       };
-      
+
       console.error('[가격 검색 API] ❌ Supabase 환경 변수 없음:', JSON.stringify(envInfo, null, 2));
-      
+
       // 프로덕션에서도 디버깅 정보 반환 (환경 변수 값은 제외)
-      return jsonResponse(500, { 
+      return jsonResponse(500, {
         error: 'Supabase credentials not configured',
         hint: 'Vercel 대시보드 > Settings > Environment Variables에서 다음을 설정하세요: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET',
         debug: {
@@ -89,7 +89,7 @@ export default async function handler(
         .from('lp_products')
         .select('id')
         .limit(1);
-      
+
       if (testError) {
         console.warn('[가격 검색 API] ⚠️ Supabase 테이블 접근 불가 (가격 검색은 계속 진행):', {
           code: testError.code,
@@ -105,16 +105,16 @@ export default async function handler(
       dbAvailable = false;
     }
 
-    const { productId, artist, title, ean, discogsId, forceRefresh } = request.body;
+    const { productId, artist, title, ean, discogsId, forceRefresh, vendor } = request.body;
 
     // 파라미터 검증
     if (!productId && (!artist || !title)) {
-      return jsonResponse(400, { 
-        error: 'productId 또는 (artist + title)이 필요합니다.' 
+      return jsonResponse(400, {
+        error: 'productId 또는 (artist + title)이 필요합니다.'
       });
     }
 
-    let identifier = { ean, discogsId, title, artist };
+    let identifier = { ean, discogsId, title, artist, vendor };
 
     // 1. 제품 ID가 있으면 DB에서 제품 정보 가져오기 (없어도 계속 진행)
     if (productId) {
@@ -139,21 +139,13 @@ export default async function handler(
       } catch (err: any) {
         console.warn('[가격 검색 API] ⚠️ 제품 조회 예외 (계속 진행):', err.message);
       }
-      if (data) {
-        identifier = {
-          ean: data.ean || ean,
-          discogsId: data.discogs_id || discogsId,
-          title: data.title || title,
-          artist: data.artist || artist,
-        };
-      }
     }
 
     // 2. 캐시 확인 (24시간 이내 데이터) - productId가 있고 DB가 사용 가능할 때만
     if (!forceRefresh && productId && dbAvailable) {
       try {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        
+
         const { data: cachedOffers, error: offersError } = await supabase
           .from('lp_offers')
           .select('*')
@@ -165,16 +157,16 @@ export default async function handler(
           console.warn('[가격 검색 API] ⚠️ 캐시 조회 오류 (무시하고 계속):', offersError.message);
         } else if (cachedOffers && cachedOffers.length > 0) {
           const offers = cachedOffers.map((o: any) => ({
-          vendorName: o.vendor_name,
-          channelId: o.channel_id,
-          basePrice: o.base_price,
-          shippingFee: o.shipping_fee || 0,
-          shippingPolicy: o.shipping_policy || '',
-          url: o.url,
-          inStock: o.is_stock_available,
-          affiliateCode: o.affiliate_code,
-          affiliateParamKey: o.affiliate_param_key,
-        }));
+            vendorName: o.vendor_name,
+            channelId: o.channel_id,
+            basePrice: o.base_price,
+            shippingFee: o.shipping_fee || 0,
+            shippingPolicy: o.shipping_policy || '',
+            url: o.url,
+            inStock: o.is_stock_available,
+            affiliateCode: o.affiliate_code,
+            affiliateParamKey: o.affiliate_param_key,
+          }));
 
           return jsonResponse(200, {
             offers,
@@ -190,7 +182,7 @@ export default async function handler(
 
     // 3. 실시간 가격 검색
     console.log(`[가격 검색 API] 검색 시작:`, JSON.stringify(identifier, null, 2));
-    
+
     // identifier 검증
     if (!identifier.artist || !identifier.title) {
       return jsonResponse(400, {
@@ -199,10 +191,10 @@ export default async function handler(
         identifier,
       });
     }
-    
+
     const searchStartTime = Date.now();
     const { collectPricesForProduct } = await import('./lib/price-search');
-    
+
     let offers: any[] = [];
     let searchTime = 0;
     try {
@@ -230,46 +222,51 @@ export default async function handler(
     // 4. 검색 결과를 DB에 저장 (제품이 있고 offers가 있고 DB가 사용 가능할 때만)
     if (productId && offers.length > 0 && dbAvailable) {
       try {
-        // 기존 offers 삭제
-      await supabase
-        .from('lp_offers')
-        .delete()
-        .eq('product_id', productId);
+        // 기존 offers 업데이트를 위해 삭제 (vendor가 지정된 경우 해당 채널만 삭제)
+        let deleteQuery = supabase.from('lp_offers').delete().eq('product_id', productId);
+        if (identifier.vendor) {
+          const channelMap: Record<string, string> = {
+            'naver': 'naver',
+            'aladin': 'aladin',
+            'yes24': 'yes24',
+            'kyobo': 'kyobo'
+          };
+          if (channelMap[identifier.vendor]) {
+            deleteQuery = deleteQuery.eq('channel_id', channelMap[identifier.vendor]);
+          }
+        }
+        await deleteQuery;
 
-      // 새 offers 삽입
-      const offersToInsert = offers.map(offer => ({
-        product_id: productId,
-        vendor_name: offer.vendorName,
-        channel_id: offer.channelId,
-        price: offer.basePrice,
-        base_price: offer.basePrice,
-        currency: 'KRW',
-        shipping_fee: offer.shippingFee,
-        shipping_policy: offer.shippingPolicy,
-        url: offer.url,
-        affiliate_url: null,
-        is_stock_available: offer.inStock,
-        last_checked: new Date().toISOString(),
-        badge: null,
-      }));
+        // 새 offers 삽입
+        const offersToInsert = offers.map(offer => ({
+          product_id: productId,
+          vendor_name: offer.vendorName,
+          channel_id: offer.channelId,
+          price: offer.basePrice,
+          base_price: offer.basePrice,
+          currency: 'KRW',
+          shipping_fee: offer.shippingFee,
+          shipping_policy: offer.shippingPolicy,
+          url: offer.url,
+          affiliate_url: null,
+          is_stock_available: offer.inStock,
+          last_checked: new Date().toISOString(),
+          badge: null,
+        }));
 
-      await supabase
-        .from('lp_offers')
-        .insert(offersToInsert);
+        await supabase
+          .from('lp_offers')
+          .insert(offersToInsert);
 
-      // 제품의 last_synced_at 업데이트
-      await supabase
-        .from('lp_products')
-        .update({
-          last_synced_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', productId);
+        // 제품의 last_synced_at 업데이트
+        await supabase
+          .from('lp_products')
+          .update({
+            last_synced_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', productId);
       } catch (saveErr: any) {
-        console.warn('[가격 검색 API] ⚠️ DB 저장 실패 (결과는 반환):', saveErr.message);
-        // 저장 실패해도 검색 결과는 반환
-      }
-    } catch (saveErr: any) {
         console.warn('[가격 검색 API] ⚠️ DB 저장 실패 (결과는 반환):', saveErr.message);
         // 저장 실패해도 검색 결과는 반환
       }
@@ -284,7 +281,7 @@ export default async function handler(
 
   } catch (error: any) {
     console.error('[가격 검색 오류]', error);
-    return jsonResponse(500, { 
+    return jsonResponse(500, {
       error: error.message || 'Unknown error',
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
