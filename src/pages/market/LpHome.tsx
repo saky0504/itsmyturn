@@ -136,7 +136,7 @@ function ProductCard({ product, variant = 'default', onPriceSearch, isSearchingP
         to={`/market/lp/${product.id}`}
         className="group relative w-full block"
       >
-        <div className="relative aspect-square overflow-hidden bg-slate-100 rounded-[24px] mb-3">
+        <div className="relative aspect-square overflow-hidden bg-slate-100 rounded-xl mb-3">
           <img
             src={product.cover || '/images/DJ_duic.jpg'}
             alt={product.title}
