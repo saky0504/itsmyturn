@@ -141,25 +141,20 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   return true;
 }
 
-function parseStatusFlags(title: string): { inStock: boolean; badge?: 'used' | 'out-of-print' } {
+function parseStatusFlags(title: string): { badge?: 'used' | 'out-of-print' } {
   const lowerTitle = title.toLowerCase();
 
-  // 1. 품절 (Out of Stock)
-  if (lowerTitle.includes('품절') || lowerTitle.includes('sold out')) {
-    return { inStock: false };
-  }
-
-  // 2. 중고 (Used) - 중고가 절판보다 상태정보로서 우선순위가 높음
+  // 1. 중고 (Used) - 중고가 절판보다 상태정보로서 우선순위가 높음
   if (lowerTitle.includes('중고') || lowerTitle.includes('used')) {
-    return { inStock: true, badge: 'used' };
+    return { badge: 'used' };
   }
 
-  // 3. 절판 (Out of Print)
+  // 2. 절판 (Out of Print)
   if (lowerTitle.includes('절판') || lowerTitle.includes('out of print')) {
-    return { inStock: true, badge: 'out-of-print' };
+    return { badge: 'out-of-print' };
   }
 
-  return { inStock: true };
+  return {};
 }
 
 function isValidPrice(price: number): boolean {
@@ -197,6 +192,8 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
         if (!isValidLpMatch(cleanTitle, identifier)) continue;
 
         const status = parseStatusFlags(cleanTitle);
+        // Naver API does not specify OOS natively. Strict check only for explicitly bracketed labels to avoid "품절임박"
+        const isExplicitlySoldOut = cleanTitle.includes('[품절]') || cleanTitle.includes('(품절)') || cleanTitle.includes('품절된');
 
         offers.push({
           vendorName: item.mallName || '네이버 쇼핑', // 실제 쇼핑몰 이름을 바로 사용
@@ -205,7 +202,7 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
           shippingFee: parseInt(item.deliveryFee || "0", 10),
           shippingPolicy: '상세조건 확인',
           url: item.link,
-          inStock: status.inStock,
+          inStock: !isExplicitlySoldOut,
           badge: status.badge,
         });
       }
@@ -247,6 +244,9 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
         if (!isValidLpMatch(title, identifier)) continue;
 
         const status = parseStatusFlags(title);
+        // Aladin stockStatus: '' means Normal, '품절'/'절판' means out of stock
+        const isAladinOos = item.stockStatus === '품절' || item.stockStatus === '절판';
+        if (item.stockStatus === '절판') status.badge = 'out-of-print';
 
         offers.push({
           vendorName: '알라딘',
@@ -255,7 +255,7 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
           shippingFee: 0,
           shippingPolicy: '조건부 무료',
           url: item.link,
-          inStock: item.stockStatus !== '' && status.inStock,
+          inStock: !isAladinOos,
           badge: status.badge,
         });
       }
@@ -321,7 +321,11 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
         if (!isValidLpMatch(title, identifier)) return;
 
         const status = parseStatusFlags(title);
-        const inStock = price > 0 && status.inStock;
+        const tagsRaw = item.find('.icon_line, .icon_tag, .yes_tag, .yes_b').text();
+        const isYes24Oos = tagsRaw.includes('품절') || tagsRaw.includes('절판');
+        if (tagsRaw.includes('절판')) status.badge = 'out-of-print';
+
+        const inStock = price > 0 && !isYes24Oos;
 
         offers.push({
           vendorName: 'YES24',
@@ -375,7 +379,11 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
 
         // In Kyobo, if there is a price it usually means it can be bought
         const status = parseStatusFlags(title);
-        const inStock = price > 0 && status.inStock;
+        const kyoboStateDiv = item.find('.prod_state, .badge_inner span, .badge_sm span').text();
+        const isKyoboOos = kyoboStateDiv.includes('품절') || kyoboStateDiv.includes('절판');
+        if (kyoboStateDiv.includes('절판')) status.badge = 'out-of-print';
+
+        const inStock = price > 0 && !isKyoboOos;
 
         offers.push({
           vendorName: '교보문고',
