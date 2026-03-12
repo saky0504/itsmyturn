@@ -203,6 +203,29 @@ export function LpProductDetail() {
                   {product.summary}
                 </div>
               )}
+
+              {/* 트랙리스트 (앨범 정보 영역에 통합) */}
+              {product.track_list && product.track_list.length > 0 && (
+                <div className="mt-2 pt-4 border-t border-border flex-1 flex flex-col min-h-0">
+                  <h3 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
+                    <span>Tracklist</span>
+                    <span className="font-normal text-muted-foreground text-xs bg-muted px-2 py-0.5 rounded-full">{product.track_list.length} tracks</span>
+                  </h3>
+                  <div className="max-h-[240px] overflow-y-auto pr-2 space-y-0.5">
+                    {product.track_list.map((track, idx) => (
+                      <div key={idx} className="flex flex-row items-center gap-3 text-sm py-1.5 px-2 rounded-md hover:bg-muted/30 transition-colors group">
+                        <span className="w-5 text-xs text-muted-foreground font-mono text-right shrink-0 group-hover:text-foreground transition-colors">
+                          {track.position || (idx + 1).toString().padStart(2, '0')}
+                        </span>
+                        <span className="flex-1 truncate text-foreground/90 font-medium">{track.title}</span>
+                        {track.duration && (
+                          <span className="text-xs text-muted-foreground font-mono shrink-0">{track.duration}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -415,34 +438,7 @@ export function LpProductDetail() {
           )}
         </section>
 
-        {/* 트랙리스트 섹션 */}
-        {product.track_list && product.track_list.length > 0 && (
-          <section className="space-y-6 pt-6 border-t border-border">
-            <div className="flex items-center gap-2 pb-2">
-              <h2 className="text-xl font-bold text-foreground">수록곡</h2>
-              <span className="text-sm font-normal text-muted-foreground">({product.track_list.length} tracks)</span>
-            </div>
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="divide-y divide-border">
-                {product.track_list.map((track, idx) => (
-                  <div key={idx} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
-                    <div className="w-8 flex-shrink-0 text-center font-mono text-sm text-muted-foreground font-medium">
-                      {track.position || (idx + 1).toString().padStart(2, '0')}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">{track.title}</div>
-                    </div>
-                    {track.duration && (
-                      <div className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                        {track.duration}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+
 
         {/* 댓글 섹션 */}
         <LpComments
