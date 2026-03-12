@@ -95,7 +95,7 @@ export const LP_VENDOR_CHANNELS: LpVendorChannel[] = [
   {
     id: 'indy-shop',
     label: '전문 레코드샵',
-    sampleSellers: ['향뮤직', '김밥레코드', '마장뮤직앤픽쳐스'],
+    sampleSellers: ['김밥레코드', '향뮤직', '마장뮤직앤픽쳐스'],
     description:
       '장르 특화 바잉을 진행하는 샵으로, 특정 레이블 단독 입고나 컬러 바이닐 한정판을 확보하기 좋습니다.',
     shippingTip: '기본 배송비 3,000원, 합배송 시 묶음 가능. 예약금 정책을 반드시 확인.',

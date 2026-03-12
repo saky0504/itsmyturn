@@ -293,7 +293,7 @@ export default async function handler(
 
 // --- INLINED LIB ---
 
-interface ProductIdentifier {
+export interface ProductIdentifier {
   ean?: string;
   discogsId?: string;
   title?: string;
@@ -301,7 +301,7 @@ interface ProductIdentifier {
   vendor?: string;
 }
 
-interface VendorOffer {
+export interface VendorOffer {
   vendorName: string;
   channelId: string;
   basePrice: number;
@@ -733,7 +733,54 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
   return offers;
 }
 
-async function collectPricesForProduct(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+async function fetchGimbabPrice(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  const searchGimbab = async (query: string) => {
+    try {
+      const url = `https://gimbabrecords.com/product/search.html?keyword=${encodeURIComponent(query)}`;
+      const html = await fetchWithRetry(url);
+      if (!html) return [];
+
+      const $ = cheerio.load(html);
+      const offers: VendorOffer[] = [];
+
+      $('.prdList > li, .xans-search-list > li').slice(0, 5).each((_, el) => {
+        const item = $(el);
+        const title = item.find('strong.name a').text().trim() || item.find('.name a').text().trim() || item.find('.name').text().trim();
+
+        let priceText = item.find('li[rel="판매가"] span').text().trim();
+        if (!priceText) priceText = item.find('ul.spec li span').first().text().trim();
+        if (!priceText) priceText = item.find('.price').text().trim();
+
+        const price = extractNumber(priceText);
+        const link = item.find('a').attr('href');
+
+        if (!title || !link || !isValidPrice(price)) return;
+        if (!isValidLpMatch(title, identifier)) return;
+
+        const status = parseStatusFlags(title);
+        const isGimbabOos = item.find('img[alt="품절"]').length > 0 || item.find('.icon_img img[alt="품절"]').length > 0;
+        const inStock = price > 0 && !isGimbabOos;
+
+        offers.push({
+          vendorName: '김밥레코즈',
+          channelId: 'gimbab',
+          basePrice: price,
+          shippingFee: 0,
+          shippingPolicy: '조건부 무료',
+          url: link.startsWith('http') ? link : `https://gimbabrecords.com${link}`,
+          inStock,
+          badge: status.badge,
+        });
+      });
+      return offers;
+    } catch (e) { return []; }
+  };
+
+  const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
+  return await searchGimbab(keywordQuery);
+}
+
+export async function collectPricesForProduct(identifier: ProductIdentifier): Promise<VendorOffer[]> {
   const { vendor } = identifier;
   const offers: VendorOffer[] = [];
 
@@ -745,12 +792,15 @@ async function collectPricesForProduct(identifier: ProductIdentifier): Promise<V
     return await fetchYes24Price(identifier);
   } else if (vendor === 'kyobo') {
     return await fetchKyoboPrice(identifier);
+  } else if (vendor === 'gimbab') {
+    return await fetchGimbabPrice(identifier);
   } else {
     const results = await Promise.allSettled([
       fetchNaverPrice(identifier),
       fetchAladinPrice(identifier),
       fetchYes24Price(identifier),
-      fetchKyoboPrice(identifier)
+      fetchKyoboPrice(identifier),
+      fetchGimbabPrice(identifier)
     ]);
     for (const res of results) {
       if (res.status === 'fulfilled') offers.push(...res.value);
