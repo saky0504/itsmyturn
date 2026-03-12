@@ -7,7 +7,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { collectPricesForProduct } from './lib/price-search.js';
+import { collectPricesForProduct } from '../api-lib/price-search.js';
 
 // CORS 헤더는 jsonResponse 함수에서 처리
 
