@@ -86,8 +86,8 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   // 한글/그 외 단어는 부분 일치로 필터링
   if (blackListIncludes.some(k => lowerTitle.includes(k))) return false;
 
-  // 2. Token Matching
-  const titleTokensStr = tokenize(lowerTitle).join(' ');
+  // 2. Token Matching with Consumption
+  const titleTokens = tokenize(lowerTitle);
   const artistTokens = identifier.artist ? tokenize(identifier.artist) : [];
   const albumTokens = identifier.title ? tokenize(identifier.title) : [];
 
@@ -95,11 +95,22 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
 
   let artistMatchCount = 0;
   for (const token of artistTokens) {
-    if (titleTokensStr.includes(token)) artistMatchCount++;
+    const idx = titleTokens.findIndex(t => t.includes(token));
+    if (idx !== -1) {
+      artistMatchCount++;
+      // Consume the matched token from the scraped title pool so it can't be reused
+      titleTokens.splice(idx, 1);
+    }
   }
+
   let albumMatchCount = 0;
   for (const token of albumTokens) {
-    if (titleTokensStr.includes(token)) albumMatchCount++;
+    const idx = titleTokens.findIndex(t => t.includes(token));
+    if (idx !== -1) {
+      albumMatchCount++;
+      // Consume
+      titleTokens.splice(idx, 1);
+    }
   }
 
   // 앨범명 토큰이 존재한다면, 반드시 앨범명 중에서 일부는 매치되어야 함. (비율 40%)
