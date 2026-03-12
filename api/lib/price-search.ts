@@ -93,17 +93,27 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
 
   if (artistTokens.length === 0 && albumTokens.length === 0) return true;
 
-  let matchCount = 0;
+  let artistMatchCount = 0;
   for (const token of artistTokens) {
-    if (titleTokensStr.includes(token)) matchCount++;
+    if (titleTokensStr.includes(token)) artistMatchCount++;
   }
+  let albumMatchCount = 0;
   for (const token of albumTokens) {
-    if (titleTokensStr.includes(token)) matchCount++;
+    if (titleTokensStr.includes(token)) albumMatchCount++;
+  }
+
+  // 앨범명 토큰이 존재한다면, 반드시 앨범명 중에서 일부는 매치되어야 함. (비율 40%)
+  if (albumTokens.length > 0) {
+    const requiredAlbumMatches = Math.max(1, Math.floor(albumTokens.length * 0.4));
+    if (albumMatchCount < requiredAlbumMatches) {
+      return false;
+    }
   }
 
   const totalTokens = artistTokens.length + albumTokens.length;
-  // 번역(한국어/영어) 차이를 고려하여, 아티스트나 앨범명 토큰 중 30% 이상 또는 최소 1개 이상만 일치하면 승인
-  const requiredMatches = Math.max(1, Math.floor(totalTokens * 0.3));
+  const matchCount = artistMatchCount + albumMatchCount;
+  // 전체 토큰 중에서도 40%는 매칭되어야 함
+  const requiredMatches = Math.max(1, Math.floor(totalTokens * 0.4));
 
   if (matchCount < requiredMatches) {
     return false;
