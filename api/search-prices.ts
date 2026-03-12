@@ -7,6 +7,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { collectPricesForProduct } from './lib/price-search';
 
 // CORS 헤더는 jsonResponse 함수에서 처리
 
@@ -193,7 +194,6 @@ export default async function handler(
     }
 
     const searchStartTime = Date.now();
-    const { collectPricesForProduct } = await import('./lib/price-search');
 
     let offers: any[] = [];
     let searchTime = 0;
