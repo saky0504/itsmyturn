@@ -66,6 +66,11 @@ export interface LpProduct {
     cartridge: string;
     phonoStage: string;
   };
+  track_list?: {
+    position: string;
+    title: string;
+    duration: string;
+  }[] | null;
   checked?: boolean; // Admin 페이지에서만 사용
 }
 

@@ -33,7 +33,7 @@ async function cleanupBadData() {
     // Note: We need to join manually or just fetch offers and check their titles/prices
     // For simplicity and performance, let's fetch offers and validate them.
 
-    let { data: offers, error } = await supabase
+    const { data: offers, error } = await supabase
         .from('lp_offers')
         .select('*');
 

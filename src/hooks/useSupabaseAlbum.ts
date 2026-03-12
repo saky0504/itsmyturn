@@ -102,6 +102,11 @@ interface DbProduct {
     sub_category?: string;
     barcode?: string;
     summary?: string;
+    track_list?: {
+        position: string;
+        title: string;
+        duration: string;
+    }[] | null;
 }
 
 function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
@@ -115,6 +120,7 @@ function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
         discogsId: dbItem.discogs_id,
         barcode: dbItem.ean, // Map 'ean' from DB
         summary: dbItem.description, // Map 'description' from DB
+        track_list: dbItem.track_list, // Map 'track_list' from DB
 
         color: 'Black',
         edition: 'Standard',
