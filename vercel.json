@@ -7,24 +7,8 @@
   "framework": "vite",
   "crons": [
     {
-      "path": "/api/hourly-sync",
+      "path": "/api/cron/sync-all",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/sync-aladin",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/sync-spotify",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/sync-juno",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/sync-metacritic",
-      "schedule": "0 4 * * *"
     }
   ],
   "rewrites": [
