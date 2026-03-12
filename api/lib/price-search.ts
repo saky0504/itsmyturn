@@ -18,6 +18,7 @@ export interface VendorOffer {
   inStock: boolean;
   affiliateCode?: string;
   affiliateParamKey?: string;
+  notes?: string;
 }
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -147,10 +148,13 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
         try { domain = new URL(item.link).hostname; } catch (e) { }
         if (!allowedDomains.some(d => domain.includes(d))) continue;
 
+        // 네이버 카탈로그 페이지 (가격비교) 제외
+        if (item.link.includes('search.shopping.naver.com/catalog')) continue;
+
         if (!isValidLpMatch(cleanTitle, identifier)) continue;
 
         offers.push({
-          vendorName: '네이버 쇼핑',
+          vendorName: item.mallName || '네이버 쇼핑', // 실제 쇼핑몰 이름을 바로 사용
           channelId: 'naver',
           basePrice: price,
           shippingFee: parseInt(item.deliveryFee || "0", 10),
@@ -231,22 +235,18 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+      const USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1';
 
       const response = await fetch(url, {
         redirect: 'manual', // DO NOT follow the 302 redirect for EANs!
         headers: {
           'User-Agent': USER_AGENT,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9',
           'Cache-Control': 'no-cache',
-          'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-          'Sec-Ch-Ua-Mobile': '?0',
-          'Sec-Ch-Ua-Platform': '"Windows"',
           'Sec-Fetch-Dest': 'document',
           'Sec-Fetch-Mode': 'navigate',
           'Sec-Fetch-Site': 'none',
-          'Sec-Fetch-User': '?1',
           'Upgrade-Insecure-Requests': '1'
         },
         signal: controller.signal,
