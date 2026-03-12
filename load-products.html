@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>제품 데이터 로드</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #1a1a1a;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #333;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      background: #f0f0f0;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>LP 제품 데이터 로드</h1>
+    <p>JSON 파일에서 제품 데이터를 읽어서 localStorage에 저장합니다.</p>
+    
+    <button id="loadBtn" onclick="loadProducts()">제품 데이터 로드</button>
+    
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'itsmyturn:lp-market-products';
+    const JSON_URL = '/data/lp-products.json';
+
+    async function loadProducts() {
+      const btn = document.getElementById('loadBtn');
+      const status = document.getElementById('status');
+      
+      btn.disabled = true;
+      btn.textContent = '로딩 중...';
+      status.innerHTML = '<div class="status info">JSON 파일을 읽는 중...</div>';
+
+      try {
+        const response = await fetch(JSON_URL);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const products = await response.json();
+        console.log(`✅ ${products.length}개 제품 데이터 로드 완료`);
+        
+        // 기존 제품 데이터 로드
+        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const existingIds = new Set(existing.map(p => p.id));
+        
+        // 새 제품 추가 (중복 제거)
+        const allProducts = [...existing];
+        let addedCount = 0;
+        let updatedCount = 0;
+        
+        products.forEach(product => {
+          if (!existingIds.has(product.id)) {
+            allProducts.push(product);
+            addedCount++;
+          } else {
+            // 기존 제품 업데이트 (offers 병합)
+            const existingIndex = existing.findIndex(p => p.id === product.id);
+            if (existingIndex !== -1) {
+              const existingProduct = existing[existingIndex];
+              const existingOffers = existingProduct.offers || [];
+              const newOffers = [...existingOffers];
+              
+              product.offers.forEach(newOffer => {
+                const existingOfferIndex = newOffers.findIndex(
+                  o => o.vendorName === newOffer.vendorName && o.channelId === newOffer.channelId
+                );
+                if (existingOfferIndex !== -1) {
+                  newOffers[existingOfferIndex] = newOffer;
+                } else {
+                  newOffers.push(newOffer);
+                }
+              });
+              
+              allProducts[existingIndex] = {
+                ...existingProduct,
+                ...product,
+                offers: newOffers
+              };
+              updatedCount++;
+            }
+          }
+        });
+        
+        // localStorage에 저장
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allProducts));
+        
+        let statusHtml = `<div class="status success">
+          <h3>✅ 완료!</h3>
+          <p><strong>총 제품 수:</strong> ${allProducts.length}개</p>
+          <p><strong>새로 추가:</strong> ${addedCount}개</p>
+          <p><strong>업데이트:</strong> ${updatedCount}개</p>
+          <p><strong>가격 정보가 있는 제품:</strong></p>
+          <ul>`;
+        
+        allProducts.forEach((p, i) => {
+          if (p.offers && p.offers.length > 0) {
+            const bestOffer = p.offers[0];
+            statusHtml += `<li>${p.title} - ${p.artist}: ${bestOffer.basePrice.toLocaleString()}원 (${bestOffer.vendorName})</li>`;
+          }
+        });
+        
+        statusHtml += `</ul>
+          <p style="margin-top: 15px;"><a href="/market" style="color: #155724; font-weight: bold;">마켓 페이지로 이동</a></p>
+        </div>`;
+        
+        status.innerHTML = statusHtml;
+        
+      } catch (error) {
+        console.error('❌ 오류 발생:', error);
+        status.innerHTML = `<div class="status error">
+          <h3>❌ 오류 발생</h3>
+          <p>${error.message}</p>
+          <p>JSON 파일 경로를 확인하세요: ${JSON_URL}</p>
+        </div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '제품 데이터 로드';
+      }
+    }
+
+    // 페이지 로드 시 현재 상태 확인
+    window.onload = () => {
+      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const status = document.getElementById('status');
+      
+      if (existing.length > 0) {
+        const withOffers = existing.filter(p => p.offers && p.offers.length > 0);
+        status.innerHTML = `<div class="status info">
+          <p><strong>현재 localStorage에 ${existing.length}개 제품이 있습니다.</strong></p>
+          <p>가격 정보가 있는 제품: ${withOffers.length}개</p>
+          <p>위 버튼을 클릭하면 JSON 파일에서 최신 데이터를 로드합니다.</p>
+        </div>`;
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+[
+  {
+    "id": "lp-1764927367094-0",
+    "title": "Abbey Road",
+    "artist": "The Beatles",
+    "cover": "/images/DJ_duic.jpg",
+    "category": "LP",
+    "subCategory": "rock",
+    "color": "Black",
+    "colorVariants": [
+      "Black"
+    ],
+    "edition": "Remastered",
+    "editionVariants": [
+      "Remastered",
+      "Original Pressing"
+    ],
+    "country": "EU Press",
+    "discogsId": "257804",
+    "barcode": "0602507017014",
+    "tags": [
+      "Classic Rock",
+      "Pop Rock"
+    ],
+    "rarityIndex": 3.73,
+    "lpr": 0.26,
+    "last30dChange": "1.12",
+    "priceHistory": [],
+    "offers": [
+      {
+        "id": "offer-1764927439804-0-0",
+        "vendorName": "엘피하우스",
+        "channelId": "omni-mall",
+        "basePrice": 7200,
+        "currency": "KRW",
+        "shippingFee": 0,
+        "shippingPolicy": "배송비 별도",
+        "url": "https://smartstore.naver.com/main/products/12144683480",
+        "affiliateCode": "itsmyturn",
+        "affiliateParamKey": "trackingId",
+        "inStock": true,
+        "lastChecked": "2025-12-05T09:37:19.804Z"
+      }
+    ],
+    "summary": "The Beatles의 대표작 Abbey Road 앨범입니다. Rock 장르의 명반으로 평가받는 작품입니다.",
+    "pressingNotes": "고품질 바이닐로 제작되었습니다.",
+    "listeningNotes": [
+      "깊은 베이스",
+      "명확한 하이",
+      "풍부한 미드레인지"
+    ],
+    "preferredSetups": [
+      "MM 카트리지",
+      "튜너블 톤암"
+    ],
+    "careTips": [
+      "정전기 제거",
+      "먼지 제거",
+      "적절한 보관"
+    ],
+    "inventoryStatus": "in-stock",
+    "restockVendors": [],
+    "priceFloorEstimate": 30000,
+    "priceCeilingEstimate": 80000,
+    "recommendedPairing": {
+      "turntable": "Audio-Technica AT-LP120",
+      "cartridge": "Ortofon 2M Red",
+      "phonoStage": "Built-in"
+    }
+  },
+  {
+    "id": "lp-1764927442811-1",
+    "title": "Kind of Blue",
+    "artist": "Miles Davis",
+    "cover": "/images/DJ_duic.jpg",
+    "category": "LP",
+    "subCategory": "jazz",
+    "color": "Black",
+    "colorVariants": [
+      "Black",
+      "Color Vinyl"
+    ],
+    "edition": "Original Pressing",
+    "editionVariants": [
+      "Remastered",
+      "Original Pressing"
+    ],
+    "country": "EU Press",
+    "discogsId": "308804",
+    "barcode": "0888750191317",
+    "tags": [
+      "Jazz",
+      "Modal Jazz"
+    ],
+    "rarityIndex": 2.75,
+    "lpr": 0.31,
+    "last30dChange": "-4.04",
+    "priceHistory": [],
+    "offers": [
+      {
+        "id": "offer-1764927515448-1-0",
+        "vendorName": "엘피하우스",
+        "channelId": "omni-mall",
+        "basePrice": 8000,
+        "currency": "KRW",
+        "shippingFee": 0,
+        "shippingPolicy": "배송비 별도",
+        "url": "https://smartstore.naver.com/main/products/10659338629",
+        "affiliateCode": "itsmyturn",
+        "affiliateParamKey": "trackingId",
+        "inStock": true,
+        "lastChecked": "2025-12-05T09:38:35.448Z"
+      }
+    ],
+    "summary": "Miles Davis의 대표작 Kind of Blue 앨범입니다. Jazz 장르의 명반으로 평가받는 작품입니다.",
+    "pressingNotes": "고품질 바이닐로 제작되었습니다.",
+    "listeningNotes": [
+      "깊은 베이스",
+      "명확한 하이",
+      "풍부한 미드레인지"
+    ],
+    "preferredSetups": [
+      "MM 카트리지",
+      "튜너블 톤암"
+    ],
+    "careTips": [
+      "정전기 제거",
+      "먼지 제거",
+      "적절한 보관"
+    ],
+    "inventoryStatus": "in-stock",
+    "restockVendors": [],
+    "priceFloorEstimate": 30000,
+    "priceCeilingEstimate": 80000,
+    "recommendedPairing": {
+      "turntable": "Audio-Technica AT-LP120",
+      "cartridge": "Ortofon 2M Red",
+      "phonoStage": "Built-in"
+    }
+  },
+  {
+    "id": "lp-1764927518458-2",
+    "title": "Dark Side of the Moon",
+    "artist": "Pink Floyd",
+    "cover": "/images/DJ_duic.jpg",
+    "category": "LP",
+    "subCategory": "rock",
+    "color": "Black",
+    "colorVariants": [
+      "Black"
+    ],
+    "edition": "Remastered",
+    "editionVariants": [
+      "Remastered",
+      "Original Pressing"
+    ],
+    "country": "EU Press",
+    "discogsId": "249924",
+    "barcode": "0194398329118",
+    "tags": [
+      "Progressive Rock",
+      "Classic Rock"
+    ],
+    "rarityIndex": 5,
+    "lpr": 0.26,
+    "last30dChange": "0.22",
+    "priceHistory": [],
+    "offers": [
+      {
+        "id": "offer-1764927591068-2-0",
+        "vendorName": "엘피 마을",
+        "channelId": "omni-mall",
+        "basePrice": 10000,
+        "currency": "KRW",
+        "shippingFee": 0,
+        "shippingPolicy": "배송비 별도",
+        "url": "https://smartstore.naver.com/main/products/11802973792",
+        "affiliateCode": "itsmyturn",
+        "affiliateParamKey": "trackingId",
+        "inStock": true,
+        "lastChecked": "2025-12-05T09:39:51.068Z"
+      }
+    ],
+    "summary": "Pink Floyd의 대표작 Dark Side of the Moon 앨범입니다. Rock 장르의 명반으로 평가받는 작품입니다.",
+    "pressingNotes": "고품질 바이닐로 제작되었습니다.",
+    "listeningNotes": [
+      "깊은 베이스",
+      "명확한 하이",
+      "풍부한 미드레인지"
+    ],
+    "preferredSetups": [
+      "MM 카트리지",
+      "튜너블 톤암"
+    ],
+    "careTips": [
+      "정전기 제거",
+      "먼지 제거",
+      "적절한 보관"
+    ],
+    "inventoryStatus": "in-stock",
+    "restockVendors": [],
+    "priceFloorEstimate": 30000,
+    "priceCeilingEstimate": 80000,
+    "recommendedPairing": {
+      "turntable": "Audio-Technica AT-LP120",
+      "cartridge": "Ortofon 2M Red",
+      "phonoStage": "Built-in"
+    }
+  }
+]
