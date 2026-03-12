@@ -322,10 +322,13 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
 
         const status = parseStatusFlags(title);
         const tagsRaw = item.find('.icon_line, .icon_tag, .yes_tag, .yes_b').text();
-        const isYes24Oos = tagsRaw.includes('품절') || tagsRaw.includes('절판');
         if (tagsRaw.includes('절판')) status.badge = 'out-of-print';
 
+        const isYes24Oos = item.find('.soldOut, .shortV').length > 0;
         const inStock = price > 0 && !isYes24Oos;
+        if (link.includes('UsedShopHub') || link.includes('used')) {
+          status.badge = 'used';
+        }
 
         offers.push({
           vendorName: 'YES24',
@@ -377,9 +380,10 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
         if (!title || !link || !isValidPrice(price)) return;
         if (!isValidLpMatch(title, identifier)) return;
 
-        // In Kyobo, if there is a price it usually means it can be bought
+        // In Kyobo, if there is a price it usually means it can be bought, but they have a state div just in case
         const status = parseStatusFlags(title);
-        const kyoboStateDiv = item.find('.prod_state, .badge_inner span, .badge_sm span').text();
+
+        const kyoboStateDiv = item.find('.prod_purchase_state, .badge_inner span').text();
         const isKyoboOos = kyoboStateDiv.includes('품절') || kyoboStateDiv.includes('절판');
         if (kyoboStateDiv.includes('절판')) status.badge = 'out-of-print';
 
