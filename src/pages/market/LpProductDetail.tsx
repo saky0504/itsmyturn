@@ -3,7 +3,6 @@ import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
-  ArrowUpRight,
   Loader2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
@@ -71,7 +70,7 @@ export function LpProductDetail() {
       hasAutoSearched.current = true;
       setIsRefreshing(true);
 
-      const vendors = ['naver', 'aladin', 'yes24', 'kyobo'];
+      const vendors = ['naver', 'aladin', 'yes24', 'kyobo', 'gimbab'];
 
       const fetchSequentially = async () => {
         for (const vendor of vendors) {
@@ -248,13 +247,7 @@ export function LpProductDetail() {
                 배송비 정책, 쿠폰 등을 고려한 실질적인 구매 혜택을 비교해보세요.
               </p>
             </div>
-            {/* 채널 안내 페이지 진입점 추가 */}
-            <Button variant="outline" size="sm" asChild className="shrink-0">
-              <Link to="/market/channels/mega-book" className="flex items-center gap-1.5">
-                <span>구매 채널 안내</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </Link>
-            </Button>
+
           </div>
 
           {sortedOffers.length > 0 ? (
