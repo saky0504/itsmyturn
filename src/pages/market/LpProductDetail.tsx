@@ -169,56 +169,56 @@ export function LpProductDetail() {
             </div>
 
             {/* 제품 정보 */}
-            <div className="flex-1 flex flex-col gap-5">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex-1 flex flex-col gap-6">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {product.discogsId && (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-secondary-foreground border border-border/50">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
                     Discogs #{product.discogsId}
                   </span>
                 )}
                 {product.barcode && (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-secondary-foreground border border-border/50">
-                    {/^[0-9\s-]+$/.test(product.barcode) ? 'EAN ' : ''}{product.barcode}
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
+                    EAN {product.barcode}
                   </span>
                 )}
                 {product.category && (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
                     {product.category.toUpperCase()}
                   </span>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight tracking-tight">{product.title}</h1>
+              <div className="space-y-1.5">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground leading-[1.2]">{product.title}</h1>
                 {product.artist && (
-                  <div className="text-lg font-medium text-muted-foreground">
+                  <div className="text-lg sm:text-xl font-medium text-muted-foreground/80">
                     {product.artist}
                   </div>
                 )}
               </div>
 
               {product.summary && (
-                <div className="prose prose-sm text-muted-foreground max-w-none leading-relaxed border-t border-border pt-4 mt-2">
+                <div className="text-sm text-foreground/70 leading-relaxed border-t border-border/60 pt-5 mt-1">
                   {product.summary}
                 </div>
               )}
 
               {/* 트랙리스트 (앨범 정보 영역에 통합) */}
               {product.track_list && product.track_list.length > 0 && (
-                <div className="mt-2 pt-4 border-t border-border flex-1 flex flex-col min-h-0">
-                  <h3 className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
+                <div className="mt-2 pt-5 border-t border-border/60 flex-1 flex flex-col min-h-0">
+                  <h3 className="text-base font-semibold text-foreground mb-4 flex items-center justify-between">
                     <span>Tracklist</span>
-                    <span className="font-normal text-muted-foreground text-xs bg-muted px-2 py-0.5 rounded-full">{product.track_list.length} tracks</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">{product.track_list.length} tracks</span>
                   </h3>
-                  <div className="max-h-[240px] overflow-y-auto pr-2 space-y-0.5">
+                  <div className="max-h-[260px] overflow-y-auto pr-2 space-y-1">
                     {product.track_list.map((track, idx) => (
-                      <div key={idx} className="flex flex-row items-center gap-3 text-sm py-1.5 px-2 rounded-md hover:bg-muted/30 transition-colors group">
-                        <span className="w-5 text-xs text-muted-foreground font-mono text-right shrink-0 group-hover:text-foreground transition-colors">
+                      <div key={idx} className="flex flex-row items-center gap-4 text-sm py-2 px-3 rounded-md hover:bg-muted/40 transition-colors group">
+                        <span className="w-6 text-xs text-muted-foreground/60 font-mono text-right shrink-0 group-hover:text-muted-foreground transition-colors">
                           {track.position || (idx + 1).toString().padStart(2, '0')}
                         </span>
-                        <span className="flex-1 truncate text-foreground/90 font-medium">{track.title}</span>
+                        <span className="flex-1 text-foreground/90 font-medium leading-snug">{track.title}</span>
                         {track.duration && (
-                          <span className="text-xs text-muted-foreground font-mono shrink-0">{track.duration}</span>
+                          <span className="text-xs text-muted-foreground/60 font-mono shrink-0">{track.duration}</span>
                         )}
                       </div>
                     ))}
@@ -243,9 +243,6 @@ export function LpProductDetail() {
                   </div>
                 )}
               </h2>
-              <p className="text-sm text-muted-foreground mt-1.5 break-keep">
-                배송비 정책, 쿠폰 등을 고려한 실질적인 구매 혜택을 비교해보세요.
-              </p>
             </div>
 
           </div>
@@ -351,65 +348,51 @@ export function LpProductDetail() {
                   return (
                     <div
                       key={offer.id}
-                      className={`rounded-xl border border-border bg-card p-5 space-y-4 cursor-pointer active:scale-[0.99] transition-transform duration-200 shadow-sm ${!offer.inStock ? 'opacity-60' : ''}`}
+                      className={`rounded-xl border border-border bg-card p-4 space-y-3 cursor-pointer active:scale-[0.99] transition-transform duration-200 shadow-sm ${!offer.inStock ? 'opacity-60' : ''}`}
                       onClick={() => window.open(affiliateUrl, '_blank', 'noopener')}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-lg font-bold text-foreground">
-                            {displayVendor}
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-base font-bold text-foreground leading-none">{displayVendor}</span>
                             {!offer.inStock && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 align-middle">
-                                품절
-                              </span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-secondary text-muted-foreground leading-none">품절</span>
                             )}
                             {offer.badge === 'used' && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 align-middle">
-                                중고
-                              </span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 leading-none">중고</span>
                             )}
                             {offer.badge === 'out-of-print' && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 align-middle">
-                                절판
-                              </span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 leading-none">절판</span>
                             )}
                           </div>
                           {displaySubName && (
-                            <div className="text-xs text-muted-foreground mt-1">{displaySubName}</div>
+                            <div className="text-xs text-muted-foreground mt-1.5">{displaySubName}</div>
                           )}
                         </div>
                         {offer.badge && offer.inStock && !['used', 'out-of-print'].includes(offer.badge) && (
-                          <span
-                            className={`flex-shrink-0 inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold ${offer.badge === 'lowest' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
-                              }`}
-                          >
+                          <span className={`shrink-0 inline-flex items-center px-2 py-1 rounded text-[10px] font-bold ${offer.badge === 'lowest' ? 'bg-red-50 text-red-600' : 'bg-muted text-muted-foreground'}`}>
                             {offer.badge === 'lowest' ? '최저가' : offer.badge === 'fresh' ? '신규' : '단독'}
                           </span>
                         )}
                       </div>
 
-                      <div className="space-y-2 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-normal text-muted-foreground">기준가</span>
-                          <span className="text-sm font-normal text-muted-foreground">{formatCurrency(offer.basePrice)}</span>
+                      <div className="flex items-end justify-between pt-3 border-t border-border/60">
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-medium text-muted-foreground mb-0.5">실구매가</span>
+                          <span className="text-2xl font-bold text-foreground tracking-tight leading-none">{formatCurrency(finalPrice)}</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="font-normal text-muted-foreground">배송비</span>
-                          <span className="font-normal text-foreground">
-                            {offer.shippingFee ? formatCurrency(offer.shippingFee) : '무료'}
-                          </span>
-                        </div>
-                        {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && (
-                          <div className="pt-2 border-t border-border">
-                            <div className="text-xs font-normal text-muted-foreground mb-1">{offer.shippingPolicy}</div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-border">
-                        <div>
-                          <div className="text-xs text-muted-foreground font-normal">실구매가</div>
-                          <div className="text-base font-bold text-foreground">{formatCurrency(finalPrice)}</div>
+                        <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground text-right">
+                          {(offer.shippingFee > 0 || offer.basePrice !== finalPrice) ? (
+                            <>
+                              <span>기준가 {formatCurrency(offer.basePrice)}</span>
+                              <span>배송비 {offer.shippingFee ? formatCurrency(offer.shippingFee) : '무료'}</span>
+                            </>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded bg-muted/60 text-foreground/70 font-medium">무료배송</span>
+                          )}
+                          {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && offer.shippingPolicy !== '상세조건 확인' && (
+                            <span className="text-[10px] max-w-[120px] truncate" title={offer.shippingPolicy}>{offer.shippingPolicy}</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -440,7 +423,7 @@ export function LpProductDetail() {
           productArtist={product.artist}
         />
       </div>
-    </div>
+    </div >
   );
 }
 
