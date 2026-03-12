@@ -16,6 +16,7 @@ export interface VendorOffer {
   shippingPolicy: string;
   url: string;
   inStock: boolean;
+  badge?: 'fresh' | 'lowest' | 'exclusive' | 'used' | 'out-of-print';
   affiliateCode?: string;
   affiliateParamKey?: string;
   notes?: string;
@@ -140,6 +141,27 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   return true;
 }
 
+function parseStatusFlags(title: string): { inStock: boolean; badge?: 'used' | 'out-of-print' } {
+  const lowerTitle = title.toLowerCase();
+
+  // 1. 품절 (Out of Stock)
+  if (lowerTitle.includes('품절') || lowerTitle.includes('sold out')) {
+    return { inStock: false };
+  }
+
+  // 2. 중고 (Used) - 중고가 절판보다 상태정보로서 우선순위가 높음
+  if (lowerTitle.includes('중고') || lowerTitle.includes('used')) {
+    return { inStock: true, badge: 'used' };
+  }
+
+  // 3. 절판 (Out of Print)
+  if (lowerTitle.includes('절판') || lowerTitle.includes('out of print')) {
+    return { inStock: true, badge: 'out-of-print' };
+  }
+
+  return { inStock: true };
+}
+
 function isValidPrice(price: number): boolean {
   return price >= 15000 && price <= 500000;
 }
@@ -174,6 +196,8 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
 
         if (!isValidLpMatch(cleanTitle, identifier)) continue;
 
+        const status = parseStatusFlags(cleanTitle);
+
         offers.push({
           vendorName: item.mallName || '네이버 쇼핑', // 실제 쇼핑몰 이름을 바로 사용
           channelId: 'naver',
@@ -181,7 +205,8 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
           shippingFee: parseInt(item.deliveryFee || "0", 10),
           shippingPolicy: '상세조건 확인',
           url: item.link,
-          inStock: true
+          inStock: status.inStock,
+          badge: status.badge,
         });
       }
       return offers;
@@ -221,6 +246,8 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
         if (!isValidPrice(price)) continue;
         if (!isValidLpMatch(title, identifier)) continue;
 
+        const status = parseStatusFlags(title);
+
         offers.push({
           vendorName: '알라딘',
           channelId: 'aladin',
@@ -228,7 +255,8 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
           shippingFee: 0,
           shippingPolicy: '조건부 무료',
           url: item.link,
-          inStock: item.stockStatus !== ''
+          inStock: item.stockStatus !== '' && status.inStock,
+          badge: status.badge,
         });
       }
       return offers;
@@ -292,7 +320,9 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
         if (!title || !link || !isValidPrice(price)) return;
         if (!isValidLpMatch(title, identifier)) return;
 
-        const inStock = price > 0;
+        const status = parseStatusFlags(title);
+        const inStock = price > 0 && status.inStock;
+
         offers.push({
           vendorName: 'YES24',
           channelId: 'yes24',
@@ -300,7 +330,8 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
           shippingFee: 0,
           shippingPolicy: '5만원 무료',
           url: link.startsWith('http') ? link : `https://www.yes24.com${link}`,
-          inStock
+          inStock,
+          badge: status.badge,
         });
       });
       return offers;
@@ -343,7 +374,8 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
         if (!isValidLpMatch(title, identifier)) return;
 
         // In Kyobo, if there is a price it usually means it can be bought
-        const inStock = price > 0;
+        const status = parseStatusFlags(title);
+        const inStock = price > 0 && status.inStock;
 
         offers.push({
           vendorName: '교보문고',
@@ -352,7 +384,8 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
           shippingFee: 0,
           shippingPolicy: '조건부 무료',
           url: link.startsWith('http') ? link : `https://product.kyobobook.co.kr${link}`,
-          inStock
+          inStock,
+          badge: status.badge,
         });
       });
       return offers;

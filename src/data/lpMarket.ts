@@ -23,7 +23,7 @@ export interface LpOffer {
   affiliateParamKey?: string;
   inStock: boolean;
   lastChecked: string;
-  badge?: 'fresh' | 'lowest' | 'exclusive';
+  badge?: 'fresh' | 'lowest' | 'exclusive' | 'used' | 'out-of-print';
   notes?: string;
 }
 

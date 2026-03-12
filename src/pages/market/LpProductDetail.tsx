@@ -278,6 +278,16 @@ export function LpProductDetail() {
                                   품절
                                 </span>
                               )}
+                              {offer.badge === 'used' && (
+                                <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                  중고
+                                </span>
+                              )}
+                              {offer.badge === 'out-of-print' && (
+                                <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                                  절판
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -337,12 +347,22 @@ export function LpProductDetail() {
                                 품절
                               </span>
                             )}
+                            {offer.badge === 'used' && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 align-middle">
+                                중고
+                              </span>
+                            )}
+                            {offer.badge === 'out-of-print' && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 align-middle">
+                                절판
+                              </span>
+                            )}
                           </div>
                           {displaySubName && (
                             <div className="text-xs text-muted-foreground mt-1">{displaySubName}</div>
                           )}
                         </div>
-                        {offer.badge && offer.inStock && (
+                        {offer.badge && offer.inStock && !['used', 'out-of-print'].includes(offer.badge) && (
                           <span
                             className={`flex-shrink-0 inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold ${offer.badge === 'lowest' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
                               }`}
