@@ -138,6 +138,28 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     return false;
   }
 
+  // Find extra un-matched tokens to penalize completely different albums in a franchise
+  const allowedExtraTokens = new Set([
+    'lp', 'vinyl', '바이닐', '비닐', 'ost', 'soundtrack', '사운드트랙', '오에스티', 'gatefold', 'remastered', 'edition', 'anniversary',
+    'color', 'coloured', '컬러', '음반', '수입', '수입반', '한정반', '투명', '블랙', '화이트', '레드', '블루', '한정',
+    '투명컬러', '2lp', '3lp', '180g', '140g', '레코드', 'record', 'records', 'vol', 'pt', 'part', 'the', 'of', 'and', 'in', 'a', 'to', 'for', 'with', 'on', 'at', 'by', 'original', 'motion', 'picture', 'score',
+    '영화', '미국', '발송', '해외', '배송', '정품', '미개봉', '새상품', 'music', '뮤직', '앨범', 'album', 'sealed', 'new', 'mint',
+    '오리지널', 'composer', '작곡', '지휘'
+  ]);
+
+  let extraSubstantiveCount = 0;
+  for (const token of titleTokens) { // Using the leftover tokens after splice
+    if (!allowedExtraTokens.has(token) && isNaN(Number(token))) {
+      extraSubstantiveCount++;
+    }
+  }
+
+  // STRICTER penalty: limit extra substantive words drastically for short titles
+  const maxAllowedExtra = Math.max(1, Math.floor(albumTokens.length * 0.5));
+  if (extraSubstantiveCount > maxAllowedExtra) {
+    return false;
+  }
+
   return true;
 }
 
