@@ -12,7 +12,7 @@
     },
     {
       "path": "/api/cron/sync-aladin",
-      "schedule": "0 0,12 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/sync-spotify",
@@ -20,7 +20,7 @@
     },
     {
       "path": "/api/cron/sync-juno",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/sync-metacritic",
