@@ -178,7 +178,7 @@ async function processAladinItems(items: any[]) {
             title: cleanedTitle,
             artist: artist,
             description: item.description || '',
-            cover: item.cover || null,
+            cover: item.cover ? item.cover.replace('coversum', 'cover') : null,
             format: 'LP',
             release_date: item.pubDate || null,
             ean: null, // isbn13은 알라딘 내부 번호라 실제 EAN 바코드 아님
