@@ -36,9 +36,10 @@ export default async function handler(
   };
 
   try {
-    // Vercel Serverless Function에서는 VITE_ 접두사가 없어야 함
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+    // Vercel Serverless Function 환경 변수 가져오기
+    // 🚨 중요: 기존 SUPABASE_URL이 잘못된 옛날 프로젝트 DB를 가리키고 있어서 VITE_ 변수를 최우선으로 선언합니다.
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
       // 모든 환경 변수 확인 (디버깅용)
@@ -222,43 +223,63 @@ export default async function handler(
     }
 
     // 4. 검색 결과를 DB에 저장 (제품이 있고 offers가 있고 DB가 사용 가능할 때만)
-    if (productId && offers.length > 0 && dbAvailable) {
+    if (productId && dbAvailable) {
       try {
         // 기존 offers 업데이트를 위해 삭제 (vendor가 지정된 경우 해당 채널만 삭제)
-        let deleteQuery = supabase.from('lp_offers').delete().eq('product_id', productId);
-        if (identifier.vendor) {
+        let deleteQuery: any = supabase.from('lp_offers').delete().eq('product_id', productId);
+
+        let targetChannel = identifier.vendor;
+        if (!targetChannel && offers.length > 0) {
+          targetChannel = offers[0].channelId || offers[0].vendorName;
+        }
+
+        if (targetChannel) {
           const channelMap: Record<string, string> = {
             'naver': 'naver',
             'aladin': 'aladin',
             'yes24': 'yes24',
-            'kyobo': 'kyobo'
+            'kyobo': 'kyobo',
+            'gimbab': 'gimbab'
           };
-          if (channelMap[identifier.vendor]) {
-            deleteQuery = deleteQuery.eq('channel_id', channelMap[identifier.vendor]);
+          const mappedChannel = channelMap[targetChannel] || targetChannel;
+          deleteQuery = deleteQuery.eq('channel_id', mappedChannel);
+        } else {
+          deleteQuery = null;
+        }
+
+        if (deleteQuery) {
+          const { error: deleteError } = await deleteQuery;
+          if (deleteError) {
+            console.error('[가격 검색 API] ⚠️ 기존 오퍼 삭제 오류:', deleteError);
           }
         }
-        await deleteQuery;
 
         // 새 offers 삽입
-        const offersToInsert = offers.map(offer => ({
-          product_id: productId,
-          vendor_name: offer.vendorName,
-          channel_id: offer.channelId,
-          price: offer.basePrice,
-          base_price: offer.basePrice,
-          currency: 'KRW',
-          shipping_fee: offer.shippingFee,
-          shipping_policy: offer.shippingPolicy,
-          url: offer.url,
-          affiliate_url: null,
-          is_stock_available: offer.inStock,
-          last_checked: new Date().toISOString(),
-          badge: null,
-        }));
+        if (offers.length > 0) {
+          const offersToInsert = offers.map(offer => ({
+            product_id: productId,
+            vendor_name: offer.vendorName,
+            channel_id: offer.channelId || targetChannel,
+            price: offer.basePrice,
+            base_price: offer.basePrice,
+            currency: 'KRW',
+            shipping_fee: offer.shippingFee || 0,
+            shipping_policy: offer.shippingPolicy || '',
+            url: offer.url,
+            affiliate_url: null,
+            is_stock_available: offer.inStock ?? true,
+            last_checked: new Date().toISOString(),
+            badge: null,
+          }));
 
-        await supabase
-          .from('lp_offers')
-          .insert(offersToInsert);
+          const { error: insertError } = await supabase
+            .from('lp_offers')
+            .insert(offersToInsert);
+
+          if (insertError) {
+            console.error('[가격 검색 API] ⚠️ 새 오퍼 삽입 오류:', insertError);
+          }
+        }
 
         // 제품의 last_synced_at 업데이트
         await supabase
