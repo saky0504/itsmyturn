@@ -290,12 +290,18 @@ async function fetchAndStoreRealLpData() {
     // 기존 제품 ID 목록 가져오기 (중복 방지)
     const { data: existingProducts } = await supabase
       .from('lp_products')
-      .select('discogs_id');
+      .select('discogs_id, title, artist');
 
     const existingDiscogsIds = new Set(
       (existingProducts || [])
         .map(p => p.discogs_id)
         .filter(id => id && id.trim() !== '')
+    );
+
+    const existingTitleArtists = new Set(
+      (existingProducts || [])
+        .filter(p => p.title && p.artist)
+        .map(p => `${p.title.trim().toLowerCase()}:::${p.artist.trim().toLowerCase()}`)
     );
 
     console.log(`📊 기존 앨범 ${existingDiscogsIds.size}개 발견 (중복 방지)`);
@@ -352,13 +358,13 @@ async function fetchAndStoreRealLpData() {
             const releaseId = result.id;
             const detailUrl = `https://api.discogs.com/releases/${releaseId}`;
             const detailHeaders = getDiscogsHeaders(detailUrl, 'GET');
-            
+
             let detailData: any = null;
             try {
               const detailResponse = await fetch(detailUrl, {
                 headers: detailHeaders as HeadersInit,
               });
-              
+
               if (detailResponse.ok) {
                 detailData = await detailResponse.json();
               } else {
@@ -366,7 +372,7 @@ async function fetchAndStoreRealLpData() {
                 // 상세 API 실패 시 스킵 (정확한 정보 없이는 저장하지 않음)
                 continue;
               }
-              
+
               // Rate limit 보호: 상세 API 호출 사이 딜레이
               await new Promise(resolve => setTimeout(resolve, 2000));
             } catch (detailError) {
@@ -383,12 +389,12 @@ async function fetchAndStoreRealLpData() {
             const detailFormatNames = detailFormats.map((f: { name?: string }) => f.name?.toLowerCase() || '').join(' ');
             const isDetailVinyl = detailFormatNames.includes('lp') || detailFormatNames.includes('vinyl') || detailFormatNames.includes('12"');
             const isDetailCD = detailFormatNames.includes('cd') || detailFormatNames.includes('compact disc');
-            
+
             // CD인 경우 즉시 제외
             if (isDetailCD && !isDetailVinyl) {
               continue;
             }
-            
+
             // Vinyl/LP가 아니면 제외
             if (!isDetailVinyl) {
               continue;
@@ -397,7 +403,7 @@ async function fetchAndStoreRealLpData() {
             // EAN/바코드 필수 체크
             const identifiers = detailData.identifiers || [];
             const barcode = identifiers.find((id: { type: string; value: string }) => id.type === 'Barcode')?.value;
-            
+
             if (!barcode) {
               console.log(`⚠️ EAN/바코드 없음, 스킵: ${detailData.title || result.title}`);
               continue; // EAN이 없으면 저장하지 않음
@@ -407,7 +413,7 @@ async function fetchAndStoreRealLpData() {
             const artists = detailData.artists || [];
             const artistName = artists.length > 0 ? artists[0].name : 'Unknown Artist';
             const albumTitle = detailData.title || result.title;
-            
+
             // 제목에서 아티스트명 제거 로직 개선
             let finalTitle = albumTitle;
             if (artistName !== 'Unknown Artist' && albumTitle.includes(artistName)) {
@@ -416,6 +422,12 @@ async function fetchAndStoreRealLpData() {
               if (!finalTitle) {
                 finalTitle = albumTitle; // 제거 후 빈 문자열이면 원본 사용
               }
+            }
+
+            // 중복 체크 (Title + Artist 기반)
+            const titleArtistKey = `${finalTitle.trim().toLowerCase()}:::${artistName.trim().toLowerCase()}`;
+            if (existingTitleArtists.has(titleArtistKey)) {
+              continue;
             }
 
             // 변환 (상세 정보 -> LpProduct)
@@ -436,6 +448,7 @@ async function fetchAndStoreRealLpData() {
 
             productsToAdd.push(product);
             existingDiscogsIds.add(String(releaseId)); // 중복 방지 업데이트
+            existingTitleArtists.add(titleArtistKey);
 
           } catch (err) {
             console.error(`❌ 처리 오류 (${result.id}):`, err);

@@ -150,9 +150,22 @@ async function processAladinItems(items: any[]) {
             .from('lp_products')
             .select('id')
             .eq('ean', productData.ean)
-            .single();
+            .maybeSingle();
 
         if (existing) {
+            continue;
+        }
+
+        // 3-B. Check duplicate Title + Artist to prevent different versions of same album
+        const { data: existingTitle } = await supabase
+            .from('lp_products')
+            .select('id')
+            .ilike('title', productData.title)
+            .ilike('artist', productData.artist)
+            .limit(1)
+            .maybeSingle();
+
+        if (existingTitle) {
             continue;
         }
 
