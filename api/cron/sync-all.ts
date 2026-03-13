@@ -1,6 +1,3 @@
-export const config = {
-    maxDuration: 60, // Maximum execution time (in seconds) for Vercel Hobby plan
-};
 
 export default async function handler(req: Request) {
     if (req.method !== 'GET' && req.method !== 'POST') {
