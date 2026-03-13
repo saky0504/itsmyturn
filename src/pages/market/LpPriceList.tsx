@@ -243,9 +243,11 @@ export function LpPriceList() {
                 >
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
-                        Discogs #{product.discogsId}
-                      </span>
+                      {product.discogsId && !product.discogsId.startsWith('aladin-') && (
+                        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
+                          Discogs #{product.discogsId}
+                        </span>
+                      )}
                       <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
                         EAN {product.barcode}
                       </span>
