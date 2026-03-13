@@ -181,21 +181,19 @@ async function processAladinItems(items: any[]) {
             cover: item.cover || null,
             format: 'LP',
             release_date: item.pubDate || null,
-            ean: item.isbn13 || null, // Aladin often puts EAN in isbn13 field for Music
-            discogs_id: `aladin-${item.itemId}`, // Virtual ID
+            ean: null, // isbn13은 알라딘 내부 번호라 실제 EAN 바코드 아님
+            discogs_id: `aladin-${item.itemId}`, // Virtual ID for dedup
             last_synced_at: new Date().toISOString()
         };
 
-        if (!productData.ean) continue; // Skip if no EAN (crucial for syncing)
-
-        // 3. Check duplicate EAN
-        const { data: existing } = await supabase
+        // 3. Check duplicate by discogs_id (aladin itemId)
+        const { data: existingById } = await supabase
             .from('lp_products')
             .select('id')
-            .eq('ean', productData.ean)
+            .eq('discogs_id', productData.discogs_id)
             .maybeSingle();
 
-        if (existing) {
+        if (existingById) {
             continue;
         }
 
@@ -224,7 +222,7 @@ async function processAladinItems(items: any[]) {
             continue;
         }
 
-        console.log(`✅ Added new LP: ${productData.title} (${productData.ean})`);
+        console.log(`✅ Added new LP: ${productData.title} (aladin-${item.itemId})`);
         addedCount++;
 
         // 5. Add Aladin Offer Immediately

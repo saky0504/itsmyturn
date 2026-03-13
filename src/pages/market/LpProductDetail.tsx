@@ -176,7 +176,7 @@ export function LpProductDetail() {
                     Discogs #{product.discogsId}
                   </span>
                 )}
-                {product.barcode && (
+                {product.barcode && !product.discogsId?.startsWith('aladin-') && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
                     EAN {product.barcode}
                   </span>
