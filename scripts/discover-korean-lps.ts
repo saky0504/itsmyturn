@@ -45,6 +45,47 @@ const ALADIN_API_BASE = 'http://www.aladin.co.kr/ttb/api/ItemList.aspx';
 // Finding standard CID: 53533 (Vinyl) is often used. Let's try broad fetch and filter.
 const TARGET_CID = 53533; // Vinyl/LP
 
+// 알라딘 타이틀 정제: 마케팅 문구 제거하고 앨범명만 남기기
+function cleanAladinTitle(rawTitle: string, artist: string): string {
+    let title = rawTitle || '';
+
+    // 1. 아티스트 prefix 제거
+    const artistVariants = [
+        artist,
+        artist.replace(/\s*\(.*?\)\s*/g, '').trim(),
+        artist.replace(/\s*\[.*?\]\s*/g, '').trim(),
+    ].filter((a, i, arr) => a && arr.indexOf(a) === i);
+
+    for (const a of artistVariants) {
+        const escaped = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        title = title.replace(new RegExp('^' + escaped + '\\s*-\\s*', 'i'), '').trim();
+    }
+
+    // 2. 포맷/스펙 대괄호 제거: [180g LP], [2LP], [사인반] 등
+    title = title.replace(
+        /\s*\[[^\]]*(?:\d+g|\d+LP|LP|lp|Vinyl|vinyl|바이닐|엘피|Color|Colour|색|Edition|Press|Repress|Reissue|Picture|Gatefold|Disc|Disk|사인|한정|특별|일반|투명|블랙|레드|블루|그린|옐로|화이트|골드|실버|컬러|marble|marbled|splatter)[^\]]*\]/gi,
+        ''
+    ).trim();
+
+    // 3. 버전 소괄호 제거: (LP Ver.), (한국대중음악상 수상) 등
+    title = title.replace(
+        /\s*\([^)]*(?:LP|Ver|Vinyl|한국대중음악상|올해의|수상|사인|한정|특별|초회|일반|포토|판)[^)]*\)/gi,
+        ''
+    ).trim();
+
+    // 4. " - 굿즈/특전" 뒤 제거
+    const goods = ['포스터', '가사지', '포토카드', '엽서', '스티커', '리플렛', '부클렛', '머그', '키링',
+        '책자', '게이트폴드', '자켓', '봉투', '메시지카드', 'poster', 'photocard', 'postcard', 'sticker', 'booklet', 'lyric'];
+    const goodsRe = new RegExp('\\s*-\\s+.{0,50}(?:' + goods.join('|') + ').*$', 'i');
+    title = title.replace(goodsRe, '').trim();
+
+    // 5. 잔여 정리
+    title = title.replace(/^\s*-\s*/, '').trim();
+    title = title.replace(/\s{2,}/g, ' ').trim();
+
+    return title || rawTitle; // 빈 문자열이면 원본 반환
+}
+
 // Expanded Negative Keywords (Sync with cleanup.ts)
 const NEGATIVE_KEYWORDS = [
     'cd', 'compact disc', 'poster', 'book', 'magazine',
@@ -130,10 +171,12 @@ async function processAladinItems(items: any[]) {
             continue; // LP 키워드 필수
         }
 
-        // 2. Map to DB Schema
+        // 2. Map to DB Schema (타이틀 정리: 마케팅 문구 제거)
+        const artist = item.author || 'Unknown Artist';
+        const cleanedTitle = cleanAladinTitle(title, artist);
         const productData = {
-            title: title, // Keep original title with tags for display
-            artist: item.author || 'Unknown Artist',
+            title: cleanedTitle,
+            artist: artist,
             description: item.description || '',
             cover: item.cover || null,
             format: 'LP',
