@@ -287,10 +287,10 @@ async function fetchAndStoreRealLpData() {
   try {
     console.log('🔍 Discogs에서 인기 LP 검색 중...');
 
-    // 기존 제품 ID 목록 가져오기 (중복 방지)
+    // 기존 제품 ID 목록 가져오기 (중복 방지 및 트랙리스트 우선순위 파악)
     const { data: existingProducts } = await supabase
       .from('lp_products')
-      .select('discogs_id, title, artist');
+      .select('id, discogs_id, title, artist, track_list');
 
     const existingDiscogsIds = new Set(
       (existingProducts || [])
@@ -298,13 +298,44 @@ async function fetchAndStoreRealLpData() {
         .filter(id => id && id.trim() !== '')
     );
 
-    const existingTitleArtists = new Set(
-      (existingProducts || [])
-        .filter(p => p.title && p.artist)
-        .map(p => `${p.title.trim().toLowerCase()}:::${p.artist.trim().toLowerCase()}`)
-    );
+    const isKorean = (text: string) => /[가-힣]/.test(text);
+    const isEnglish = (text: string) => /^[a-zA-Z0-9\s\.,\-\'\(\)\:\!\?\&\"\[\]]+$/.test(text);
 
-    console.log(`📊 기존 앨범 ${existingDiscogsIds.size}개 발견 (중복 방지)`);
+    function analyzeTracklist(tracks: any[] | null): 'ko' | 'en' | 'other' {
+      if (!tracks || tracks.length === 0) return 'other';
+      let koCount = 0;
+      let enCount = 0;
+      for (const track of tracks) {
+        const title = track.title || '';
+        if (isKorean(title)) koCount++;
+        else if (isEnglish(title)) enCount++;
+      }
+      if (koCount > 0) return 'ko';
+      if (enCount > 0) return 'en';
+      return 'other';
+    }
+
+    function getLanguagePriority(lang: string): number {
+      if (lang === 'ko') return 3;
+      if (lang === 'en') return 2;
+      return 1;
+    }
+
+    const existingTitleArtists = new Map<string, { id: string, language: string }>();
+
+    for (const p of (existingProducts || [])) {
+      if (p.title && p.artist) {
+        const key = `${p.title.trim().toLowerCase()}:::${p.artist.trim().toLowerCase()}`;
+        const lang = analyzeTracklist(p.track_list);
+        const existingLang = existingTitleArtists.get(key)?.language || 'other';
+
+        if (!existingTitleArtists.has(key) || getLanguagePriority(lang) > getLanguagePriority(existingLang)) {
+          existingTitleArtists.set(key, { id: p.id, language: lang });
+        }
+      }
+    }
+
+    console.log(`📊 기존 앨범 ${existingDiscogsIds.size}개 발견 (중복 방지 및 트랙리스트 언어 맵 구성)`);
 
     const MAX_PAGES = 10;
     let totalAdded = 0;
@@ -324,7 +355,8 @@ async function fetchAndStoreRealLpData() {
 
         console.log(`📦 발견된 항목: ${searchResult.results.length}개`);
 
-        const productsToAdd = [];
+        const productsToAdd: any[] = [];
+        const productsToUpdate: any[] = [];
 
         for (const result of searchResult.results) {
           // 중복 체크
@@ -424,14 +456,32 @@ async function fetchAndStoreRealLpData() {
               }
             }
 
-            // 중복 체크 (Title + Artist 기반)
+            // 중복 체크 및 우선순위 검사 (Title + Artist 기반, 트랙리스트 포함)
+            const tracklistData = detailData.tracklist || [];
+            const formattedTracks = tracklistData.map((t: any) => ({
+              position: t.position || '',
+              title: t.title || '',
+              duration: t.duration || ''
+            }));
+            const newLanguage = analyzeTracklist(formattedTracks);
+            const newLangPri = getLanguagePriority(newLanguage);
+
             const titleArtistKey = `${finalTitle.trim().toLowerCase()}:::${artistName.trim().toLowerCase()}`;
-            if (existingTitleArtists.has(titleArtistKey)) {
-              continue;
+            const existingOpt = existingTitleArtists.get(titleArtistKey);
+            let productIdToUpdate = null;
+
+            if (existingOpt) {
+              const existingLangPri = getLanguagePriority(existingOpt.language);
+              if (newLangPri > existingLangPri) {
+                // 더 높은 우선순위의 트랙리스트 언어를 발견하면 기존 제품 업데이트
+                productIdToUpdate = existingOpt.id;
+              } else {
+                continue; // 기존 것이 더 좋거나 같으면 스킵
+              }
             }
 
             // 변환 (상세 정보 -> LpProduct)
-            const product = {
+            const product: any = {
               title: finalTitle,
               artist: artistName,
               release_date: detailData.year ? String(detailData.year) : (result.year ? String(result.year) : null),
@@ -444,11 +494,18 @@ async function fetchAndStoreRealLpData() {
               ean: barcode,
               description: `${artistName} - ${finalTitle} (${detailData.year || result.year || 'Unknown'}) - ${detailData.country || result.country || 'Unknown'}`,
               last_synced_at: new Date().toISOString(),
+              track_list: formattedTracks
             };
 
-            productsToAdd.push(product);
+            if (productIdToUpdate) {
+              product.id = productIdToUpdate;
+              productsToUpdate.push(product);
+            } else {
+              productsToAdd.push(product);
+            }
+
             existingDiscogsIds.add(String(releaseId)); // 중복 방지 업데이트
-            existingTitleArtists.add(titleArtistKey);
+            existingTitleArtists.set(titleArtistKey, { id: productIdToUpdate || 'temp', language: newLanguage });
 
           } catch (err) {
             console.error(`❌ 처리 오류 (${result.id}):`, err);
@@ -456,19 +513,37 @@ async function fetchAndStoreRealLpData() {
         }
 
         if (productsToAdd.length > 0) {
-          console.log(`💾 ${productsToAdd.length}개 신규 앨범 저장 중...`);
-
+          console.log(`💾 ${productsToAdd.length}개 신규 앨범 추가 중...`);
           const { error } = await supabase
             .from('lp_products')
             .upsert(productsToAdd, { onConflict: 'discogs_id' });
 
           if (error) {
-            console.error('❌ Supabase 저장 실패:', error);
+            console.error('❌ Supabase 추가 실패:', error);
           } else {
-            console.log('✅ 저장 성공!');
+            console.log('✅ 추가 성공!');
             totalAdded += productsToAdd.length;
           }
-        } else {
+        }
+
+        if (productsToUpdate.length > 0) {
+          console.log(`💾 ${productsToUpdate.length}개 기존 앨범 업데이트 중 (더 높은 우선순위의 트랙리스트 반영)...`);
+          let updateCount = 0;
+          for (const p of productsToUpdate) {
+            const { error } = await supabase
+              .from('lp_products')
+              .update(p)
+              .eq('id', p.id);
+            if (!error) {
+              updateCount++;
+            } else {
+              console.error(`❌ 업데이트 실패 (${p.title}):`, error);
+            }
+          }
+          console.log(`✅ ${updateCount}개 업데이트 완료!`);
+        }
+
+        if (productsToAdd.length === 0 && productsToUpdate.length === 0) {
           process.stdout.write('.'); // 진행 상황 표시
         }
 
