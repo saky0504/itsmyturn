@@ -79,8 +79,8 @@ export function LpProductDetail() {
               productId: product.id,
               artist: product.artist,
               title: product.title,
-              ean: product.barcode,
-              discogsId: product.discogsId,
+              ean: product.barcode ?? undefined,
+              discogsId: product.discogsId ?? undefined,
               forceRefresh: true, // Auto-fetch when stale should force refresh the cache
               vendor: vendor
             });

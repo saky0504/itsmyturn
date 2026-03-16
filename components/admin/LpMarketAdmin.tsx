@@ -327,12 +327,12 @@ export function LpMarketAdmin() {
               />
               <InputField
                 label="Discogs ID"
-                value={draft.discogsId}
+                value={draft.discogsId ?? ''}
                 onChange={(event) => handleFieldChange('discogsId', event.target.value)}
               />
               <InputField
                 label="EAN / 바코드"
-                value={draft.barcode}
+                value={draft.barcode ?? ''}
                 onChange={(event) => handleFieldChange('barcode', event.target.value)}
               />
               <InputField

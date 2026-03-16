@@ -44,8 +44,8 @@ export interface LpProduct {
   edition: string;
   editionVariants: string[];
   country: string;
-  discogsId: string;
-  barcode: string;
+  discogsId: string | null;
+  barcode: string | null;
   tags: string[];
   rarityIndex: number;
   lpr: number;

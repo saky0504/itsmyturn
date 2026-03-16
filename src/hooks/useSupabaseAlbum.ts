@@ -117,7 +117,7 @@ function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
         cover: dbItem.cover,
         category: dbItem.format || 'Vinyl', // Map 'format' from DB
         subCategory: (dbItem.styles && dbItem.styles[0]) || (dbItem.genres && dbItem.genres[0]) || '', // Map style/genre
-        discogsId: dbItem.discogs_id,
+        discogsId: dbItem.discogs_id?.startsWith('aladin-') ? null : dbItem.discogs_id,
         barcode: dbItem.ean, // Map 'ean' from DB
         summary: dbItem.description, // Map 'description' from DB
         track_list: dbItem.track_list, // Map 'track_list' from DB
