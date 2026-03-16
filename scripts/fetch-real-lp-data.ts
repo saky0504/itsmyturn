@@ -443,7 +443,9 @@ async function fetchAndStoreRealLpData() {
 
             // 아티스트 정확 추출: Discogs API의 artists 필드 사용
             const artists = detailData.artists || [];
-            const artistName = artists.length > 0 ? artists[0].name : 'Unknown Artist';
+            const rawArtistName = artists.length > 0 ? artists[0].name : 'Unknown Artist';
+            // Discogs는 동명 아티스트 구분을 위해 "Adele (3)" 처럼 숫자 suffix를 붙임 → 제거
+            const artistName = rawArtistName.replace(/\s*\(\d+\)\s*$/, '').trim();
             const albumTitle = detailData.title || result.title;
 
             // 제목에서 아티스트명 제거 로직 개선

@@ -458,7 +458,8 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     'color', 'coloured', '컬러', '음반', '수입', '수입반', '한정반', '투명', '블랙', '화이트', '레드', '블루', '한정',
     '투명컬러', '2lp', '3lp', '180g', '140g', '레코드', 'record', 'records', 'vol', 'pt', 'part', 'the', 'of', 'and', 'in', 'a', 'to', 'for', 'with', 'on', 'at', 'by', 'original', 'motion', 'picture', 'score',
     '영화', '미국', '발송', '해외', '배송', '정품', '미개봉', '새상품', 'music', '뮤직', '앨범', 'album', 'sealed', 'new', 'mint',
-    '오리지널', 'composer', '작곡', '지휘'
+    '오리지널', 'composer', '작곡', '지휘',
+    'kpop', 'k-pop', 'signed', 'hand', 'd2c', 'in'
   ]);
 
   let extraSubstantiveCount = 0;

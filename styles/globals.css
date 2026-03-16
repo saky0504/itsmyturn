@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 /* 
  * This file uses Tailwind CSS v4 syntax (@theme, @apply)
@@ -132,6 +133,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   }
 }
 

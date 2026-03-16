@@ -271,13 +271,11 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
 
 
 /**
- * 가격 유효성 검사 (Price Guard)
+ * 가격 유효성 검사 (Price Guard) - 비활성화됨
  */
-// Price Guard - Adjusted range
-function isValidPrice(price: number): boolean {
-  // Too cheap (< 20,000) = Likely CD or accessory
-  // Too expensive (> 1,000,000) = Likely rare or set, but safer to block for now unless Verified
-  return price >= 20000 && price <= 1000000;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function isValidPrice(_price: number): boolean {
+  return true; // 가격 유효성 검사 비활성화
 }
 
 
@@ -332,7 +330,6 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
       const price = parseInt(item.lprice, 10);
 
       if (price === 0) continue;
-      if (!isValidPrice(price)) continue;
 
       // 제품명이 너무 짧거나 의미 없는 경우 차단
       if (cleanTitle.length < 5) {
@@ -484,11 +481,6 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
 
       // Use isValidLpMatch for consistent validation
       if (isValidLpMatch(title, identifier)) {
-        // Price sanity check
-        if (price < 15000 || price > 500000) {
-          console.log(`[YES24] Price out of range: ${title} (${price}원)`);
-          continue;
-        }
 
         // Construct full URL
         const productUrl = link.startsWith('http') ? link : `https://www.yes24.com${link}`;
@@ -571,11 +563,6 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
 
       // Use isValidLpMatch for consistent validation
       if (isValidLpMatch(title, identifier)) {
-        // Price sanity check
-        if (price < 15000 || price > 500000) {
-          console.log(`[알라딘] Price out of range: ${title} (${price}원)`);
-          continue;
-        }
 
         console.log(`[알라딘] ✅ Found price: ${price.toLocaleString()}원 for ${identifier.title}`);
 
@@ -644,11 +631,6 @@ async function fetchKyoboPrice(identifier: ProductIdentifier): Promise<VendorOff
 
       // Use isValidLpMatch for consistent validation
       if (isValidLpMatch(title, identifier)) {
-        // Price sanity check
-        if (price < 15000 || price > 500000) {
-          console.log(`[교보문고] Price out of range: ${title} (${price}원)`);
-          continue;
-        }
 
         // Re-construct full link
         let productLink = link;

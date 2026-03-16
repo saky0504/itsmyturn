@@ -1,42 +1,49 @@
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import type { LpProduct } from '../data/lpMarket';
 import { supabase } from '../lib/supabase'; // Singleton import
+
+const LOAD_STEP = 20;
 
 export interface UseSupabaseProductsResult {
     products: LpProduct[];
     allProducts: LpProduct[]; // Added for global features like recommendations
     totalCount: number;
+    visibleCount: number;
+    hasMore: boolean;
     isLoading: boolean;
+    isLoadingMore: boolean;
     error: Error | null;
     refetch: () => void;
+    loadMore: () => void;
+    resetVisible: () => void;
 }
 
 export const useSupabaseProducts = (
     searchQuery: string = '',
-    page: number = 1,
-    itemsPerPage: number = 20
 ): UseSupabaseProductsResult => {
     const [allProducts, setAllProducts] = useState<LpProduct[]>([]);
-
-    const [products, setProducts] = useState<LpProduct[]>([]);
-    const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const [trigger, setTrigger] = useState(0);
+    const [visibleCount, setVisibleCount] = useState(LOAD_STEP);
 
     const refetch = useCallback(() => {
         setTrigger((prev) => prev + 1);
     }, []);
 
-    // 1. 전체 데이터 한 번만 로드 (Client-side Search를 위해)
+    const resetVisible = useCallback(() => {
+        setVisibleCount(LOAD_STEP);
+    }, []);
+
+    // 1. 전체 데이터 한 번만 로드
     useEffect(() => {
         const fetchAllProducts = async () => {
             setIsLoading(true);
             setError(null);
 
             try {
-                // 전체 데이터 로드 (최대 1000개 제한)
                 const { data, error: dbError } = await supabase
                     .from('lp_products')
                     .select(`
@@ -67,38 +74,41 @@ export const useSupabaseProducts = (
             }
         };
 
-        // Supabase 클라이언트가 있으면 바로 실행
         fetchAllProducts();
-    }, [trigger]); // trigger가 변경될 때만 재요청
+    }, [trigger]);
 
-    // 2. 검색어 필터링 및 페이지네이션 처리
+    // 2. 검색어 변경 시 visibleCount 리셋
     useEffect(() => {
-        let result = allProducts;
+        setVisibleCount(LOAD_STEP);
+    }, [searchQuery]);
 
-        // 검색 필터링 (Client-side) - whitespace insensitive
-        if (searchQuery.trim()) {
-            // Normalize: remove all whitespace for matching
-            const normalize = (str: string) => str.replace(/\s+/g, '').toLowerCase();
-            const normalizedQuery = normalize(searchQuery);
+    // 3. 검색 필터링 (client-side)
+    const filteredProducts = useMemo(() => {
+        if (!searchQuery.trim()) return allProducts;
+        const normalize = (str: string) => str.replace(/\s+/g, '').toLowerCase();
+        const normalizedQuery = normalize(searchQuery);
+        return allProducts.filter(p => {
+            const normalizedTitle = normalize(p.title || '');
+            const normalizedArtist = normalize(p.artist || '');
+            return normalizedTitle.includes(normalizedQuery) || normalizedArtist.includes(normalizedQuery);
+        });
+    }, [searchQuery, allProducts]);
 
-            result = allProducts.filter(p => {
-                const normalizedTitle = normalize(p.title || '');
-                const normalizedArtist = normalize(p.artist || '');
-                // Check if normalized query is contained in either title or artist
-                return normalizedTitle.includes(normalizedQuery) || normalizedArtist.includes(normalizedQuery);
-            });
-        }
+    const totalCount = filteredProducts.length;
+    const hasMore = visibleCount < totalCount;
+    const products = filteredProducts.slice(0, visibleCount);
 
-        setTotalCount(result.length);
+    const loadMore = useCallback(() => {
+        if (isLoadingMore || !hasMore) return;
+        setIsLoadingMore(true);
+        // small async tick to allow UI to update before computing next slice
+        setTimeout(() => {
+            setVisibleCount(prev => prev + LOAD_STEP);
+            setIsLoadingMore(false);
+        }, 200);
+    }, [isLoadingMore, hasMore]);
 
-        // 페이지네이션
-        const from = (page - 1) * itemsPerPage;
-        const to = from + itemsPerPage;
-        setProducts(result.slice(from, to));
-
-    }, [searchQuery, page, itemsPerPage, allProducts]);
-
-    return { products, allProducts, totalCount, isLoading, error, refetch };
+    return { products, allProducts, totalCount, visibleCount, hasMore, isLoading, isLoadingMore, error, refetch, loadMore, resetVisible };
 };
 
 interface DbOffer {
@@ -140,13 +150,13 @@ function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
         summary: dbItem.summary,
 
         // UI 필드 (DB에 없는 경우 기본값)
-        color: 'Black', // DB에 추가 필요
+        color: 'Black',
         edition: 'Standard',
         country: 'EU',
-        rarityIndex: 85, // 계산 로직 필요
-        lpr: 0.12, // 계산 로직 필요
+        rarityIndex: 85,
+        lpr: 0.12,
 
-        priceHistory: [], // 별도 테이블 필요
+        priceHistory: [],
         tags: [dbItem.category, dbItem.sub_category].filter(Boolean),
 
         // Offers 매핑

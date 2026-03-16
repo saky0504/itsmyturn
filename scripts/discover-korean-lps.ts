@@ -49,7 +49,22 @@ const TARGET_CID = 53533; // Vinyl/LP
 function cleanAladinTitle(rawTitle: string, artist: string): string {
     let title = rawTitle || '';
 
-    // 1. 아티스트 prefix 제거
+    // 0. 맨 앞의 [수입], [중고], [특가] 등 태그 제거
+    title = title.replace(/^(\[[^\]]+\]\s*)+/, '').trim();
+
+    // 0.5. 미디어 타입 접두어 제거 (마케팅 문구)
+    // "드라마 '별에서 온 그대' O.S.T"  → "별에서 온 그대 O.S.T"
+    // "영화 '해피엔드' O.S.T"           → "해피엔드 O.S.T"
+    // "드라마 별에서 온 그대 O.S.T"    → "별에서 온 그대 O.S.T" (따옴표 없는 경우)
+    const MEDIA_PREFIX_QUOTED = /^(?:드라마|영화|뮤지컬|애니메이션|애니|시트콤|웹드라마|웹툰|게임)\s*['''"""](.+?)['''"""]\s*/i;
+    const MEDIA_PREFIX_BARE = /^(?:드라마|영화|뮤지컬|애니메이션|애니|시트콤|웹드라마|웹툰|게임)\s+/i;
+    if (MEDIA_PREFIX_QUOTED.test(title)) {
+        title = title.replace(MEDIA_PREFIX_QUOTED, '$1 ').trim();
+    } else {
+        title = title.replace(MEDIA_PREFIX_BARE, '').trim();
+    }
+
+    // 1. 아티스트 prefix 제거 (하이픈 있는 경우: "이문세 - 3집", 없는 경우: "이문세 3집")
     const artistVariants = [
         artist,
         artist.replace(/\s*\(.*?\)\s*/g, '').trim(),
@@ -58,7 +73,10 @@ function cleanAladinTitle(rawTitle: string, artist: string): string {
 
     for (const a of artistVariants) {
         const escaped = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // 하이픈 포함: "이문세 - 3집"
         title = title.replace(new RegExp('^' + escaped + '\\s*-\\s*', 'i'), '').trim();
+        // 하이픈 없음: "이문세 3집" (아티스트명 뒤에 공백)
+        title = title.replace(new RegExp('^' + escaped + '\\s+', 'i'), '').trim();
     }
 
     // 2. 포맷/스펙 대괄호 제거: [180g LP], [2LP], [사인반] 등
@@ -134,6 +152,40 @@ async function fetchAladinLPs(queryType: 'ItemNewAll' | 'Bestseller' | 'Keyword'
 
 
 
+// 알라딘 ItemSearch API - 키워드로 직접 검색 (더 넓은 범위)
+const ALADIN_SEARCH_BASE = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
+
+async function searchAladinLPs(query: string, page: number = 1) {
+    console.log(`🔍 Aladin ItemSearch: "${query}" (Page: ${page})...`);
+
+    const params = new URLSearchParams({
+        ttbkey: aladinTtbKey!,
+        Query: query,
+        QueryType: 'Keyword',
+        MaxResults: '50',
+        start: String(page),
+        SearchTarget: 'Music',
+        Output: 'JS',
+        Version: '20131101'
+    });
+
+    const url = `${ALADIN_SEARCH_BASE}?${params.toString()}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data.item || !Array.isArray(data.item)) {
+            return [];
+        }
+
+        return data.item;
+    } catch (error) {
+        console.error(`❌ Error searching "${query}":`, error);
+        return [];
+    }
+}
+
 async function processAladinItems(items: any[]) {
     // console.log(`🔍 Processing ${items.length} items from Aladin...`);
     let addedCount = 0;
@@ -154,10 +206,10 @@ async function processAladinItems(items: any[]) {
             continue;
         }
 
-        // B. Price Guard for Accessories (강화)
+        // B. Price Guard for Accessories
         const price = item.priceSales || item.priceStandard || 0;
-        // 가격 범위 검증: 너무 저렴하면 악세서리일 가능성
-        if (price < 15000) {
+        // 가격 범위 검증: 악세서리(1000원 이하)는 제외, LP 가격은 제한 없음
+        if (price > 0 && price < 1000) {
             continue;
         }
 
@@ -197,16 +249,30 @@ async function processAladinItems(items: any[]) {
             continue;
         }
 
-        // 3-B. Check duplicate Title + Artist to prevent different versions of same album
-        const { data: existingTitle } = await supabase
-            .from('lp_products')
-            .select('id')
-            .ilike('title', productData.title)
-            .ilike('artist', productData.artist)
-            .limit(1)
-            .maybeSingle();
+        // 3-B. 타이틀+아티스트 정규화 중복 체크
+        // "3집" vs "이문세 3집" 처럼 한쪽이 아티스트명을 앞에 붙인 형태인 경우도 동일 앨범으로 판단
+        const normalize = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+        const normalizedTitle = normalize(productData.title);
+        const normalizedArtist = normalize(productData.artist);
+        const normalizedCombined = normalizedArtist + normalizedTitle; // "이문세3집"
 
-        if (existingTitle) {
+        const { data: allByArtist } = await supabase
+            .from('lp_products')
+            .select('id, title')
+            .ilike('artist', productData.artist)
+            .limit(200);
+
+        const isDuplicateTitle = (allByArtist || []).some(existing => {
+            const existingNorm = normalize(existing.title);
+            return (
+                existingNorm === normalizedTitle ||         // 완전 일치
+                existingNorm === normalizedCombined ||      // "이문세3집" === DB의 "이문세3집"
+                normalizedCombined === normalize(normalizedArtist + existingNorm) || // 새 것이 combined, 기존이 short
+                existingNorm.startsWith(normalizedArtist) && normalize(existingNorm.slice(normalizedArtist.length)) === normalizedTitle // 기존="이문세3집", 새="3집"
+            );
+        });
+
+        if (isDuplicateTitle) {
             continue;
         }
 
@@ -247,52 +313,92 @@ export async function discoverKoreanLPs() {
     console.log('🇰🇷 Starting Korean LP Discovery (Aladin)...');
     let totalAdded = 0;
 
-    // 1. Fetch New Releases (Vinyl Specific CID) - 페이지 축소: 5페이지 → 2페이지
-    console.log('📚 Fetching New Releases (Pages 1-2)...');
-    for (let page = 1; page <= 2; page++) {
+    // 1. Fetch New Releases (Vinyl Specific CID)
+    console.log('📚 Fetching New Releases (Pages 1-5)...');
+    for (let page = 1; page <= 5; page++) {
         const newItems = await fetchAladinLPs('ItemNewAll', undefined, String(TARGET_CID), page);
-        if (!newItems || newItems.length === 0) break; // Stop if no data returned
+        if (!newItems || newItems.length === 0) break;
         const count = await processAladinItems(newItems);
         totalAdded += count;
-        // Do NOT break just because count is 0 (items might already exist, keep digging)
-        await new Promise(r => setTimeout(r, 2000)); // Rate limit: 1초 → 2초
+        await new Promise(r => setTimeout(r, 1500));
     }
 
-    // 2. Fetch Bestsellers (Vinyl Specific CID) - 페이지 축소: 5페이지 → 2페이지
-    console.log('🏆 Fetching Bestsellers (Pages 1-2)...');
-    for (let page = 1; page <= 2; page++) {
+    // 2. Fetch Bestsellers (Vinyl Specific CID)
+    console.log('🏆 Fetching Bestsellers (Pages 1-5)...');
+    for (let page = 1; page <= 5; page++) {
         const bestItems = await fetchAladinLPs('Bestseller', undefined, String(TARGET_CID), page);
         if (!bestItems || bestItems.length === 0) break;
         const count = await processAladinItems(bestItems);
         totalAdded += count;
-        await new Promise(r => setTimeout(r, 2000)); // Rate limit: 1초 → 2초
+        await new Promise(r => setTimeout(r, 1500));
     }
     // Strategy A: Broad General Category "Music" (CID 3887) but we filter strictly
     // Strategy B: Specific Korean Music Categories if mapped, but "Gayo" specific CID in Vinyl might be tricky to guess.
     // Instead, let's use Keyword Search for broad terms.
 
-    // 핵심 키워드만 사용 (8개 → 3개로 축소)
+    // 키워드 검색 - 다양한 장르 커버
     const searchQueries = [
         '가요 LP',
         '한국 인디 LP',
-        'K-Pop Vinyl'
+        'K-Pop Vinyl',
+        '국내 LP',
+        '발라드 LP',
+        '힙합 LP',
+        '재즈 LP',
+        'R&B LP',
+        '록 LP',
+        '인디 Vinyl',
+        '한국 아이돌 LP',
+        '한국 밴드 LP'
     ];
 
-    console.log(`🔎 Executing Keyword Search (${searchQueries.length} 핵심 키워드만)...`);
+    console.log(`🔎 Executing Keyword Search (${searchQueries.length} 키워드)...`);
 
     for (const query of searchQueries) {
-        const items = await fetchAladinLPs('Keyword', query); // Uses default CID 53533
+        const items = await fetchAladinLPs('Keyword', query);
         const added = await processAladinItems(items);
         totalAdded += added;
 
-        // Rate limit 보호: 2초 딜레이
-        await new Promise(r => setTimeout(r, 2000));
+        // Rate limit 보호: 1.5초 딜레이
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    // 3. ItemSearch API로 아티스트명 직접 검색 (더 정확한 국내 앨범 발굴)
+    const artistSearchTerms = [
+        // 아이돌/K-Pop
+        'BTS LP', '방탄소년단 LP', 'BLACKPINK LP', '블랙핑크 LP',
+        'IU LP', '아이유 LP', 'EXO LP', 'SHINee LP', '샤이니 LP',
+        'TWICE LP', '트와이스 LP', 'aespa LP', 'NewJeans LP', '뉴진스 LP',
+        'SEVENTEEN LP', '세븐틴 LP', 'Stray Kids LP', 'NCT LP',
+        'Red Velvet LP', '레드벨벳 LP', 'Girls Generation LP', '소녀시대 LP',
+        // 밴드/인디
+        '혁오 LP', 'Hyukoh LP', '잔나비 LP', '검정치마 LP',
+        '이날치 LP', '새소년 LP', '술탄오브더디스코 LP', '쏜애플 LP',
+        '실리카겔 LP', 'BIG Naughty LP', '딥플로우 LP',
+        // 발라드/팝
+        '이문세 LP', '조용필 LP', '나훈아 LP', '이선희 LP',
+        '김광석 LP', '이승환 LP', '토이 LP', '성시경 LP',
+        '임창정 LP', '박효신 LP', '이적 LP',
+        // 힙합/R&B
+        '빈지노 LP', '기리보이 LP', '박재범 LP', 'Jay Park LP',
+        '크러쉬 LP', 'Crush LP', '딘 LP', 'DEAN LP',
+        // 재즈/포크
+        '장기하 LP', '요조 LP', '10cm LP', '멜로망스 LP',
+    ];
+
+    console.log(`🎤 Executing Artist Search (${artistSearchTerms.length} 검색어)...`);
+
+    for (const term of artistSearchTerms) {
+        const items = await searchAladinLPs(term);
+        const added = await processAladinItems(items);
+        totalAdded += added;
+        if (added > 0) console.log(`   → "${term}" 에서 ${added}개 추가`);
+        await new Promise(r => setTimeout(r, 1000));
     }
 
     console.log(`🎉 Discovery Complete. Added ${totalAdded} new Korean LPs.`);
+    return totalAdded;
 }
 
 // Allow direct execution
-if (import.meta.url === `file://${process.argv[1]}`) {
-    discoverKoreanLPs();
-}
+discoverKoreanLPs();

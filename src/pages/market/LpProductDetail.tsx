@@ -321,7 +321,11 @@ export function LpProductDetail() {
                           <td className="px-6 py-4">
                             <div className="flex flex-col gap-1">
                               <div className="text-xs text-foreground">
-                                {offer.shippingFee ? `배송비 ${formatCurrency(offer.shippingFee)}` : '무료배송'}
+                                {offer.shippingFee
+                                  ? `배송비 ${formatCurrency(offer.shippingFee)}`
+                                  : isNaver
+                                    ? '배송비 확인'
+                                    : '무료배송'}
                               </div>
                               {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && (
                                 <div className="text-[11px] text-muted-foreground max-w-[200px] truncate" title={offer.shippingPolicy}>
@@ -389,11 +393,13 @@ export function LpProductDetail() {
                           <span className="text-2xl font-bold text-foreground tracking-tight leading-none">{formatCurrency(finalPrice)}</span>
                         </div>
                         <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground text-right">
-                          {(offer.shippingFee > 0 || offer.basePrice !== finalPrice) ? (
+                          {offer.shippingFee > 0 ? (
                             <>
                               <span>기준가 {formatCurrency(offer.basePrice)}</span>
-                              <span>배송비 {offer.shippingFee ? formatCurrency(offer.shippingFee) : '무료'}</span>
+                              <span>배송비 {formatCurrency(offer.shippingFee)}</span>
                             </>
+                          ) : isNaver ? (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium text-[10px]">배송비 확인</span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded bg-muted/60 text-foreground/70 font-medium">무료배송</span>
                           )}

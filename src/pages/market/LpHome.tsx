@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Grid, List, Search, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
+import { Grid, List, Search, Loader2, X } from 'lucide-react';
 import { MarketHeader } from '../../components/market/MarketHeader';
 import {
   calculateOfferFinalPrice,
@@ -46,7 +46,8 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
             </span>
           </div>
         )}
-        <div className="flex-shrink-0 w-40 h-40 sm:w-48 sm:h-48 overflow-hidden bg-muted rounded-tr-lg rounded-bl-lg rounded-br-lg">
+        {/* 썸네일: Today's Pick featured 카드와 동일한 비율로 축소 */}
+        <div className="flex-shrink-0 w-36 h-36 sm:w-44 sm:h-44 overflow-hidden bg-muted rounded-tr-lg rounded-bl-lg rounded-br-lg">
           <img
             src={product.cover || '/images/DJ_duic.jpg'}
             alt={product.title}
@@ -60,31 +61,25 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
             }}
           />
         </div>
-        <div className="flex-1 min-w-0 flex flex-col gap-3 p-4">
-          <div className="space-y-1.5">
-            <h3 className="text-[18px] font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight">
+        <div className="flex-1 min-w-0 flex flex-col gap-2 p-3 sm:p-4">
+          <div className="space-y-1">
+            <h3 className="text-[15px] sm:text-[17px] font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight">
               {product.title}
             </h3>
-            <p className="text-sm font-medium text-muted-foreground">{product.artist}</p>
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground">{product.artist}</p>
           </div>
-
-          <p className="text-sm text-muted-foreground line-clamp-2 hidden sm:block leading-relaxed">
-            {product.summary}
-          </p>
 
           {(() => {
             const tags = [
               product.category?.trim(),
-              product.edition?.trim(),
-              product.country?.trim(),
             ].filter(Boolean);
 
             if (tags.length === 0) return null;
 
             return (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1">
                 {product.category?.trim() && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-muted text-muted-foreground">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-muted text-muted-foreground">
                     {product.category.trim()}
                   </span>
                 )}
@@ -95,7 +90,7 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
           <div className="flex items-center justify-between mt-auto">
             {finalPrice ? (
               <div className="flex flex-col gap-0.5">
-                <span className="text-xl font-bold text-primary">
+                <span className="text-lg sm:text-xl font-bold text-primary">
                   {formatCurrency(finalPrice)}
                 </span>
                 {bestOffer && (
@@ -132,24 +127,32 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
               }
             }}
           />
+          {finalPrice && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 pt-8">
+              <span className="text-white text-lg sm:text-xl font-bold drop-shadow-sm">
+                {formatCurrency(finalPrice)}
+              </span>
+            </div>
+          )}
         </div>
-        <div className="space-y-1">
-          <h3 className="text-[17px] font-bold text-slate-900 line-clamp-1 group-hover:text-black leading-tight">
+        <div className="space-y-0.5">
+          <h3 className="text-[15px] font-bold text-slate-900 line-clamp-1 group-hover:text-black leading-tight">
             {product.title}
           </h3>
-          <p className="text-[13px] font-medium text-gray-500 line-clamp-1">{product.artist}</p>
+          <p className="text-[12px] font-medium text-gray-500 line-clamp-1">{product.artist}</p>
         </div>
       </Link>
     );
   }
 
 
+  // Grid 카드: featured와 동일한 비율/스타일로 맞춤
   return (
     <Link
       to={`/market/lp/${product.id}`}
-      className="group block rounded-xl border border-border bg-card overflow-hidden hover:border-border/80 hover:shadow-md transition-all duration-200"
+      className="group block rounded-xl overflow-hidden hover:opacity-90 transition-opacity duration-200"
     >
-      <div className="relative aspect-square overflow-hidden bg-slate-100">
+      <div className="relative aspect-square overflow-hidden bg-slate-100 rounded-xl mb-2">
         <img
           src={product.cover || '/images/DJ_duic.jpg'}
           alt={product.title}
@@ -162,26 +165,17 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
             }
           }}
         />
-      </div>
-      <div className="p-4 space-y-1.5">
-        <h3 className="text-[18px] font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight min-h-[2.5rem]">
-          {product.title}
-        </h3>
-        <p className="text-sm font-medium text-muted-foreground line-clamp-1">{product.artist}</p>
-        {finalPrice ? (
-          <div className="flex flex-col gap-0.5 pt-1">
-            <span className="text-xl font-bold text-primary">
-              {formatCurrency(finalPrice)}
-            </span>
-            {bestOffer && (
-              <span className="text-[11px] text-muted-foreground/60 truncate">{bestOffer.vendorName}</span>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1 pt-1">
-            <span className="text-sm text-muted-foreground">No price</span>
+        {finalPrice && (
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 pt-4">
+            <span className="text-white text-sm font-bold">{formatCurrency(finalPrice)}</span>
           </div>
         )}
+      </div>
+      <div className="space-y-0.5 px-0.5">
+        <h3 className="text-[14px] font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors leading-tight">
+          {product.title}
+        </h3>
+        <p className="text-[12px] font-medium text-muted-foreground line-clamp-1">{product.artist}</p>
       </div>
     </Link>
   );
@@ -215,29 +209,24 @@ export function LpHome() {
   const getInitialState = () => {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : { query: '', page: 1 };
+      return saved ? JSON.parse(saved) : { query: '' };
     } catch {
-      return { query: '', page: 1 };
+      return { query: '' };
     }
   };
 
   const initialState = getInitialState();
 
   const [searchQuery, setSearchQuery] = useState<string>(initialState.query || '');
-  const [debouncedQuery, setDebouncedQuery] = useState<string>(initialState.query || ''); // 초기값도 동일하게 설정하여 깜빡임 방지
+  const [debouncedQuery, setDebouncedQuery] = useState<string>(initialState.query || '');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [currentPage, setCurrentPage] = useState<number>(Number(initialState.page) || 1);
-  const itemsPerPage = 10;
 
   // 상태 변경 시 스토리지 저장
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       query: searchQuery,
-      page: currentPage
     }));
-  }, [searchQuery, currentPage]);
-
-  const lastStablePageRef = useRef(1);
+  }, [searchQuery]);
 
   // 디바운스 처리
   useEffect(() => {
@@ -247,46 +236,43 @@ export function LpHome() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // 1. 검색어가 없을 때만 현재 페이지 위치를 기억
-  useEffect(() => {
-    if (!debouncedQuery) {
-      lastStablePageRef.current = currentPage;
-    }
-  }, [currentPage, debouncedQuery]);
-
-  // 2. 검색어 변경 시 페이지 전환 로직
-  // (저장된 쿼리와 현재 디바운스된 쿼리가 다를 때만 실행하여 초기 로드 시 리셋 방지)
-  const isFirstRun = useRef(true);
-  useEffect(() => {
-    if (isFirstRun.current) {
-      isFirstRun.current = false;
-      return;
-    }
-
-    if (debouncedQuery) {
-      // 검색 시작 시 1페이지로 (단, 사용자가 직접 페이지를 바꾼게 아니라 검색어를 입력했을 때)
-      setCurrentPage(1);
-    } else {
-      // 검색 취소 시 이전 페이지로 복귀
-      setCurrentPage(lastStablePageRef.current);
-    }
-  }, [debouncedQuery]);
-
   // Supabase 데이터 훅 사용
-  const { products, allProducts, totalCount, isLoading, error } = useSupabaseProducts(debouncedQuery, currentPage, itemsPerPage);
+  const { products, allProducts, totalCount, hasMore, isLoading, isLoadingMore, error, loadMore } = useSupabaseProducts(debouncedQuery);
   const isMobile = useIsMobile();
 
-  const totalPages = Math.ceil(totalCount / itemsPerPage);
+  // IntersectionObserver sentinel ref
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && !isLoadingMore) {
+      loadMore();
+    }
+  }, [hasMore, isLoadingMore, loadMore]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [handleLoadMore]);
 
   const featuredProducts = useMemo(() => {
-    // 검색어가 없을 때만 "오늘의 추천 앨범" 5개를 표시 (Daily Fixed)
     if (!debouncedQuery && allProducts.length > 0) {
       return getDailyLpRecommendations(allProducts, 5);
     }
     return [];
   }, [debouncedQuery, allProducts]);
 
-  // 검색어 입력 핸들러
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
@@ -339,10 +325,15 @@ export function LpHome() {
 
           <div className="mb-6">
             <div className="flex items-center justify-between gap-6">
-              <div className="flex-1">
+              <div className="flex-1 flex items-center gap-2.5">
                 <h2 className="text-2xl font-bold text-foreground">
                   {debouncedQuery ? `Search results` : 'All albums'}
                 </h2>
+                {!isLoading && totalCount > 0 && (
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground tabular-nums">
+                    {totalCount.toLocaleString()}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -380,7 +371,7 @@ export function LpHome() {
           ) : products.length > 0 ? (
             <>
               {viewMode === 'list' ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {products.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -390,7 +381,7 @@ export function LpHome() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
                   {products.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -400,31 +391,20 @@ export function LpHome() {
                 </div>
               )}
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-8">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg border border-border bg-card text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} className="h-4" />
 
-                  {/* 페이지 번호 표시 (단순화: 현재 페이지 주변만 등 복잡한 로직 제외하고 전체 표시 혹은 일부) */}
-                  <span className="text-sm font-medium text-muted-foreground mx-2">
-                    {currentPage} / {totalPages}
-                  </span>
+              {/* Loading more indicator */}
+              {isLoadingMore && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
 
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg border border-border bg-card text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                  <p className="text-sm text-muted-foreground mt-1.5">
-                    {isLoading ? 'Loading...' : `Total ${totalCount}`}
-                  </p>
+              {/* End of list */}
+              {!hasMore && !isLoadingMore && totalCount > 20 && (
+                <div className="text-center py-8 text-sm text-muted-foreground/60">
+                  — {totalCount.toLocaleString()}개 전체 표시됨 —
                 </div>
               )}
             </>

@@ -144,7 +144,13 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     'color', 'coloured', '컬러', '음반', '수입', '수입반', '한정반', '투명', '블랙', '화이트', '레드', '블루', '한정',
     '투명컬러', '2lp', '3lp', '180g', '140g', '레코드', 'record', 'records', 'vol', 'pt', 'part', 'the', 'of', 'and', 'in', 'a', 'to', 'for', 'with', 'on', 'at', 'by', 'original', 'motion', 'picture', 'score',
     '영화', '미국', '발송', '해외', '배송', '정품', '미개봉', '새상품', 'music', '뮤직', '앨범', 'album', 'sealed', 'new', 'mint',
-    '오리지널', 'composer', '작곡', '지휘'
+    '오리지널', 'composer', '작곡', '지휘',
+    // 앨범 수식어 확장: 한정판/에디션 관련 표현
+    'studio', 'unsigned', 'opaque', 'exclusive', 'deluxe', 'special', 'limited', 'standard', 'regular',
+    '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th',
+    'clear', 'translucent', 'splatter', 'marbled', 'picture', 'disc', 'pressing',
+    '정규', '미니', '싱글', '리패키지', '리마스터', '박스', '세트',
+    'kpop', 'k-pop', 'signed', 'hand', 'd2c', 'in'
   ]);
 
   let extraSubstantiveCount = 0;
@@ -154,8 +160,8 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     }
   }
 
-  // STRICTER penalty: limit extra substantive words drastically for short titles
-  const maxAllowedExtra = Math.max(1, Math.floor(albumTokens.length * 0.5));
+  // 완화된 기준: 앨범 제목 토큰 수의 1.5배까지 extra 허용 (긴 한정판 제목 대응)
+  const maxAllowedExtra = Math.max(2, Math.floor(albumTokens.length * 1.5));
   if (extraSubstantiveCount > maxAllowedExtra) {
     return false;
   }
