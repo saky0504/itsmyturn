@@ -90,7 +90,7 @@
     "@tailwindcss/cli": "next",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/cheerio": "^0.22.35",
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.37",
     "@types/node-fetch": "^2.6.13",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
