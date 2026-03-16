@@ -6,10 +6,11 @@ import { createClient } from '@supabase/supabase-js';
 import { LP_VENDOR_CHANNELS } from '../../src/data/lpMarket';
 import { X, RefreshCw, Plus, ArrowUp, Combine, Trash2, Download } from 'lucide-react';
 
-// Admin 전용 Supabase 클라이언트 (Service Role Key → RLS 우회)
+// Admin 전용 Supabase 클라이언트 (Service Role Key → RLS 우회 불가)
+// 보안 서명: VITE_SUPABASE_SERVICE_ROLE_KEY는 프론트엔드에 노출되므로 절대 사용하면 안 됩니다.
 const adminSupabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
+  import.meta.env.VITE_SUPABASE_ANON_KEY, /* Anon Key 사용 필수 */
   { auth: { persistSession: false } }
 );
 
