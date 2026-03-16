@@ -44,6 +44,7 @@ export default async function handler(req: Request) {
     // Run them sequentially to avoid overwhelming the database or hitting connection limits
     await runSync('hourly-sync', '/api/hourly-sync');
     await runSync('sync-aladin', '/api/cron/sync-aladin');
+    await runSync('sync-discogs', '/api/cron/sync-discogs');
     await runSync('sync-spotify', '/api/cron/sync-spotify');
     await runSync('sync-juno', '/api/cron/sync-juno');
     await runSync('sync-metacritic', '/api/cron/sync-metacritic');
