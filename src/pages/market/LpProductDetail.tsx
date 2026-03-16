@@ -171,21 +171,28 @@ export function LpProductDetail() {
             {/* 제품 정보 */}
             <div className="flex-1 flex flex-col gap-6">
               <div className="flex flex-wrap items-center gap-1.5">
-                {product.discogsId && !product.discogsId.startsWith('aladin-') && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
-                    Discogs #{product.discogsId}
-                  </span>
-                )}
-                {product.barcode && !product.discogsId?.startsWith('aladin-') && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
-                    EAN {product.barcode}
-                  </span>
-                )}
-                {product.category && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
-                    {product.category.toUpperCase()}
-                  </span>
-                )}
+                {(() => {
+                  const isAladin = typeof product.discogsId === 'string' && product.discogsId.startsWith('aladin-');
+                  return (
+                    <>
+                      {!isAladin && product.discogsId && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
+                          Discogs #{product.discogsId}
+                        </span>
+                      )}
+                      {!isAladin && product.barcode && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
+                          EAN {product.barcode}
+                        </span>
+                      )}
+                      {product.category && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground/80 border border-border/60">
+                          {product.category.toUpperCase()}
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="space-y-1.5">
