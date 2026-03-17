@@ -44,27 +44,45 @@ export const useSupabaseProducts = (
             setError(null);
 
             try {
-                const { data, error: dbError } = await supabase
-                    .from('lp_products')
-                    .select(`
-                        *,
-                        offers:lp_offers(
-                            id,
-                            vendor_name,
-                            channel_id,
-                            base_price,
-                            shipping_fee,
-                            url,
-                            is_stock_available,
-                            shipping_policy
-                        )
-                    `)
-                    .order('created_at', { ascending: false })
-                    .limit(5000);
+                let allFetchedData: any[] = [];
+                let hasMoreRecords = true;
+                let page = 0;
+                const pageSize = 1000;
 
-                if (dbError) throw dbError;
+                while (hasMoreRecords) {
+                    const { data, error: dbError } = await supabase
+                        .from('lp_products')
+                        .select(`
+                            *,
+                            offers:lp_offers(
+                                id,
+                                vendor_name,
+                                channel_id,
+                                base_price,
+                                shipping_fee,
+                                url,
+                                is_stock_available,
+                                shipping_policy
+                            )
+                        `)
+                        .order('created_at', { ascending: false })
+                        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-                const mappedProducts = (data || []).map(mapDbProductToAppProduct);
+                    if (dbError) throw dbError;
+
+                    if (data && data.length > 0) {
+                        allFetchedData = [...allFetchedData, ...data];
+                        if (data.length < pageSize) {
+                            hasMoreRecords = false;
+                        } else {
+                            page++;
+                        }
+                    } else {
+                        hasMoreRecords = false;
+                    }
+                }
+
+                const mappedProducts = allFetchedData.map(mapDbProductToAppProduct);
                 setAllProducts(mappedProducts);
             } catch (err: unknown) {
                 console.error('Failed to fetch products:', err);
