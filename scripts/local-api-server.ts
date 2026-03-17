@@ -8,6 +8,7 @@ dotenv.config({ path: resolve(process.cwd(), '.env') });
 // Since the handler is dynamic, we must use a dynamic import for it to work with Vite/TSX 
 // cleanly or just standard import since it's tsx.
 import searchPricesHandler from '../api/search-prices';
+import adminDbHandler from '../api/admin/db';
 
 const PORT = parseInt(process.env.API_PORT || '3001', 10);
 
@@ -23,8 +24,8 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // Only handle /api/search-prices
-    if (req.url === '/api/search-prices' && req.method === 'POST') {
+    // Route API Requests
+    if ((req.url === '/api/search-prices' || req.url === '/api/admin/db') && req.method === 'POST') {
         let body = '';
 
         req.on('data', chunk => {
@@ -43,6 +44,7 @@ const server = http.createServer((req, res) => {
                     ...req,
                     method: req.method,
                     url: req.url,
+                    headers: req.headers,
                     body: parsedBody,
                     query: {},
                     cookies: {},
@@ -67,10 +69,17 @@ const server = http.createServer((req, res) => {
                     setHeader: (name: string, value: string) => {
                         res.setHeader(name, value);
                         return vercelRes;
+                    },
+                    end: (data?: any) => {
+                        res.end(data);
                     }
                 };
 
-                await searchPricesHandler(vercelReq, vercelRes);
+                if (req.url === '/api/search-prices') {
+                    await searchPricesHandler(vercelReq, vercelRes);
+                } else if (req.url === '/api/admin/db') {
+                    await adminDbHandler(vercelReq, vercelRes);
+                }
 
             } catch (err) {
                 console.error('[Local API Error]', err);

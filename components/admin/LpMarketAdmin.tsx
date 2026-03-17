@@ -6,13 +6,32 @@ import { createClient } from '@supabase/supabase-js';
 import { LP_VENDOR_CHANNELS } from '../../src/data/lpMarket';
 import { X, RefreshCw, Plus, ArrowUp, Combine, Trash2, Download } from 'lucide-react';
 
-// Admin 전용 Supabase 클라이언트 (Service Role Key → RLS 우회 불가)
-// 보안 서명: VITE_SUPABASE_SERVICE_ROLE_KEY는 프론트엔드에 노출되므로 절대 사용하면 안 됩니다.
+// Admin 전용 Supabase 클라이언트 (읽기 전용, RLS 적용)
 const adminSupabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY, /* Anon Key 사용 필수 */
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
   { auth: { persistSession: false } }
 );
+
+// 관리자 API 호출 헬퍼
+async function fetchAdminApi(action: string, payload: any) {
+  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+  const res = await fetch('/api/admin/db', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminPassword}`
+    },
+    body: JSON.stringify({ action, payload })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.error || `API Error: ${res.status}`);
+  }
+  
+  return res.json();
+}
 
 const DISCOGS_TOKEN = import.meta.env.VITE_DISCOGS_TOKEN;
 
@@ -196,7 +215,7 @@ export function LpMarketAdmin() {
         .from('lp_products')
         .select('*, offers:lp_offers(*)')
         .order('created_at', { ascending: false })
-        .limit(500);
+        .limit(2000); // UI 성능을 위해 최대 2000개까지만 (추후 무한 스크롤 등 페이지네이션 추가 필요)
       if (error) throw error;
       setProducts(data || []);
     } catch {
@@ -271,14 +290,17 @@ export function LpMarketAdmin() {
 
       let savedId = draft.id;
       if (isNewProduct || !draft.id) {
-        const { data, error } = await adminSupabase
-          .from('lp_products').insert({ ...productPayload, created_at: now }).select('id').single();
-        if (error) throw error;
+        const { data } = await fetchAdminApi('insertProduct', {
+          data: { ...productPayload, created_at: now },
+          select: 'id'
+        });
         savedId = data.id;
         toast.success('새 상품이 추가되었습니다.');
       } else {
-        const { error } = await adminSupabase.from('lp_products').update(productPayload).eq('id', draft.id);
-        if (error) throw error;
+        await fetchAdminApi('updateProduct', {
+          data: productPayload,
+          id: draft.id
+        });
         toast.success('상품 정보가 저장되었습니다.');
       }
 
@@ -293,9 +315,14 @@ export function LpMarketAdmin() {
           last_checked: now, updated_at: now,
         };
         if (!offer.id) {
-          await adminSupabase.from('lp_offers').insert({ ...offerPayload, created_at: now });
+          await fetchAdminApi('insertOffer', {
+            data: { ...offerPayload, created_at: now }
+          });
         } else {
-          await adminSupabase.from('lp_offers').update(offerPayload).eq('id', offer.id);
+          await fetchAdminApi('updateOffer', {
+            data: offerPayload,
+            id: offer.id
+          });
         }
       }
 
@@ -313,9 +340,8 @@ export function LpMarketAdmin() {
     if (!draft.id || isNewProduct) return;
     if (!confirm(`"${draft.title}" 을(를) 삭제하시겠습니까?`)) return;
     try {
-      await adminSupabase.from('lp_offers').delete().eq('product_id', draft.id);
-      const { error } = await adminSupabase.from('lp_products').delete().eq('id', draft.id);
-      if (error) throw error;
+      await fetchAdminApi('deleteOffersByProductId', { productId: draft.id });
+      await fetchAdminApi('deleteProduct', { id: draft.id });
       toast.success('삭제되었습니다.');
       setModalOpen(false);
       await fetchProducts();
@@ -326,7 +352,7 @@ export function LpMarketAdmin() {
 
   // ── Offer 삭제 ───────────────────────────────
   const handleDeleteOffer = async (offer: DbOffer, index: number) => {
-    if (offer.id) await adminSupabase.from('lp_offers').delete().eq('id', offer.id);
+    if (offer.id) await fetchAdminApi('deleteOffer', { id: offer.id });
     setDraft((prev) => ({ ...prev, offers: (prev.offers || []).filter((_, i) => i !== index) }));
   };
 
@@ -362,19 +388,17 @@ export function LpMarketAdmin() {
     try {
       const now = new Date().toISOString();
       for (const sec of secondaries) {
-        const { error: updateErr } = await adminSupabase
-          .from('lp_offers')
-          .update({ product_id: primaryId, updated_at: now })
-          .eq('product_id', sec.id);
-
-        if (updateErr) {
-          await adminSupabase.from('lp_offers').delete().eq('product_id', sec.id);
+        try {
+          await fetchAdminApi('moveOffersToNewProduct', {
+            oldProductId: sec.id,
+            newProductId: primaryId,
+            updatedAt: now
+          });
+        } catch (updateErr) {
+          await fetchAdminApi('deleteOffersByProductId', { productId: sec.id });
         }
 
-        const { error: deleteErr } = await adminSupabase
-          .from('lp_products').delete().eq('id', sec.id);
-
-        if (deleteErr) throw new Error(`"${sec.title}" 삭제 실패: ${deleteErr.message}`);
+        await fetchAdminApi('deleteProduct', { id: sec.id });
       }
 
       toast.success(`${secondaries.length}개 상품이 합쳐졌습니다.`);

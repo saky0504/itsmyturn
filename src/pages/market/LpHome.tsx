@@ -2,12 +2,9 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Grid, List, Search, Loader2, X } from 'lucide-react';
 import { MarketHeader } from '../../components/market/MarketHeader';
-import {
-  calculateOfferFinalPrice,
-  formatCurrency,
-  type LpProduct,
-} from '../../data/lpMarket';
+import { calculateOfferFinalPrice, formatCurrency, type LpProduct } from '../../data/lpMarket';
 import { useSupabaseProducts } from '../../hooks/useSupabaseProducts';
+import { useOnDemandPriceSearch } from '../../hooks/useOnDemandPriceSearch';
 import { getDailyLpRecommendations } from '../../lib/recommendation';
 import { useIsMobile } from '../../../components/ui/use-mobile';
 
@@ -237,7 +234,8 @@ export function LpHome() {
   }, [searchQuery]);
 
   // Supabase 데이터 훅 사용
-  const { products, allProducts, totalCount, hasMore, isLoading, isLoadingMore, error, loadMore } = useSupabaseProducts(debouncedQuery);
+  const { products, allProducts, totalCount, hasMore, isLoading, isLoadingMore, error, loadMore, refetch } = useSupabaseProducts(debouncedQuery);
+  const { searchPrices } = useOnDemandPriceSearch();
   const isMobile = useIsMobile();
 
   // IntersectionObserver sentinel ref
@@ -272,6 +270,63 @@ export function LpHome() {
     }
     return [];
   }, [debouncedQuery, allProducts]);
+
+  // 자동 가격 검색 (Today's Picks)
+  const hasAutoSearchedPicks = useRef(false);
+
+  useEffect(() => {
+    if (featuredProducts.length === 0 || hasAutoSearchedPicks.current || debouncedQuery) return;
+
+    // Check if any of the featured products need an update (no offers or stale offers)
+    const needsUpdate = featuredProducts.some(p => {
+      if (!p.offers || p.offers.length === 0) return true;
+      const lastChecked = p.offers.map(o => o.lastChecked ? new Date(o.lastChecked).getTime() : 0).sort((a, b) => b - a)[0];
+      if (!lastChecked) return true;
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      return lastChecked < oneDayAgo;
+    });
+
+    if (needsUpdate) {
+      hasAutoSearchedPicks.current = true;
+      
+      const fetchPricesForPicks = async () => {
+        let hasChanges = false;
+        
+        for (const product of featuredProducts) {
+          const vendors = ['naver', 'aladin', 'yes24', 'kyobo', 'gimbab'];
+          for (const vendor of vendors) {
+            try {
+              const result = await searchPrices({
+                productId: product.id,
+                artist: product.artist,
+                title: product.title,
+                ean: product.barcode ?? undefined,
+                discogsId: product.discogsId ?? undefined,
+                forceRefresh: true,
+                vendor: vendor
+              });
+              if (result) {
+                hasChanges = true;
+              }
+            } catch (err) {
+              console.error(`[${vendor}] Today's Pick 가격 검색 실패:`, err);
+            }
+            // slight delay to prevent rate limit
+            await new Promise(r => setTimeout(r, 500));
+          }
+          // longer delay between products
+          await new Promise(r => setTimeout(r, 1000));
+        }
+
+        if (hasChanges) {
+          // If any prices were fetched and saved, refetch the product list to show updated prices
+          refetch();
+        }
+      };
+
+      fetchPricesForPicks();
+    }
+  }, [featuredProducts, searchPrices, debouncedQuery, refetch]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);

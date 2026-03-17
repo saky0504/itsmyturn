@@ -2,20 +2,7 @@
 import type { LpProduct } from '../data/lpMarket';
 
 /**
- * Simple seeded random number generator (Mulberry32)
- * Returns a function that generates numbers between 0 and 1
- */
-function mulberry32(a: number) {
-    return function () {
-        let t = a += 0x6D2B79F5;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    }
-}
-
-/**
- * String hash function to generate a numeric seed from a date string
+ * Simple hash function to generate a numeric value from a string
  */
 function cyrb128(str: string): number {
     let h1 = 1779033703, h2 = 3144134277,
@@ -63,15 +50,25 @@ export function getDailyLpRecommendations(products: LpProduct[], count: number =
     });
 
     const seed = cyrb128(dateKey);
-    const random = mulberry32(seed);
 
-    // 3. Shuffle (Fisher-Yates with seeded random)
-    const shuffled = [...pool];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
+    // 3. Score each item based on its ID and the daily seed
+    // Using a per-item hash combined with the daily seed ensures that 
+    // the score (and thus the order) for a specific item is constant for the whole day
+    // regardless of the size of the array or the presence of other items.
+    const scoredPool = pool.map(product => {
+        // Create a unique string for this product on this specific day
+        const itemKey = `${product.id}-${seed}`;
+        const itemScore = cyrb128(itemKey);
+        
+        return {
+            product,
+            score: itemScore
+        };
+    });
 
-    // 4. Return top N
-    return shuffled.slice(0, count);
+    // Sort by the deterministic pseudo-random score descending
+    scoredPool.sort((a, b) => b.score - a.score);
+
+    // 4. Return top N products
+    return scoredPool.slice(0, count).map(scored => scored.product);
 }

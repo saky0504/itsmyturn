@@ -111,7 +111,7 @@ export async function GET(request: Request) {
             const { error } = await supabase.from('lp_products').insert({
                 title,
                 artist,
-                cover: detail.images?.[0]?.uri150 || detail.thumb || null,
+                cover: detail.images?.[0]?.uri || detail.images?.[0]?.uri150 || detail.thumb || null,
                 format: 'LP',
                 discogs_id: discogsId,
                 ean: barcode || null,

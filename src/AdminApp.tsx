@@ -18,6 +18,26 @@ export function AdminApp() {
   // Admin password - Change this!
   const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
 
+// 관리자 API 호출 헬퍼
+async function fetchAdminApi(action: string, payload: any) {
+  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+  const res = await fetch('/api/admin/db', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminPassword}`
+    },
+    body: JSON.stringify({ action, payload })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.error || `API Error: ${res.status}`);
+  }
+  
+  return res.json();
+}
+
   // Check if already authenticated
   useEffect(() => {
     const auth = sessionStorage.getItem('admin_auth');
@@ -84,12 +104,7 @@ export function AdminApp() {
     if (!confirm('Are you sure you want to delete this comment?')) return;
 
     try {
-      const { error } = await supabase
-        .from('comments')
-        .delete()
-        .eq('id', commentId);
-
-      if (error) throw error;
+      await fetchAdminApi('deleteComment', { id: commentId });
 
       setComments(comments.filter(c => c.id !== commentId));
       setStats(prev => ({ 
@@ -109,12 +124,7 @@ export function AdminApp() {
     if (!confirm('⚠️ FINAL WARNING: Permanently delete all comments?')) return;
 
     try {
-      const { error } = await supabase
-        .from('comments')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      if (error) throw error;
+      await fetchAdminApi('deleteAllComments', {});
 
       setComments([]);
       setStats({ total: 0, today: 0, totalLikes: 0 });
