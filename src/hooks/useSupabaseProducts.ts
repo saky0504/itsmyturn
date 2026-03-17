@@ -60,7 +60,7 @@ export const useSupabaseProducts = (
                         )
                     `)
                     .order('created_at', { ascending: false })
-                    .limit(1000);
+                    .limit(5000);
 
                 if (dbError) throw dbError;
 
