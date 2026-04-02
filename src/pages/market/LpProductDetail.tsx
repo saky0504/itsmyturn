@@ -146,6 +146,23 @@ export function LpProductDetail() {
         <meta property="og:description" content={metaDescription} />
         <meta property="og:type" content="product" />
         {product.cover && <meta property="og:image" content={product.cover} />}
+        {bestPrice && (
+          <script type="application/ld+json">{JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Product',
+            name: product.title,
+            ...(product.artist && { brand: { '@type': 'Brand', name: product.artist } }),
+            ...(product.cover && { image: product.cover }),
+            ...(product.category && { category: product.category }),
+            offers: {
+              '@type': 'AggregateOffer',
+              priceCurrency: 'KRW',
+              lowPrice: bestPrice,
+              offerCount: sortedOffers.length,
+              availability: 'https://schema.org/InStock',
+            },
+          })}</script>
+        )}
       </Helmet>
       <MarketHeader />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" style={{ paddingRight: 'calc(var(--scrollbar-width, 0px) + clamp(1rem, 4vw, 2rem))' }}>
