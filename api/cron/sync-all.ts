@@ -26,7 +26,7 @@ export default async function handler(req: Request) {
         try {
             console.log(`[sync-all] Starting ${name}...`);
             const response = await fetch(`${baseUrl}${path}`, {
-                method: 'POST',
+                method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${process.env.CRON_SECRET}`
                 }

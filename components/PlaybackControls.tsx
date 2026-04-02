@@ -44,7 +44,7 @@ export function PlaybackControls({
 
     if (isMobile) {
         return (
-            <div className="flex-1 px-6 pb-6 flex flex-col gap-6 justify-center">
+            <div className="px-6 pb-6 pt-4 flex flex-col gap-6">
                 {/* 트랙 정보 */}
                 <div className="text-center px-4 mt-2">
                     <h2 className="text-gray-900 mb-1 leading-tight" style={{ fontSize: '1.5rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -146,9 +146,6 @@ export function PlaybackControls({
                 </h2>
                 <p className="text-gray-600 mb-0.5 leading-tight" style={{ fontSize: '1.25rem', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {currentTrack?.artist || 'Load tracks to start playing'}
-                </p>
-                <p className="text-gray-500 leading-tight" style={{ fontSize: '1rem', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {currentTrack?.album || 'Click the music button to load track details'}
                 </p>
             </div>
 

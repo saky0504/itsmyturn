@@ -144,7 +144,7 @@ export function VinylPlayer() {
         {!tracksLoading && currentTrack && (
           <>
             {isMobile ? (
-              <div className="relative w-full flex-1 flex flex-col">
+              <div className="relative w-full flex-1 flex flex-col justify-center">
                 <div className="absolute top-4 right-4 z-50 flex flex-col gap-3">
                   <button onClick={handleOpenMarket} className="group" aria-label="Open LP Market comparison">
                     <div className="relative w-10 h-10 bg-white/80 rounded-full shadow-lg backdrop-blur-sm flex items-center justify-center">

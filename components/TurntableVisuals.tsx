@@ -54,11 +54,11 @@ export function TurntableVisuals({
     // Mobile layout
     if (isMobile) {
         return (
-            <div className="relative h-[55vh] overflow-hidden flex items-center justify-center">
+            <div className="relative overflow-hidden flex items-center justify-center py-6 lg:py-8">
                 {/* 턴테이블 베이스 */}
                 <div className="relative mt-4" ref={containerRef}>
                     <motion.div
-                        className="relative cursor-pointer w-[85vw] h-[85vw] max-w-[360px] max-h-[360px]"
+                        className="relative cursor-pointer w-[88vw] h-[88vw] max-w-[400px] max-h-[400px] sm:max-w-[480px] sm:max-h-[480px] lg:max-w-[660px] lg:max-h-[660px]"
                         onClick={handlePlayPause}
                         drag="x"
                         dragConstraints={{ left: 0, right: 0 }}
@@ -246,7 +246,7 @@ export function TurntableVisuals({
 
                         {/* 앨범 커버 */}
                         <motion.div
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-[40vw] h-[40vw]"
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-[40vw] h-[40vw] max-w-[270px] max-h-[270px] lg:max-w-none lg:max-h-none lg:w-[41%] lg:h-[41%]"
                             animate={spinControls}
                             style={{
                                 boxShadow: `
@@ -301,7 +301,7 @@ export function TurntableVisuals({
     return (
         <div className="relative flex items-center justify-center p-8" ref={containerRef}>
             <motion.div
-                className="relative cursor-pointer w-[504px] h-[504px] rounded-full"
+                className="relative cursor-pointer w-[700px] h-[700px] xl:w-[520px] xl:h-[520px] rounded-full"
                 onClick={handlePlayPause}
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
@@ -464,7 +464,7 @@ export function TurntableVisuals({
 
                 {/* 앨범 커버 - 데스크톱 */}
                 <motion.div
-                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-52 h-52"
+                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-[41%] h-[41%]"
                     animate={spinControls}
                     style={{
                         boxShadow: `

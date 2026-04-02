@@ -200,8 +200,23 @@ export function LpMarketAdmin() {
   // 합치기 기능
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
-  const [primaryId, setPrimaryId] = useState<string>('');
   const [isMerging, setIsMerging] = useState(false);
+  const [mergeSelections, setMergeSelections] = useState<{
+    baseId: string;
+    cover: string;
+    title: string;
+    artist: string;
+    ean: string;
+    discogs_id: string;
+    release_date: string;
+    track_list: string; // id of the product
+    genres: string; // id
+    styles: string; // id
+    description: string; // id
+  }>({
+    baseId: '', cover: '', title: '', artist: '', ean: '', discogs_id: '',
+    release_date: '', track_list: '', genres: '', styles: '', description: ''
+  });
 
   // 스크롤 탑
   const { visible: showScrollTop, scrollTop } = useScrollToTop();
@@ -211,13 +226,32 @@ export function LpMarketAdmin() {
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await adminSupabase
-        .from('lp_products')
-        .select('*, offers:lp_offers(*)')
-        .order('created_at', { ascending: false })
-        .limit(2000); // UI 성능을 위해 최대 2000개까지만 (추후 무한 스크롤 등 페이지네이션 추가 필요)
-      if (error) throw error;
-      setProducts(data || []);
+      let allData: DbProduct[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await adminSupabase
+          .from('lp_products')
+          .select('*, offers:lp_offers(*)')
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          page++;
+          if (data.length < pageSize) {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      setProducts(allData);
     } catch {
       toast.error('상품 목록을 불러오지 못했습니다.');
     } finally {
@@ -375,23 +409,68 @@ export function LpMarketAdmin() {
 
   const openMergeModal = () => {
     if (selectedIds.size < 2) { toast.error('2개 이상의 상품을 선택하세요.'); return; }
-    setPrimaryId(selectedProducts[0].id);
+    
+    // 기본 선택을 첫 번째 상품으로 초기화
+    const base = selectedProducts[0].id;
+    setMergeSelections({
+      baseId: base,
+      cover: base,
+      title: base,
+      artist: base,
+      ean: base,
+      discogs_id: base,
+      release_date: base,
+      track_list: base,
+      genres: base,
+      styles: base,
+      description: base
+    });
     setMergeModalOpen(true);
   };
 
   const handleMerge = async () => {
-    if (!primaryId) { toast.error('기준 상품을 선택하세요.'); return; }
-    const secondaries = selectedProducts.filter((p) => p.id !== primaryId);
+    if (!mergeSelections.baseId) { toast.error('기준 기준 상품을 선택하세요.'); return; }
+    
+    // 가져올 데이터 준비
+    const getSelectionData = (field: keyof DbProduct, selectionId: string) => {
+      const sourceProduct = selectedProducts.find(p => p.id === selectionId);
+      return sourceProduct ? sourceProduct[field] : null;
+    };
+
+    const baseId = mergeSelections.baseId;
+    const secondaries = selectedProducts.filter((p) => p.id !== baseId);
     if (secondaries.length === 0) return;
 
     setIsMerging(true);
     try {
       const now = new Date().toISOString();
+      
+      // 1. 선택된 메타데이터로 baseId 상품 업데이트
+      const updatePayload = {
+        cover: getSelectionData('cover', mergeSelections.cover) || null,
+        title: getSelectionData('title', mergeSelections.title) || null,
+        artist: getSelectionData('artist', mergeSelections.artist) || null,
+        ean: getSelectionData('ean', mergeSelections.ean) || null,
+        discogs_id: getSelectionData('discogs_id', mergeSelections.discogs_id) || null,
+        release_date: getSelectionData('release_date', mergeSelections.release_date) || null,
+        track_list: getSelectionData('track_list', mergeSelections.track_list) || null,
+        genres: getSelectionData('genres', mergeSelections.genres) || null,
+        styles: getSelectionData('styles', mergeSelections.styles) || null,
+        description: getSelectionData('description', mergeSelections.description) || null,
+        updated_at: now
+      };
+
+      await fetchAdminApi('updateProduct', {
+        data: updatePayload,
+        id: baseId
+      });
+
+      // 2. Secondary 상품들의 Offer 이전 후 삭제
       for (const sec of secondaries) {
         try {
           await fetchAdminApi('moveOffersToNewProduct', {
             oldProductId: sec.id,
-            newProductId: primaryId,
+            newProductId: baseId,
             updatedAt: now
           });
         } catch (updateErr) {
@@ -573,44 +652,131 @@ export function LpMarketAdmin() {
       {/* ── 합치기 모달 ── */}
       {mergeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[90vw] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">앨범 합치기</h3>
-                <p className="text-xs text-slate-400">기준 상품을 선택하세요. 나머지 상품의 판매처가 기준 상품으로 이전된 후 삭제됩니다.</p>
+                <h3 className="text-lg font-semibold text-slate-900">앨범 세부 항목 병합</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  각 필드별로 남길 원본 데이터를 선택하세요.<br/>
+                  저장 시 <strong className="text-indigo-600">ID가 유지될 기준 상품</strong>을 최상단에서 선택해야 합니다.
+                </p>
               </div>
-              <button onClick={() => setMergeModalOpen(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="px-6 py-4 space-y-3">
-              {selectedProducts.map((p) => (
-                <label key={p.id} className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
-                  primaryId === p.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'
-                }`}>
-                  <input type="radio" name="primary" value={p.id} checked={primaryId === p.id}
-                    onChange={() => setPrimaryId(p.id)} className="accent-slate-700 shrink-0" />
-                  {p.cover && <img src={p.cover} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
-                  <div className="min-w-0">
-                    <div className="font-medium text-slate-800 truncate">{p.title}</div>
-                    <div className="text-xs text-slate-500 truncate">{p.artist}</div>
-                    <div className="text-xs text-slate-400 font-mono mt-0.5 flex gap-2">
-                      {p.discogs_id && <span>Discogs: {p.discogs_id}</span>}
-                      {p.ean && <span>EAN: {p.ean}</span>}
-                      <span className="text-green-600">판매처 {p.offers?.length ?? 0}개</span>
-                    </div>
-                  </div>
-                  {primaryId === p.id && <span className="ml-auto shrink-0 rounded-full bg-slate-900 text-white text-xs px-2 py-0.5">기준</span>}
-                </label>
-              ))}
-            </div>
-            <div className="px-6 pb-4">
-              <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800 mb-4">
-                ⚠️ 기준이 아닌 {selectedProducts.length - 1}개 상품은 DB에서 영구 삭제됩니다.
-              </div>
-              <div className="flex gap-2 justify-end">
+              <div className="flex items-center gap-2">
                 <Button variant="outline" className="rounded-2xl" onClick={() => setMergeModalOpen(false)}>취소</Button>
-                <Button className="rounded-2xl bg-amber-600 text-white hover:bg-amber-700" onClick={handleMerge} disabled={isMerging || !primaryId}>
-                  {isMerging ? '합치는 중...' : `합치기 (${selectedProducts.length}개)`}
+                <Button className="rounded-2xl bg-amber-600 text-white hover:bg-amber-700" onClick={handleMerge} disabled={isMerging || !mergeSelections.baseId}>
+                  {isMerging ? '병합 진행 중...' : `선택한 내용으로 병합 (${selectedProducts.length}개)`}
                 </Button>
+                <button onClick={() => setMergeModalOpen(false)} className="p-2 -mr-2 rounded-xl hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto bg-slate-50 p-6">
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-100/50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold w-[140px] border-r border-slate-200 bg-slate-100/80 sticky left-0 z-10">필드 항목</th>
+                      {selectedProducts.map((p, i) => (
+                        <th key={p.id} className="px-4 py-4 font-semibold min-w-[250px] align-top relative">
+                          <div className="flex flex-col gap-2">
+                            <span className="text-xs text-slate-400 font-mono">상품 #{i + 1}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs h-8 rounded-xl bg-white hover:bg-slate-50 hover:text-indigo-600 border-slate-200"
+                              onClick={() => {
+                                setMergeSelections({
+                                  baseId: p.id, cover: p.id, title: p.id, artist: p.id,
+                                  ean: p.id, discogs_id: p.id, release_date: p.id,
+                                  track_list: p.id, genres: p.id, styles: p.id, description: p.id,
+                                });
+                              }}
+                            >
+                              이 상품의 모든 항목 선택
+                            </Button>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {/* 기준 ID 선택 행 */}
+                    <tr className="bg-amber-50/30">
+                      <td className="px-4 py-4 border-r border-slate-200 bg-amber-50/50 sticky left-0 z-10 w-[140px]">
+                        <div className="font-semibold text-amber-900">기준 상품 (ID 유지)</div>
+                        <div className="text-[10px] text-amber-700/70 mt-1 leading-tight">이 상품의 ID가 유지되고 판매처가 합산됩니다.</div>
+                      </td>
+                      {selectedProducts.map((p) => {
+                        const isSelected = mergeSelections.baseId === p.id;
+                        return (
+                          <td key={p.id} className={`px-4 py-3 transition-colors cursor-pointer ${isSelected ? 'bg-amber-100/50' : 'hover:bg-slate-50'}`}
+                              onClick={() => setMergeSelections(prev => ({ ...prev, baseId: p.id }))}>
+                            <label className="flex items-center gap-3 cursor-pointer p-1">
+                              <input type="radio" checked={isSelected} readOnly className="accent-amber-600 w-4 h-4" />
+                              <span className={`text-xs font-mono font-medium ${isSelected ? 'text-amber-900' : 'text-slate-500'}`}>
+                                상세 유지
+                              </span>
+                            </label>
+                          </td>
+                        );
+                      })}
+                    </tr>
+
+                    {/* 공통 컴포넌트로 렌더링될 필드 목록 */}
+                    {([
+                      { key: 'cover', label: '커버 이미지', renderer: (p: DbProduct) => p.cover ? <img src={p.cover} className="w-16 h-16 object-cover rounded shadow-sm" alt=""/> : <span className="text-slate-400 italic">없음</span> },
+                      { key: 'title', label: '상품명', renderer: (p: DbProduct) => p.title || <span className="text-slate-400 italic">없음</span> },
+                      { key: 'artist', label: '아티스트', renderer: (p: DbProduct) => p.artist || <span className="text-slate-400 italic">없음</span> },
+                      { key: 'ean', label: 'EAN', renderer: (p: DbProduct) => <span className="font-mono">{p.ean || <span className="text-slate-400 italic">없음</span>}</span> },
+                      { key: 'discogs_id', label: 'Discogs ID', renderer: (p: DbProduct) => <span className="font-mono">{p.discogs_id || <span className="text-slate-400 italic">없음</span>}</span> },
+                      { key: 'track_list', label: '트랙리스트', renderer: (p: DbProduct) => 
+                        (p.track_list && p.track_list.length > 0) ? (
+                          <div className="text-xs space-y-1">
+                            <div className="font-medium text-indigo-600 mb-1">총 {p.track_list.length}곡</div>
+                            <ul className="list-disc list-inside text-slate-600 line-clamp-4 pl-1">
+                              {p.track_list.slice(0,4).map((t, idx) => <li key={idx} className="truncate">{t.position} - {t.title}</li>)}
+                              {p.track_list.length > 4 && <li>...</li>}
+                            </ul>
+                          </div>
+                        ) : <span className="text-slate-400 italic">트랙 없음</span>
+                      },
+                      { key: 'release_date', label: '발매일', renderer: (p: DbProduct) => p.release_date || <span className="text-slate-400 italic">없음</span> },
+                      { key: 'genres', label: '장르', renderer: (p: DbProduct) => p.genres?.join(', ') || <span className="text-slate-400 italic">없음</span> },
+                      { key: 'styles', label: '스타일', renderer: (p: DbProduct) => p.styles?.join(', ') || <span className="text-slate-400 italic">없음</span> },
+                    ] as const).map(({ key, label, renderer }) => (
+                      <tr key={key}>
+                        <td className="px-4 py-4 border-r border-slate-200 bg-slate-50/80 sticky left-0 z-10 w-[140px]">
+                          <span className="font-medium text-slate-700">{label}</span>
+                        </td>
+                        {selectedProducts.map((p) => {
+                          const isSelected = mergeSelections[key as keyof typeof mergeSelections] === p.id;
+                          return (
+                            <td key={p.id} 
+                                className={`px-4 py-4 cursor-pointer transition-colors border-l border-transparent ${isSelected ? 'bg-indigo-50/60 border-l-indigo-200' : 'hover:bg-slate-50'}`}
+                                onClick={() => setMergeSelections(prev => ({ ...prev, [key]: p.id }))}>
+                              <div className="flex gap-3">
+                                <div className="pt-0.5 shrink-0">
+                                  <input type="radio" checked={isSelected} readOnly className="accent-indigo-600 w-4 h-4 cursor-pointer" />
+                                </div>
+                                <div className={`overflow-hidden ${isSelected ? 'text-indigo-900 font-medium' : 'text-slate-600'}`}>
+                                  {renderer(p)}
+                                </div>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                    
+                    {/* 판매처 합산 안내 행 */}
+                     <tr className="bg-slate-50">
+                      <td className="px-4 py-4 border-r border-slate-200 font-medium text-slate-700 sticky left-0 z-10">판매처(Offers)</td>
+                      <td colSpan={selectedProducts.length} className="px-4 py-3 text-slate-500 text-sm">
+                        선택된 모든 상품의 판매처 <strong className="text-green-600 font-semibold">{selectedProducts.reduce((sum, p) => sum + (p.offers?.length || 0), 0)}개</strong>가 기준 상품 목록으로 모두 통합됩니다. (이 항목은 선택 방식이 아니며 모두 합쳐집니다.)
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

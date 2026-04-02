@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '../components/ui/sonner';
 
 // Lazy load all heavy components for better initial load performance
@@ -22,6 +23,7 @@ function LoadingFallback() {
 
 export default function App() {
   return (
+    <HelmetProvider>
     <BrowserRouter>
       <Routes>
         <Route
@@ -86,5 +88,6 @@ export default function App() {
         }}
       />
     </BrowserRouter>
+    </HelmetProvider>
   );
 }

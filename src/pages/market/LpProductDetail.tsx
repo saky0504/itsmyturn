@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -128,8 +129,24 @@ export function LpProductDetail() {
     );
   }
 
+  const bestPrice = sortedOffers[0] ? calculateOfferFinalPrice(sortedOffers[0]) : null;
+  const metaTitle = product.artist
+    ? `${product.title} - ${product.artist} | 잇츠마이턴 LP 마켓`
+    : `${product.title} | 잇츠마이턴 LP 마켓`;
+  const metaDescription = bestPrice
+    ? `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 레코드 최저가 ${formatCurrency(bestPrice)}. 국내 주요 쇼핑몰 가격 비교.`
+    : `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고.`;
+
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription} />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:type" content="product" />
+        {product.cover && <meta property="og:image" content={product.cover} />}
+      </Helmet>
       <MarketHeader />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" style={{ paddingRight: 'calc(var(--scrollbar-width, 0px) + clamp(1rem, 4vw, 2rem))' }}>
         {/* 마켓으로 돌아가기 버튼 */}

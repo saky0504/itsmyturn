@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Grid, List, Search, Loader2, X } from 'lucide-react';
 import { MarketHeader } from '../../components/market/MarketHeader';
 import { calculateOfferFinalPrice, formatCurrency, type LpProduct } from '../../data/lpMarket';
@@ -334,6 +335,13 @@ export function LpHome() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>잇츠마이턴 - LP 마켓 | LP 레코드 최저가 비교</title>
+        <meta name="description" content="국내 최대 LP 레코드 마켓플레이스. 네이버, 알라딘, Yes24, 교보문고의 LP 가격을 한 번에 비교하세요." />
+        <meta property="og:title" content="잇츠마이턴 LP 마켓 - LP 레코드 최저가 비교" />
+        <meta property="og:description" content="국내 최대 LP 레코드 마켓플레이스. 네이버, 알라딘, Yes24, 교보문고의 LP 가격을 한 번에 비교하세요." />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <MarketHeader />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingRight: 'calc(var(--scrollbar-width, 0px) + clamp(1rem, 4vw, 2rem))' }}>

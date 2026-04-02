@@ -12,7 +12,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 7777,
     host: true, // 모바일 접근을 위해 네트워크에 노출
     open: true,
     proxy: {

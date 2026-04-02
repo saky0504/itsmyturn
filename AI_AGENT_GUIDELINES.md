@@ -58,7 +58,7 @@ When maintaining or extending this repository, keep the following context in min
 When writing, modifying, or running scripts to fetch LP data from external sources (Aladin, Discogs, etc.), strictly adhere to these rules:
 
 1. **Deduplication (중복 앨범 처리 규칙)**
-   - **Primary Key:** Use `discogs_id` as the safest primary key for deduplication whenever available.
+   - **Primary Key:** Use a combination of artist name (`artist`) and album title (`title`) as the primary criteria for deduplication, rather than relying solely on `discogs_id`.
    - **Aladin Data Issue:** Historically, Aladin-sourced albums often contained inaccurate `EAN` (barcodes), where `isbn13` was mistakenly forced as `EAN`. Do NOT attempt to display Aladin's `isbn13` as a standard barcode. The UI currently hides the EAN badge for Aladin-sourced items.
    - **Merge Safety:** Do not overwrite existing enriched data (like high-res images or verified tracklists) during daily/hourly syncs unless the new source data is explicitly proven to be superior.
 
