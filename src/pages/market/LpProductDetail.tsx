@@ -131,8 +131,8 @@ export function LpProductDetail() {
 
   const bestPrice = sortedOffers[0] ? calculateOfferFinalPrice(sortedOffers[0]) : null;
   const metaTitle = product.artist
-    ? `${product.title} - ${product.artist} | 잇츠마이턴 LP 마켓`
-    : `${product.title} | 잇츠마이턴 LP 마켓`;
+    ? `${product.title} - ${product.artist} | it's my turn`
+    : `${product.title} | it's my turn`;
   const metaDescription = bestPrice
     ? `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 레코드 최저가 ${formatCurrency(bestPrice)}. 국내 주요 쇼핑몰 가격 비교.`
     : `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고.`;

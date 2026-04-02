@@ -139,10 +139,10 @@ export function LpPriceList() {
   return (
     <>
       <Helmet>
-        <title>LP 가격 비교 리스트 | 잇츠마이턴 LP 마켓</title>
-        <meta name="description" content="국내 LP 레코드 전체 가격 비교 리스트. 장르, 가격, 희귀도별 필터링으로 원하는 LP를 찾아보세요." />
-        <meta property="og:title" content="LP 가격 비교 리스트 | 잇츠마이턴 LP 마켓" />
-        <meta property="og:description" content="국내 LP 레코드 전체 가격 비교 리스트. 장르, 가격, 희귀도별 필터링으로 원하는 LP를 찾아보세요." />
+        <title>it's my turn</title>
+        <meta name="description" content="국내 LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고를 한눈에." />
+        <meta property="og:title" content="it's my turn" />
+        <meta property="og:description" content="국내 LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고를 한눈에." />
         <meta property="og:type" content="website" />
       </Helmet>
       <div className="min-h-screen bg-background relative">

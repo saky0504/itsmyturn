@@ -336,10 +336,10 @@ export function LpHome() {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>잇츠마이턴 - LP 마켓 | LP 레코드 최저가 비교</title>
-        <meta name="description" content="국내 최대 LP 레코드 마켓플레이스. 네이버, 알라딘, Yes24, 교보문고의 LP 가격을 한 번에 비교하세요." />
-        <meta property="og:title" content="잇츠마이턴 LP 마켓 - LP 레코드 최저가 비교" />
-        <meta property="og:description" content="국내 최대 LP 레코드 마켓플레이스. 네이버, 알라딘, Yes24, 교보문고의 LP 가격을 한 번에 비교하세요." />
+        <title>it's my turn</title>
+        <meta name="description" content="국내 LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고를 한눈에." />
+        <meta property="og:title" content="it's my turn" />
+        <meta property="og:description" content="국내 LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고를 한눈에." />
         <meta property="og:type" content="website" />
       </Helmet>
       <MarketHeader />
