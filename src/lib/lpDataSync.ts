@@ -42,7 +42,7 @@ export async function fetchProductsFromSupabase(): Promise<LpProduct[]> {
   try {
     const { data: products, error } = await supabase
       .from('lp_products')
-      .select('*')
+      .select('id, title, artist, cover, category, sub_category, discogs_id, barcode, summary, updated_at')
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -58,7 +58,7 @@ export async function fetchProductsFromSupabase(): Promise<LpProduct[]> {
     const productIds = products.map(p => p.id);
     const { data: offers, error: offersError } = await supabase
       .from('lp_offers')
-      .select('*')
+      .select('id, product_id, vendor_name, channel_id, base_price, currency, shipping_fee, shipping_policy, url, affiliate_code, affiliate_param_key, in_stock, last_checked, badge, notes')
       .in('product_id', productIds);
 
     if (offersError) {

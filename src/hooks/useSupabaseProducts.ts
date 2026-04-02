@@ -53,7 +53,7 @@ export const useSupabaseProducts = (
                     const { data, error: dbError } = await supabase
                         .from('lp_products')
                         .select(`
-                            *,
+                            id, title, artist, cover, category, sub_category, discogs_id, barcode, summary,
                             offers:lp_offers(
                                 id,
                                 vendor_name,

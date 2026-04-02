@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { checkAndSyncIfNeeded, getLastSyncTime, syncProductsFromSupabase } from '../lib/lpDataSync';
 import { useLpProducts } from './useLpProducts';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ export function useLpDataSync() {
   const { refresh } = useLpProducts();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(getLastSyncTime());
+  const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 앱 시작 시 자동 동기화 체크
   useEffect(() => {
@@ -29,61 +30,30 @@ export function useLpDataSync() {
 
   // Supabase realtime subscription - 가격 정보 실시간 업데이트
   useEffect(() => {
-    // lp_offers 테이블 변경 감지
+    const triggerSync = () => {
+      if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
+      syncDebounceRef.current = setTimeout(() => {
+        syncProductsFromSupabase()
+          .then((result) => {
+            if (result.success) {
+              refresh();
+              setLastSynced(result.lastSynced);
+            }
+          })
+          .catch((error) => {
+            console.error('자동 동기화 실패:', error);
+          });
+      }, 500);
+    };
+
     const channel = supabase
-      .channel('lp-offers-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'lp_offers',
-        },
-        (payload) => {
-          console.log('가격 정보 업데이트 감지:', payload);
-          
-          // 가격 정보가 업데이트되면 즉시 동기화
-          syncProductsFromSupabase()
-            .then((result) => {
-              if (result.success) {
-                refresh();
-                setLastSynced(result.lastSynced);
-                // 너무 많은 토스트 방지를 위해 조용히 업데이트
-                console.log('가격 정보가 자동으로 업데이트되었습니다');
-              }
-            })
-            .catch((error) => {
-              console.error('가격 정보 자동 업데이트 실패:', error);
-            });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'lp_products',
-        },
-        (payload) => {
-          console.log('제품 정보 업데이트 감지:', payload);
-          
-          // 제품 정보가 업데이트되면 즉시 동기화
-          syncProductsFromSupabase()
-            .then((result) => {
-              if (result.success) {
-                refresh();
-                setLastSynced(result.lastSynced);
-                console.log('제품 정보가 자동으로 업데이트되었습니다');
-              }
-            })
-            .catch((error) => {
-              console.error('제품 정보 자동 업데이트 실패:', error);
-            });
-        }
-      )
+      .channel('lp-realtime-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lp_offers' }, triggerSync)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lp_products' }, triggerSync)
       .subscribe();
 
     return () => {
+      if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
       supabase.removeChannel(channel);
     };
   }, [refresh]);

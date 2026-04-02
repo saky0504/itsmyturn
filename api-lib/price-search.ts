@@ -24,11 +24,11 @@ export interface VendorOffer {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-async function fetchWithRetry(url: string, retries = 1): Promise<string> {
+async function fetchWithRetry(url: string, retries = 2): Promise<string> {
   for (let i = 0; i <= retries; i++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const response = await fetch(url, {
         headers: {
           'User-Agent': USER_AGENT,
@@ -47,10 +47,21 @@ async function fetchWithRetry(url: string, retries = 1): Promise<string> {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, i + 1) * 1000;
+        console.warn(`[price-search] 429 Too Many Requests. ${delay}ms 후 재시도 (${i + 1}/${retries})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.text();
-    } catch {
-      await new Promise(r => setTimeout(r, 1000));
+    } catch (err) {
+      if (i < retries) {
+        await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+      }
     }
   }
   return '';
@@ -459,15 +470,20 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
   } else if (vendor === 'kyobo') {
     return await fetchKyoboPrice(identifier);
   } else {
+    const vendorNames = ['naver', 'aladin', 'yes24', 'kyobo'];
     const results = await Promise.allSettled([
       fetchNaverPrice(identifier),
       fetchAladinPrice(identifier),
       fetchYes24Price(identifier),
       fetchKyoboPrice(identifier)
     ]);
-    for (const res of results) {
-      if (res.status === 'fulfilled') offers.push(...res.value);
-    }
+    results.forEach((res, i) => {
+      if (res.status === 'fulfilled') {
+        offers.push(...res.value);
+      } else {
+        console.warn(`[price-search] ${vendorNames[i]} 검색 실패:`, res.reason);
+      }
+    });
   }
 
   return offers;
