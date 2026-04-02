@@ -90,7 +90,6 @@ export function useArchiveMusic() {
     // Internet Archive Search API로 실제 음원 검색
     const searchInternetArchive = async (query: string, rows: number = 50) => {
         try {
-            console.log(`🔍 Searching Internet Archive: ${query}`);
 
             const sortOptions = [
                 'downloads desc',
@@ -107,7 +106,6 @@ export function useArchiveMusic() {
 
             const searchUrl = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=avg_rating&fl[]=licenseurl&rows=${rows}&start=${startRow}&sort[]=${encodeURIComponent(randomSort)}&output=json`;
 
-            console.log(`📍 Using sort: ${randomSort}, page: ${randomPage + 1}`);
 
             const response = await fetch(searchUrl);
             if (!response.ok) {
@@ -115,7 +113,6 @@ export function useArchiveMusic() {
             }
 
             const data = await response.json();
-            console.log(`✅ Found ${data.response.docs.length} items from Internet Archive`);
 
             return data.response.docs;
         } catch (error) {
@@ -127,7 +124,6 @@ export function useArchiveMusic() {
     // Internet Archive Metadata API로 실제 스트리밍 URL 추출
     const getStreamingUrl = async (identifier: string, item?: { title?: string; creator?: string | string[]; licenseurl?: string;[key: string]: unknown }) => {
         try {
-            console.log(`🎵 Getting metadata for: ${identifier}`);
 
             const metadataUrl = `https://archive.org/metadata/${identifier}`;
             const response = await fetch(metadataUrl);
@@ -153,51 +149,13 @@ export function useArchiveMusic() {
             const streamingUrl = `https://archive.org/download/${identifier}/${audioFile.name}`;
             const coverUrl = `https://archive.org/services/img/${identifier}`;
 
-            let finalCoverUrl = coverUrl;
-
-            const checkIfDefaultImage = async (url: string) => {
-                try {
-                    await fetch(url, {
-                        method: 'HEAD',
-                        mode: 'no-cors'
-                    });
-
-                    return new Promise((resolve) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            const isDefaultSize = (img.naturalWidth === 180 && img.naturalHeight === 45);
-                            resolve({
-                                isDefault: isDefaultSize,
-                                width: img.naturalWidth,
-                                height: img.naturalHeight,
-                                type: 'image'
-                            });
-                        };
-                        img.onerror = () => {
-                            resolve({ isDefault: false, width: 0, height: 0, type: 'error' });
-                        };
-                        img.src = url;
-                    });
-                } catch (error) {
-                    console.warn('Failed to check image:', error);
-                    return { isDefault: false, width: 0, height: 0, type: 'error' };
-                }
-            };
-
-            const imageInfo = await checkIfDefaultImage(coverUrl);
-            const { width, height } = imageInfo as { width: number; height: number };
-            const isDefaultSize = (width === 180 && height === 45);
-
-            const shouldUseDuck = isDefaultSize ||
+            const shouldUseDuck =
                 identifier.includes('dragnet') ||
                 item?.title?.toLowerCase().includes('radio') ||
                 item?.title?.toLowerCase().includes('episode') ||
                 (Array.isArray(item?.creator) ? item.creator.join(' ').toLowerCase() : item?.creator?.toLowerCase?.() || '').includes('radio');
 
-            if (shouldUseDuck) {
-                finalCoverUrl = '/images/hi.png';
-                console.log(`🦆 Using duck fallback for ${identifier} (${width}x${height})`);
-            }
+            const finalCoverUrl = shouldUseDuck ? '/images/hi.png' : coverUrl;
 
             return {
                 streamingUrl,
@@ -214,7 +172,6 @@ export function useArchiveMusic() {
     const loadTracksByGenre = async (genre: string = 'all') => {
         try {
             setIsLoading(true);
-            console.log(`🎵 Loading ${genre} tracks from Internet Archive...`);
 
             const searchQueries = getGenreSearchQueries(genre);
             let allItems: ArchiveItem[] = [];
@@ -278,7 +235,6 @@ export function useArchiveMusic() {
                 return isValid;
             });
 
-            console.log(`📊 Found ${uniqueItems.length} total items, ${musicItems.length} music items from Internet Archive`);
 
             const itemsToUse = musicItems.length > 0 ? musicItems : uniqueItems;
             const shuffledItems = [...itemsToUse].sort(() => Math.random() - 0.5);
@@ -366,7 +322,6 @@ export function useArchiveMusic() {
 
                             additionalTracks.push(track);
                         } catch {
-                            console.log(`❌ Failed to load additional track: ${item.title}`);
                         }
                     }
 

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '../components/ui/sonner';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 // Lazy load all heavy components for better initial load performance
 const VinylPlayer = lazy(() => import('../components/VinylPlayer').then(module => ({ default: module.VinylPlayer })));
@@ -24,6 +25,7 @@ function LoadingFallback() {
 export default function App() {
   return (
     <HelmetProvider>
+    <ErrorBoundary>
     <BrowserRouter>
       <Routes>
         <Route
@@ -88,6 +90,7 @@ export default function App() {
         }}
       />
     </BrowserRouter>
+    </ErrorBoundary>
     </HelmetProvider>
   );
 }

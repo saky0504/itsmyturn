@@ -85,6 +85,11 @@ web_modules/
 .next
 out
 
+# Vercel, Claude, and Git-Rewrite Backups
+.vercel/
+.claude/
+.git-rewrite/
+
 # Nuxt.js build / generate output
 .nuxt
 dist

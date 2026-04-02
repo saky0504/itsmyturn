@@ -85,6 +85,7 @@ export function PlaybackControls({
                         size="icon"
                         onClick={() => setShowSearch(true)}
                         className="text-gray-600 hover:text-gray-900 w-10 h-10 justify-self-center"
+                        aria-label="장르 검색"
                     >
                         <Search className="w-5 h-5" />
                     </Button>
@@ -95,6 +96,7 @@ export function PlaybackControls({
                         onClick={() => handlePreviousTrack()}
                         className="text-gray-600 hover:text-gray-900 w-10 h-10 justify-self-center"
                         disabled={tracksCount <= 1}
+                        aria-label="이전 트랙"
                     >
                         <SkipBack className="w-5 h-5" />
                     </Button>
@@ -104,6 +106,7 @@ export function PlaybackControls({
                         size="icon"
                         onClick={handlePlayPause}
                         className="text-gray-900 hover:text-black w-14 h-14 justify-self-center"
+                        aria-label={isPlaying ? '일시정지' : '재생'}
                     >
                         {isPlaying || isLoading ? (
                             <Pause className="w-5 h-5" />
@@ -118,6 +121,7 @@ export function PlaybackControls({
                         onClick={() => handleNextTrack()}
                         className="text-gray-600 hover:text-gray-900 w-10 h-10 justify-self-center"
                         disabled={tracksCount <= 1}
+                        aria-label="다음 트랙"
                     >
                         <SkipForward className="w-5 h-5" />
                     </Button>
@@ -128,6 +132,7 @@ export function PlaybackControls({
                         onClick={() => setShowLyrics(!showLyrics)}
                         className={`w-10 h-10 justify-self-center ${showLyrics ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900'}`}
                         disabled={!currentTrack}
+                        aria-label="트랙 정보"
                     >
                         <Info className="w-5 h-5" />
                     </Button>
@@ -179,6 +184,7 @@ export function PlaybackControls({
                     size="icon"
                     onClick={() => setShowSearch(true)}
                     className="text-gray-600 hover:text-gray-900 w-12 h-12"
+                    aria-label="장르 검색"
                 >
                     <Search className="w-6 h-6" />
                 </Button>
@@ -189,16 +195,17 @@ export function PlaybackControls({
                     onClick={() => handlePreviousTrack()}
                     className="text-gray-600 hover:text-gray-900 w-12 h-12"
                     disabled={tracksCount <= 1}
+                    aria-label="이전 트랙"
                 >
                     <SkipBack className="w-6 h-6" />
                 </Button>
 
-                {/* 메인 재생/일시정지 버튼 */}
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={handlePlayPause}
                     className="text-gray-600 hover:text-gray-900 w-12 h-12"
+                    aria-label={isPlaying ? '일시정지' : '재생'}
                 >
                     {isPlaying || isLoading ? (
                         <Pause className="w-6 h-6" />
@@ -213,17 +220,18 @@ export function PlaybackControls({
                     onClick={() => handleNextTrack()}
                     className="text-gray-600 hover:text-gray-900 w-12 h-12"
                     disabled={tracksCount <= 1}
+                    aria-label="다음 트랙"
                 >
                     <SkipForward className="w-6 h-6" />
                 </Button>
 
-                {/* 곡정보 버튼 */}
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowLyrics(!showLyrics)}
                     className={`w-12 h-12 ${showLyrics ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900'}`}
                     disabled={!currentTrack}
+                    aria-label="트랙 정보"
                 >
                     <Info className="w-6 h-6" />
                 </Button>

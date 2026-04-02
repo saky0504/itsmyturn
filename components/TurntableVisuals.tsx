@@ -268,7 +268,6 @@ export function TurntableVisuals({
                                 fetchPriority="high"
                                 onError={(e) => {
                                     const target = e.target as HTMLImageElement;
-                                    console.log('🦆 Image failed, using fallback');
                                     target.src = defaultCoverSVG;
                                 }}
                             />
@@ -486,7 +485,6 @@ export function TurntableVisuals({
                         fetchPriority="high"
                         onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            console.log('🦆 Image failed, using fallback');
                             target.src = defaultCoverSVG;
                         }}
                     />

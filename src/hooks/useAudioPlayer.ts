@@ -36,6 +36,7 @@ export function useAudioPlayer({
     const audioWorkerRef = useRef<Worker | null>(null);
     const userPausedRef = useRef<boolean>(false);
     const retryCountRef = useRef<number>(0);
+    const audioBlobCacheRef = useRef<Map<string, string>>(new Map());
 
     const currentTrack = tracks[currentTrackIndex];
 
@@ -52,11 +53,10 @@ export function useAudioPlayer({
             worker.onmessage = (e) => {
                 const message = e.data;
                 if (message.type === 'WORKER_READY') {
-                    console.log('🚀 Audio Worker Ready!');
                 } else if (message.type === 'AUDIO_LOADED') {
-                    const { trackId, blob, size } = message;
-                    console.log(`✅ Worker loaded audio: ${trackId} (${(size / 1024).toFixed(1)}KB)`);
+                    const { trackId, blob } = message;
                     const blobUrl = URL.createObjectURL(blob);
+                    audioBlobCacheRef.current.set(trackId, blobUrl);
                     setAudioBlobCache(prev => new Map(prev).set(trackId, blobUrl));
                 } else if (message.type === 'AUDIO_ERROR') {
                     console.error(`❌ Worker audio error: ${message.trackId}`, message.error);
@@ -68,12 +68,11 @@ export function useAudioPlayer({
             };
 
             audioWorkerRef.current = worker;
-            console.log('🚀 Audio Loader Worker initialized');
 
             return () => {
                 worker.terminate();
-                console.log('🛑 Audio Worker terminated');
-                audioBlobCache.forEach(url => URL.revokeObjectURL(url));
+                audioBlobCacheRef.current.forEach(url => URL.revokeObjectURL(url));
+                audioBlobCacheRef.current.clear();
             };
         } catch (error) {
             console.warn('⚠️ Worker not supported, falling back to main thread:', error);
@@ -97,7 +96,6 @@ export function useAudioPlayer({
                     }
                 }
 
-                console.log(`🚀 Starting WORKER + RANGE preload for ${tracksToPreload.length} tracks`);
 
                 tracksToPreload.forEach(({ track, index }) => {
                     if (index <= 2) {
@@ -106,7 +104,6 @@ export function useAudioPlayer({
                         audio.crossOrigin = 'anonymous';
                         audio.preload = 'auto'; // 전체 로딩
                         setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-                        console.log(`⚡ PRIORITY LOADING [${index}]: ${track.title} (preload='auto')`);
 
                         if (audioWorkerRef.current && isMobile) {
                             audioWorkerRef.current.postMessage({
@@ -123,14 +120,12 @@ export function useAudioPlayer({
                         audio.crossOrigin = 'anonymous';
                         audio.preload = 'metadata';
                         setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-                        console.log(`🏃 FAST READY [${index}]: ${track.title} (metadata)`);
                     } else {
                         const audio = new Audio();
                         audio.src = track.preview_url;
                         audio.crossOrigin = 'anonymous';
                         audio.preload = 'none';
                         setPreloadedTracks(prev => new Map(prev).set(track.id, audio));
-                        console.log(`💤 LAZY LOAD [${index}]: ${track.title} (none)`);
                     }
                 });
             };
@@ -241,8 +236,7 @@ export function useAudioPlayer({
                 audio.play().then(() => {
                     setIsPlaying(true);
                     shouldAutoPlayRef.current = false;
-                }).catch((error: unknown) => {
-                    console.log('⚠️ Auto-resume failed (normal):', (error as Error).name);
+                }).catch(() => {
                     shouldAutoPlayRef.current = false;
                 });
             }
@@ -328,8 +322,8 @@ export function useAudioPlayer({
         audio.addEventListener('play', handlePlay);
         audio.addEventListener('pause', handlePause);
 
-        let mainTimer: NodeJS.Timeout | null = null;
-        mainTimer = setInterval(() => {
+        let rafId: number;
+        const tick = () => {
             if (audio) {
                 setCurrentTime(audio.currentTime || 0);
                 if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
@@ -338,7 +332,9 @@ export function useAudioPlayer({
             } else {
                 setCurrentTime(0);
             }
-        }, 50);
+            rafId = requestAnimationFrame(tick);
+        };
+        rafId = requestAnimationFrame(tick);
 
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
@@ -351,7 +347,7 @@ export function useAudioPlayer({
             audio.removeEventListener('play', handlePlay);
             audio.removeEventListener('pause', handlePause);
 
-            if (mainTimer) clearInterval(mainTimer);
+            cancelAnimationFrame(rafId);
         };
     }, [currentTrackIndex, isPlaying, preloadedTracks, requestReview]);
 
@@ -577,7 +573,7 @@ export function useAudioPlayer({
     // 에러 토스트 표시
     useEffect(() => {
         if (!currentTrack && tracks.length === 0 && !tracksLoading) {
-            setTimeout(() => {
+            const timerId = setTimeout(() => {
                 toast.error('Failed to load music', {
                     duration: 6000,
                     description: 'Please check your network connection',
@@ -590,6 +586,7 @@ export function useAudioPlayer({
                     }
                 });
             }, 100);
+            return () => clearTimeout(timerId);
         }
     }, [currentTrack, tracks.length, tracksLoading]);
 
