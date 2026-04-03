@@ -55,8 +55,8 @@ export function TurntableVisuals({
     if (isMobile) {
         return (
             <div className="relative overflow-hidden flex items-center justify-center py-6 lg:py-8">
-                {/* 턴테이블 베이스 */}
-                <div className="relative mt-4" ref={containerRef}>
+                {/* 턴테이블 베이스 (그림자 잘림 방지를 위해 위로 이동 및 하단 여백 추가) */}
+                <div className="relative -mt-2 mb-6" ref={containerRef}>
                     <motion.div
                         className="relative cursor-pointer w-[88vw] h-[88vw] max-w-[400px] max-h-[400px] sm:max-w-[480px] sm:max-h-[480px] lg:max-w-[660px] lg:max-h-[660px]"
                         onClick={handlePlayPause}
@@ -297,7 +297,7 @@ export function TurntableVisuals({
 
     // Desktop layout
     return (
-        <div className="relative flex items-center justify-center p-8" ref={containerRef}>
+        <div className="relative flex items-center justify-center pt-4 pb-12" ref={containerRef}>
             <motion.div
                 className="relative cursor-pointer w-[504px] h-[504px] rounded-full"
                 onClick={handlePlayPause}
