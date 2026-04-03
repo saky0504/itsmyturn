@@ -61,7 +61,7 @@ export const useSupabaseProducts = (
                                 base_price,
                                 shipping_fee,
                                 url,
-                                is_stock_available,
+                                in_stock,
                                 shipping_policy
                             )
                         `)
@@ -137,7 +137,7 @@ interface DbOffer {
     shipping_fee: number;
     shipping_policy: string;
     url: string;
-    is_stock_available: boolean;
+    in_stock: boolean;
     updated_at?: string;
 }
 
@@ -186,7 +186,7 @@ function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
             shippingFee: o.shipping_fee || 0,
             shippingPolicy: o.shipping_policy,
             url: o.url,
-            inStock: o.is_stock_available,
+            inStock: o.in_stock,
             lastChecked: new Date().toISOString(),
             currency: 'KRW',
         })),
