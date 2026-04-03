@@ -29,7 +29,7 @@ export interface SupabaseLpOffer {
   url: string;
   affiliate_code: string | null;
   affiliate_param_key: string | null;
-  in_stock: boolean;
+  is_stock_available: boolean;
   last_checked: string;
   badge: string | null;
   notes: string | null;
@@ -58,7 +58,7 @@ export async function fetchProductsFromSupabase(): Promise<LpProduct[]> {
     const productIds = products.map(p => p.id);
     const { data: offers, error: offersError } = await supabase
       .from('lp_offers')
-      .select('id, product_id, vendor_name, channel_id, base_price, currency, shipping_fee, shipping_policy, url, affiliate_code, affiliate_param_key, in_stock, last_checked, badge, notes')
+      .select('id, product_id, vendor_name, channel_id, base_price, currency, shipping_fee, shipping_policy, url, affiliate_code, affiliate_param_key, is_stock_available, last_checked, badge, notes')
       .in('product_id', productIds);
 
     if (offersError) {
@@ -80,7 +80,7 @@ export async function fetchProductsFromSupabase(): Promise<LpProduct[]> {
           url: offer.url,
           affiliateCode: offer.affiliate_code || undefined,
           affiliateParamKey: offer.affiliate_param_key || undefined,
-          inStock: offer.in_stock,
+          inStock: offer.is_stock_available,
           lastChecked: offer.last_checked,
           badge: (offer.badge as 'fresh' | 'lowest' | 'exclusive') || undefined,
           notes: offer.notes || undefined,

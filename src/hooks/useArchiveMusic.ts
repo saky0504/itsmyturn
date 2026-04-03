@@ -135,6 +135,10 @@ export function useArchiveMusic() {
             const data = await response.json();
 
             // MP3 파일 찾기 (우선순위: .mp3 > .ogg > .wav)
+            if (!data.files || !Array.isArray(data.files)) {
+                throw new Error('No files in metadata');
+            }
+
             const mp3Files = data.files.filter((file: { name: string; format: string }) =>
                 file.name.endsWith('.mp3') &&
                 file.format !== 'Metadata' &&
