@@ -5,7 +5,7 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // APK용 상대 경로
+  base: '/', // Vercel 웹 배포(SPA 라우팅)를 위한 절대 경로
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
