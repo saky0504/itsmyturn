@@ -322,8 +322,8 @@ export function useAudioPlayer({
         audio.addEventListener('play', handlePlay);
         audio.addEventListener('pause', handlePause);
 
-        let rafId: number;
-        const tick = () => {
+        let mainTimer: NodeJS.Timeout | null = null;
+        mainTimer = setInterval(() => {
             if (audio) {
                 setCurrentTime(audio.currentTime || 0);
                 if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
@@ -332,9 +332,7 @@ export function useAudioPlayer({
             } else {
                 setCurrentTime(0);
             }
-            rafId = requestAnimationFrame(tick);
-        };
-        rafId = requestAnimationFrame(tick);
+        }, 50);
 
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
@@ -347,7 +345,7 @@ export function useAudioPlayer({
             audio.removeEventListener('play', handlePlay);
             audio.removeEventListener('pause', handlePause);
 
-            cancelAnimationFrame(rafId);
+            if (mainTimer) clearInterval(mainTimer);
         };
     }, [currentTrackIndex, isPlaying, preloadedTracks, requestReview]);
 
