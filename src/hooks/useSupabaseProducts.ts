@@ -53,7 +53,7 @@ export const useSupabaseProducts = (
                     const { data, error: dbError } = await supabase
                         .from('lp_products')
                         .select(`
-                            id, title, artist, cover, category, sub_category, discogs_id, barcode, summary,
+                            id, title, artist, cover, genres, styles, discogs_id, ean, description,
                             offers:lp_offers(
                                 id,
                                 vendor_name,
@@ -146,11 +146,11 @@ interface DbProduct {
     title: string;
     artist: string;
     cover: string;
-    category: string;
-    sub_category: string;
+    genres?: string[];
+    styles?: string[];
     discogs_id: string;
-    barcode: string;
-    summary: string;
+    ean: string;
+    description: string;
     offers?: DbOffer[];
 }
 
@@ -161,11 +161,11 @@ function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
         title: dbItem.title,
         artist: dbItem.artist,
         cover: dbItem.cover,
-        category: dbItem.category,
-        subCategory: dbItem.sub_category,
+        category: dbItem.genres?.[0] || '',
+        subCategory: dbItem.styles?.[0] || '',
         discogsId: dbItem.discogs_id,
-        barcode: dbItem.barcode,
-        summary: dbItem.summary,
+        barcode: dbItem.ean,
+        summary: dbItem.description,
 
         // UI 필드 (DB에 없는 경우 기본값)
         color: 'Black',
@@ -175,7 +175,7 @@ function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
         lpr: 0.12,
 
         priceHistory: [],
-        tags: [dbItem.category, dbItem.sub_category].filter(Boolean),
+        tags: [...(dbItem.genres || []), ...(dbItem.styles || [])].filter(Boolean),
 
         // Offers 매핑
         offers: (dbItem.offers || []).map((o: DbOffer) => ({

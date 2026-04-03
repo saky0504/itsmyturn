@@ -246,7 +246,7 @@ export function TurntableVisuals({
 
                         {/* 앨범 커버 */}
                         <motion.div
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-[40vw] h-[40vw] max-w-[270px] max-h-[270px] lg:max-w-none lg:max-h-none lg:w-[41%] lg:h-[41%]"
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-[36%] h-[36%]"
                             animate={spinControls}
                             style={{
                                 boxShadow: `
@@ -265,7 +265,6 @@ export function TurntableVisuals({
                                 className="w-full h-full object-contain"
                                 loading="eager"
                                 decoding="async"
-                                fetchPriority="high"
                                 onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     target.src = defaultCoverSVG;
@@ -463,7 +462,7 @@ export function TurntableVisuals({
 
                 {/* 앨범 커버 - 데스크톱 */}
                 <motion.div
-                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-52 h-52"
+                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden z-20 w-[36%] h-[36%]"
                     animate={spinControls}
                     style={{
                         boxShadow: `
@@ -482,7 +481,6 @@ export function TurntableVisuals({
                         className="w-full h-full object-contain"
                         loading="eager"
                         decoding="async"
-                        fetchPriority="high"
                         onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.src = defaultCoverSVG;
