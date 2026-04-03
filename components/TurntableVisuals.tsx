@@ -51,12 +51,11 @@ export function TurntableVisuals({
 
     const defaultCoverSVG = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjcwIiBmaWxsPSIjRkZGNzAwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iNCIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI4IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0xMDAgMTIwIEwxMDAgMTEwIEw5MCAxMTUgTDEwMCAxMjBaIiBmaWxsPSIjRkY2NjAwIi8+CjxwYXRoIGQ9Ik05MCAxNjAgUTEwMCAxNTUgMTEwIDE2MCBMOTAgMTYwWiIgZmlsbD0iIzAwMCIvPgo8L3N2Zz4K';
 
-    // Mobile layout
     if (isMobile) {
         return (
-            <div className="relative overflow-hidden flex items-center justify-center py-6 lg:py-8">
-                {/* 턴테이블 베이스 (그림자 잘림 방지를 위해 위로 이동 및 하단 여백 추가) */}
-                <div className="relative -mt-2 mb-6" ref={containerRef}>
+            <div className="relative overflow-hidden flex items-center justify-center p-8 sm:p-10 lg:p-12">
+                {/* 턴테이블 베이스 (모든 방향의 그림자가 들어갈 수 있도록 충분한 여백 확보) */}
+                <div className="relative" ref={containerRef}>
                     <motion.div
                         className="relative cursor-pointer w-[88vw] h-[88vw] max-w-[400px] max-h-[400px] sm:max-w-[480px] sm:max-h-[480px] lg:max-w-[660px] lg:max-h-[660px]"
                         onClick={handlePlayPause}
@@ -297,7 +296,7 @@ export function TurntableVisuals({
 
     // Desktop layout
     return (
-        <div className="relative flex items-center justify-center pt-4 pb-12" ref={containerRef}>
+        <div className="relative flex items-center justify-center p-12 lg:p-16" ref={containerRef}>
             <motion.div
                 className="relative cursor-pointer w-[504px] h-[504px] rounded-full"
                 onClick={handlePlayPause}
