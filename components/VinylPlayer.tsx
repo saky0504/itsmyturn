@@ -252,11 +252,9 @@ export function VinylPlayer() {
               />
             )}
 
-            {/* Hidden audio element */}
+            {/* Hidden audio element — key 제거: useEffect에서 src를 관리하므로 React의 DOM 재생성 방지 */}
             <audio
-              key={currentTrack?.id || 'default'}
               ref={audioRef}
-              src={currentTrack?.preview_url}
               preload="metadata"
               crossOrigin="anonymous"
             />

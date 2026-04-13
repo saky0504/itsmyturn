@@ -26,8 +26,10 @@ export function useAudioPlayer({
     const [duration, setDuration] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [isAudioReady, setIsAudioReady] = useState(false);
+    const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
     const audioRef = useRef<HTMLAudioElement>(null);
+    const wasPlayingRef = useRef(false);
     const preloadedAudioRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
     const currentTrack = tracks[currentTrackIndex];
@@ -173,12 +175,6 @@ export function useAudioPlayer({
         audio.addEventListener('play', handlePlay);
         audio.addEventListener('pause', handlePause);
 
-        let mainTimer = setInterval(() => {
-            if (audio) {
-                setCurrentTime(audio.currentTime || 0);
-            }
-        }, 100);
-
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
             audio.removeEventListener('loadedmetadata', updateDuration);
@@ -189,7 +185,6 @@ export function useAudioPlayer({
             audio.removeEventListener('error', handleError);
             audio.removeEventListener('play', handlePlay);
             audio.removeEventListener('pause', handlePause);
-            clearInterval(mainTimer);
         };
     }, [currentTrackIndex, tracks.length]);
 
@@ -240,18 +235,42 @@ export function useAudioPlayer({
     useEffect(() => {
         if (!currentTrack || !audioRef.current) return;
 
-        setIsLoading(true);
+        const audio = audioRef.current;
+        const urlToPlay = currentTrack.preview_url || '';
+        const shouldAutoPlay = wasPlayingRef.current;
+
         setCurrentTime(0);
         setDuration(currentTrack.duration ? currentTrack.duration / 1000 : 0);
         setIsAudioReady(false);
+
+        // src가 다를 때만 재설정 (불필요한 reload 방지)
+        const currentSrc = audio.src;
+        const resolvedUrl = urlToPlay.startsWith('http') ? urlToPlay : new URL(urlToPlay, window.location.origin).href;
         
-        // Always cleanly assign the real, native URL (no caching bloat).
-        const urlToPlay = currentTrack.preview_url || '';
-        
-        if (audioRef.current.src !== urlToPlay) {
-            audioRef.current.pause();
-            audioRef.current.src = urlToPlay;
-            audioRef.current.load();
+        if (currentSrc !== resolvedUrl) {
+            setIsLoading(true);
+            audio.pause();
+            audio.src = urlToPlay;
+            audio.load();
+        }
+
+        // 이전에 재생 중이었으면 canplay 후 자동 재생
+        if (shouldAutoPlay) {
+            const autoPlay = () => {
+                audio.play().then(() => {
+                    setIsPlaying(true);
+                    setIsLoading(false);
+                }).catch((err: any) => {
+                    if (err.name !== 'AbortError') {
+                        console.warn('Auto-play after track change failed:', err.message);
+                        setIsPlaying(false);
+                        setIsLoading(false);
+                    }
+                });
+                audio.removeEventListener('canplay', autoPlay);
+            };
+            audio.addEventListener('canplay', autoPlay, { once: true });
+            wasPlayingRef.current = false;
         }
     }, [currentTrack]);
 
@@ -291,36 +310,28 @@ export function useAudioPlayer({
         if (tracks.length === 0) return;
         hapticHeavy();
 
-        const wasPlaying = autoContinue ? true : isPlaying;
+        const shouldAutoPlay = autoContinue || isPlaying;
+        wasPlayingRef.current = shouldAutoPlay;
+
         const nextIndex = findNextPlayableTrack(currentTrackIndex, 'next');
         const finalNextIndex = nextIndex !== -1 ? nextIndex : ((currentTrackIndex + 1) % tracks.length);
         
         setCurrentTrackIndex(finalNextIndex);
-        
-        if (wasPlaying) {
-             if (audioRef.current && tracks[finalNextIndex]?.preview_url) {
-                  audioRef.current.src = tracks[finalNextIndex].preview_url;
-                  playNative();
-             }
-        }
+        // src 설정과 play()는 useEffect([currentTrack])에서 일괄 처리
     }, [currentTrackIndex, tracks, isPlaying, hapticHeavy]);
 
     const handlePreviousTrack = useCallback((autoContinue: boolean = false) => {
         if (tracks.length === 0) return;
         hapticHeavy();
 
-        const wasPlaying = autoContinue ? true : isPlaying;
+        const shouldAutoPlay = autoContinue || isPlaying;
+        wasPlayingRef.current = shouldAutoPlay;
+
         const nextIndex = findNextPlayableTrack(currentTrackIndex, 'prev');
         const finalNextIndex = nextIndex !== -1 ? nextIndex : (currentTrackIndex === 0 ? tracks.length - 1 : currentTrackIndex - 1);
         
         setCurrentTrackIndex(finalNextIndex);
-        
-        if (wasPlaying) {
-             if (audioRef.current && tracks[finalNextIndex]?.preview_url) {
-                  audioRef.current.src = tracks[finalNextIndex].preview_url;
-                  playNative();
-             }
-        }
+        // src 설정과 play()는 useEffect([currentTrack])에서 일괄 처리
     }, [currentTrackIndex, tracks, isPlaying, hapticHeavy]);
 
     const handlePlayPause = useCallback(async () => {
@@ -343,6 +354,7 @@ export function useAudioPlayer({
             setIsPlaying(false);
             setIsLoading(false);
         } else {
+            setHasUserInteracted(true);
             setIsLoading(true);
             await hapticMedium();
             
@@ -369,7 +381,7 @@ export function useAudioPlayer({
         currentTrackIndex,
         setCurrentTrackIndex,
         isPlaying,
-        isLoading,
+        isLoading: isLoading && hasUserInteracted,  // 유저 인터랙션 전에는 로딩 상태 숨김
         isAudioReady,
         volume,
         setVolume,
