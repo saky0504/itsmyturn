@@ -1,4 +1,4 @@
-import { upsertProductMetadataSafe, delay } from '../lib/db-ingest';
+import { upsertProductMetadataSafe, delay } from '../../api-lib/db-ingest';
 
 export async function GET(request: Request) {
     try {
