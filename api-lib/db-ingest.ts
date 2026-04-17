@@ -17,7 +17,7 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchDiscogsMetadata(artist: string, title: string) {
-    const DISCOGS_TOKEN = process.env.VITE_DISCOGS_PAT;
+    const DISCOGS_TOKEN = process.env.VITE_DISCOGS_TOKEN || process.env.DISCOGS_TOKEN || process.env.VITE_DISCOGS_PAT;
     if (!DISCOGS_TOKEN) return null;
 
     // Search Discogs API
@@ -150,7 +150,7 @@ export async function upsertProductMetadataSafe(scrapedData: {
             ean: cleanBarcode || null,
             genres: details?.genres || bestMatch.genre || ['Pop'],
             styles: details?.styles || bestMatch.style || [],
-            year: parseInt(bestMatch.year || details?.year || '0') || null,
+            release_date: bestMatch.year || details?.year || null,
             description: scrapedData.description || null,
         };
     } else {
