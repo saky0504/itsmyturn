@@ -9,6 +9,7 @@ import {
 import { Button } from '../../../components/ui/button';
 import { MarketHeader } from '../../components/market/MarketHeader';
 import { LpComments } from '../../components/market/LpComments';
+import { ShareButton } from '../../components/market/ShareButton';
 import {
   buildAffiliateUrl,
   calculateOfferFinalPrice,
@@ -166,20 +167,27 @@ export function LpProductDetail() {
       </Helmet>
       <MarketHeader />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" style={{ paddingRight: 'calc(var(--scrollbar-width, 0px) + clamp(1rem, 4vw, 2rem))' }}>
-        {/* 마켓으로 돌아가기 버튼 */}
-        <button
-          onClick={() => {
-            if (window.history.length > 1) {
-              navigate(-1);
-            } else {
-              navigate('/market');
-            }
-          }}
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>마켓으로 돌아가기</span>
-        </button>
+        {/* 상단 액션 바 */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/market');
+              }
+            }}
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>마켓으로 돌아가기</span>
+          </button>
+          <ShareButton
+            title={metaTitle}
+            text={metaDescription}
+            url={typeof window !== 'undefined' ? window.location.href.split('?')[0] : `https://itsmyturn.app/market/lp/${product.id}`}
+          />
+        </div>
 
         {/* 헤더 섹션 */}
         <header className="space-y-6">
