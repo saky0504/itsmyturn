@@ -157,3 +157,5 @@ build/
 ADMIN_GUIDE.md
 SUPABASE_SETUP_GUIDE.md
 supabase-setup.sql
+.env*.local
+test-admin-api.ts

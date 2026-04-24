@@ -84,9 +84,51 @@ export default async function handler(
       case 'deleteOffersByProductId':
         result = await adminSupabase.from('lp_offers').delete().eq('product_id', payload.productId);
         break;
-      case 'moveOffersToNewProduct':
-        result = await adminSupabase.from('lp_offers').update({ product_id: payload.newProductId, updated_at: payload.updatedAt }).eq('product_id', payload.oldProductId);
+      case 'moveOffersToNewProduct': {
+        // 1. 새 상품(baseId)이 이미 가진 Offer 조회
+        const { data: newOffers } = await adminSupabase
+          .from('lp_offers')
+          .select('id, vendor_name')
+          .eq('product_id', payload.newProductId);
+
+        // 2. 병합될 이전 상품(oldId)의 Offer 조회
+        const { data: oldOffers } = await adminSupabase
+          .from('lp_offers')
+          .select('id, vendor_name')
+          .eq('product_id', payload.oldProductId);
+
+        const existingVendors = new Set((newOffers || []).map(o => o.vendor_name));
+        const offersToMove: string[] = [];
+        const offersToDelete: string[] = [];
+
+        for (const old of (oldOffers || [])) {
+          if (existingVendors.has(old.vendor_name)) {
+            // 이미 기준 앨범에 같은 판매처 정보가 있다면, 중복이므로 파기
+            offersToDelete.push(old.id);
+          } else {
+            // 중복이 아니면 이동 목록에 넣고, 중복 체크 셋에 추가
+            offersToMove.push(old.id);
+            existingVendors.add(old.vendor_name);
+          }
+        }
+
+        // 중복 데이터 먼저 파기
+        if (offersToDelete.length > 0) {
+          const { error: deleteError } = await adminSupabase.from('lp_offers').delete().in('id', offersToDelete);
+          if (deleteError) throw deleteError;
+        }
+
+        // 유효한 데이터만 새 상품으로 이동
+        if (offersToMove.length > 0) {
+          result = await adminSupabase
+            .from('lp_offers')
+            .update({ product_id: payload.newProductId, updated_at: payload.updatedAt })
+            .in('id', offersToMove);
+        } else {
+          result = { data: null, error: null };
+        }
         break;
+      }
 
       // --- Comments ---
       case 'deleteComment':

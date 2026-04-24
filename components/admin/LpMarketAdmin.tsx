@@ -460,12 +460,18 @@ export function LpMarketAdmin() {
         updated_at: now
       };
 
+      // 1. Unique 키(discogs_id) 충돌 방지를 위해, 삭제될 Secondary 상품들의 discogs_id를 먼저 비워줍니다.
+      for (const sec of secondaries) {
+        await fetchAdminApi('updateProduct', { id: sec.id, data: { discogs_id: null, updated_at: now } });
+      }
+
+      // 2. 선택된 메타데이터로 기준 상품(baseId) 업데이트 (이제 중복 에러가 발생하지 않음)
       await fetchAdminApi('updateProduct', {
         data: updatePayload,
         id: baseId
       });
 
-      // 2. Secondary 상품들의 Offer 이전 후 삭제
+      // 3. Secondary 상품들의 Offer 이전 후 최종 삭제
       for (const sec of secondaries) {
         try {
           await fetchAdminApi('moveOffersToNewProduct', {
