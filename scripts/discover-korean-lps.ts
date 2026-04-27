@@ -249,6 +249,17 @@ async function processAladinItems(items: any[]) {
             continue;
         }
 
+        // 3-A2. lp_editions에서도 중복 체크 (병합된 에디션 재추가 방지)
+        const { data: existingEdition } = await supabase
+            .from('lp_editions')
+            .select('id')
+            .eq('discogs_id', productData.discogs_id)
+            .maybeSingle();
+
+        if (existingEdition) {
+            continue;
+        }
+
         // 3-B. 타이틀+아티스트 정규화 중복 체크
         // "3집" vs "이문세 3집" 처럼 한쪽이 아티스트명을 앞에 붙인 형태인 경우도 동일 앨범으로 판단
         const normalize = (s: string) => s.replace(/\s+/g, '').toLowerCase();

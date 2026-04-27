@@ -116,9 +116,19 @@ async function startSync() {
       }
 
       const existingIds = new Set(existingRecords?.map((r: any) => r.discogs_id) || []);
+
+      // lp_editions의 discogs_id도 체크 (병합된 에디션의 재추가 방지)
+      const { data: editionRecords } = await supabase
+        .from('lp_editions')
+        .select('discogs_id')
+        .in('discogs_id', discogsIds);
+      for (const ed of editionRecords || []) {
+        if (ed.discogs_id) existingIds.add(ed.discogs_id);
+      }
+
       const newItems = results.filter((r: any) => !existingIds.has(String(r.id)));
 
-      console.log(`>> ${newItems.length} new items to process, ${existingIds.size} already in DB.`);
+      console.log(`>> ${newItems.length} new items to process, ${existingIds.size} already in DB (에디션 포함).`);
 
       // 3. 신규 아이템 상세정보 Fetch 및 Insert
       for (const item of newItems) {

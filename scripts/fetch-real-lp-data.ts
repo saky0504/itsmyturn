@@ -298,6 +298,16 @@ async function fetchAndStoreRealLpData() {
         .filter(id => id && id.trim() !== '')
     );
 
+    // lp_editions의 discogs_id도 체크 (병합된 에디션의 재추가 방지)
+    const { data: existingEditions } = await supabase
+      .from('lp_editions')
+      .select('discogs_id');
+    for (const ed of existingEditions || []) {
+      if (ed.discogs_id && ed.discogs_id.trim() !== '') {
+        existingDiscogsIds.add(ed.discogs_id);
+      }
+    }
+
     const isKorean = (text: string) => /[가-힣]/.test(text);
     const isEnglish = (text: string) => /^[a-zA-Z0-9\s\.,\-\'\(\)\:\!\?\&\"\[\]]+$/.test(text);
 

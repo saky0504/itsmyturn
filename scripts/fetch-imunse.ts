@@ -26,7 +26,14 @@ async function run() {
     .not('discogs_id', 'is', null);
 
   const existingIds = new Set((existing || []).map((r: any) => String(r.discogs_id)));
-  console.log(`DB 기존 상품: ${existingIds.size}개`);
+
+  // lp_editions의 discogs_id도 체크 (병합된 에디션의 재추가 방지)
+  const { data: editionIds } = await supabase.from('lp_editions').select('discogs_id');
+  for (const ed of editionIds || []) {
+    if (ed.discogs_id) existingIds.add(ed.discogs_id);
+  }
+
+  console.log(`DB 기존 상품: ${existingIds.size}개 (에디션 포함)`);
 
   const seenIds = new Set<string>();
   let inserted = 0;
