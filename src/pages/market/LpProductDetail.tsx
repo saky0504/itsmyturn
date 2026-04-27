@@ -328,6 +328,22 @@ export function LpProductDetail() {
             </button>
           </div>
 
+          {/* 에디션 칩 */}
+          {product.editions && product.editions.length > 1 && (
+            <div className="flex flex-wrap gap-2 -mt-2">
+              <span className="text-xs text-muted-foreground self-center">에디션:</span>
+              {product.editions.map((ed) => (
+                <span
+                  key={ed.id}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/60 text-foreground/80 border border-border/40"
+                >
+                  {ed.label}
+                  {ed.year && <span className="text-muted-foreground">({ed.year})</span>}
+                </span>
+              ))}
+            </div>
+          )}
+
           {sortedOffers.length > 0 ? (
             <>
               {/* 데스크탑 테이블 */}
@@ -336,6 +352,9 @@ export function LpProductDetail() {
                   <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                     <tr>
                       <th className="px-6 py-4 text-left">판매처</th>
+                      {product.editions && product.editions.length > 1 && (
+                        <th className="px-6 py-4 text-left">에디션</th>
+                      )}
                       <th className="px-6 py-4 text-right">기준가</th>
                       <th className="px-6 py-4 text-right">배송비</th>
                       <th className="px-6 py-4 text-right">가격</th>
@@ -385,6 +404,13 @@ export function LpProductDetail() {
                               )}
                             </div>
                           </td>
+                          {product.editions && product.editions.length > 1 && (
+                            <td className="px-6 py-4">
+                              <span className="text-xs text-muted-foreground">
+                                {product.editions[0]?.label || '—'}
+                              </span>
+                            </td>
+                          )}
                           <td className="px-6 py-4 text-right">
                             <span className="text-sm text-muted-foreground line-through decoration-border mr-2 opacity-70">
                               {offer.basePrice > finalPrice ? formatCurrency(offer.basePrice) : ''}
@@ -453,6 +479,11 @@ export function LpProductDetail() {
                           </div>
                           {displaySubName && (
                             <div className="text-xs text-muted-foreground mt-1.5">{displaySubName}</div>
+                          )}
+                          {product.editions && product.editions.length > 1 && (
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              에디션: {product.editions[0]?.label || '—'}
+                            </div>
                           )}
                         </div>
                         {offer.badge && offer.inStock && !['used', 'out-of-print'].includes(offer.badge) && (

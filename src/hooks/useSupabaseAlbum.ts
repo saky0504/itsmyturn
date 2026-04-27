@@ -47,6 +47,15 @@ export const useSupabaseAlbum = (id: string | undefined): UseSupabaseAlbumResult
                     shipping_policy,
                     badge,
                     updated_at
+                ),
+                editions:lp_editions(
+                    id,
+                    discogs_id,
+                    ean,
+                    label,
+                    country,
+                    year,
+                    format_detail
                 )
             `)
                     .eq('id', id)
@@ -86,6 +95,16 @@ interface DbOffer {
     badge?: string;
 }
 
+interface DbEdition {
+    id: string;
+    discogs_id: string | null;
+    ean: string | null;
+    label: string;
+    country: string | null;
+    year: number | null;
+    format_detail: string | null;
+}
+
 interface DbProduct {
     id: string;
     title: string;
@@ -98,6 +117,7 @@ interface DbProduct {
     ean: string;
     description: string;
     offers?: DbOffer[];
+    editions?: DbEdition[];
     category?: string;
     sub_category?: string;
     barcode?: string;
@@ -153,6 +173,16 @@ function mapDbProductToAppProduct(dbItem: DbProduct): LpProduct {
             currency: 'KRW',
             notes: o.shipping_policy, // Fallback/Use shipping policy as notes if needed
             badge: o.badge as "fresh" | "lowest" | "exclusive" | undefined
+        })),
+
+        editions: (dbItem.editions || []).map((e: DbEdition) => ({
+            id: e.id,
+            discogsId: e.discogs_id,
+            ean: e.ean,
+            label: e.label,
+            country: e.country,
+            year: e.year,
+            formatDetail: e.format_detail,
         })),
 
         colorVariants: [],

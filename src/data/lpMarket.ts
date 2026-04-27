@@ -27,6 +27,16 @@ export interface LpOffer {
   notes?: string;
 }
 
+export interface LpEdition {
+  id: string;
+  discogsId: string | null;
+  ean: string | null;
+  label: string;
+  country: string | null;
+  year: number | null;
+  formatDetail: string | null;
+}
+
 export interface PriceHistoryPoint {
   date: string;
   price: number;
@@ -52,6 +62,7 @@ export interface LpProduct {
   last30dChange: number;
   priceHistory: PriceHistoryPoint[];
   offers: LpOffer[];
+  editions?: LpEdition[];
   summary: string;
   pressingNotes: string;
   listeningNotes: string[];

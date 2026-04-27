@@ -36,7 +36,8 @@ async function run() {
     'artist=%EC%8B%A0%ED%95%B4%EC%B2%A0&type=release&format=LP&sort=want&sort_order=desc',
     'q=Shin+Hae+Chul&type=release&format=LP&country=South+Korea&sort=want&sort_order=desc',
     'q=N.EX.T&type=release&format=LP&country=South+Korea&sort=want&sort_order=desc',
-    'q=Nexus&artist=%EC%8B%A0%ED%95%B4%EC%B2%A0&type=release&format=LP&sort=want&sort_order=desc',
+    'q=%EB%AC%B4%ED%95%9C%EA%B6%A4%EB%8F%84&type=release&format=LP&country=South+Korea&sort=want&sort_order=desc',
+    'q=Moohangwiddo&type=release&format=LP&country=South+Korea&sort=want&sort_order=desc',
   ];
 
   for (const query of SEARCH_QUERIES) {
