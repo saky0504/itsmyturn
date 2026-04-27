@@ -553,10 +553,14 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
     offers = await searchNaver(keywordQuery);
   }
 
-  // fallback: LP 키워드 없이 재검색 (네이버에서 LP 안 붙은 결과가 더 많은 경우)
-  if (offers.length === 0) {
-    const fallbackQuery = `${identifier.artist} ${identifier.title} 바이닐`;
-    offers = await searchNaver(fallbackQuery);
+  // fallback: 타이틀에 괄호가 있으면, 괄호 제거 후 재검색
+  // "잔나비 환상의 나라 LP"로 검색 (아티스트명의 괄호는 건드리지 않음)
+  if (offers.length === 0 && identifier.title && /\(.*\)/.test(identifier.title)) {
+    const cleanTitle = identifier.title.replace(/\s*\([^)]*\)/g, '').trim();
+    if (cleanTitle && cleanTitle !== identifier.title) {
+      const fallbackQuery = `${identifier.artist} ${cleanTitle} LP`;
+      offers = await searchNaver(fallbackQuery);
+    }
   }
 
   return offers;
