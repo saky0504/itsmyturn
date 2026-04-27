@@ -360,6 +360,31 @@ function tokenize(str: string): string[] {
   return str.toLowerCase().replace(/[^a-z0-9가-힣]/g, ' ').split(/\s+/).filter(w => w.length > 1);
 }
 
+// 영한 음차 매핑 (토큰 매칭 시 사용)
+const TRANSLIT_MAP: Record<string, string[]> = {
+  'monkey': ['몽키'], 'hotel': ['호텔'], 'love': ['러브'], 'story': ['스토리'],
+  'dream': ['드림'], 'life': ['라이프'], 'night': ['나이트'], 'star': ['스타'],
+  'fantasy': ['판타지'], 'world': ['월드'], 'heart': ['하트'], 'angel': ['엔젤'],
+  'blue': ['블루'], 'pink': ['핑크'], 'gold': ['골드'], 'silver': ['실버'],
+  'summer': ['썸머'], 'winter': ['윈터'], 'spring': ['스프링'],
+  'rock': ['록'], 'jazz': ['재즈'], 'soul': ['소울'], 'funk': ['펑크'],
+  'baby': ['베이비'], 'honey': ['허니'], 'sugar': ['슈가'], 'butter': ['버터'],
+  'super': ['슈퍼'], 'power': ['파워'], 'magic': ['매직'], 'happy': ['해피'],
+  'best': ['베스트'], 'special': ['스페셜'], 'classic': ['클래식'],
+  '몽키': ['monkey'], '호텔': ['hotel'], '러브': ['love'], '스토리': ['story'],
+  '판타지': ['fantasy'], '월드': ['world'], '하트': ['heart'],
+  '베스트': ['best'], '스페셜': ['special'], '클래식': ['classic'],
+};
+
+function tokenMatchesWithTranslit(searchToken: string, targetToken: string): boolean {
+  if (targetToken.includes(searchToken)) return true;
+  const variants = TRANSLIT_MAP[searchToken];
+  if (variants) {
+    return variants.some(v => targetToken.includes(v));
+  }
+  return false;
+}
+
 function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipLpKeyword = false): boolean {
   if (!foundTitle) return false;
 
@@ -392,7 +417,7 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipL
 
   let artistMatchCount = 0;
   for (const token of artistTokens) {
-    const idx = titleTokens.findIndex(t => t.includes(token));
+    const idx = titleTokens.findIndex(t => tokenMatchesWithTranslit(token, t));
     if (idx !== -1) {
       artistMatchCount++;
       // Consume the matched token from the scraped title pool so it can't be reused
@@ -402,7 +427,7 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipL
 
   let albumMatchCount = 0;
   for (const token of albumTokens) {
-    const idx = titleTokens.findIndex(t => t.includes(token));
+    const idx = titleTokens.findIndex(t => tokenMatchesWithTranslit(token, t));
     if (idx !== -1) {
       albumMatchCount++;
       // Consume
