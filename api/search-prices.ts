@@ -524,7 +524,7 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
           channelId: 'naver',
           basePrice: price,
           shippingFee: 0, // 네이버 검색 API는 배송비를 정확히 반환하지 않음
-          shippingPolicy: '별도',
+          shippingPolicy: '상세정보 확인',
           url: item.link,
           inStock: !isExplicitlySoldOut,
           badge: status.badge,
