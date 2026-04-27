@@ -441,12 +441,18 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipL
   // Find extra un-matched tokens to penalize completely different albums in a franchise
   const allowedExtraTokens = new Set([
     'lp', 'vinyl', '바이닐', '비닐', 'ost', 'soundtrack', '사운드트랙', '오에스티', 'gatefold', 'remastered', 'edition', 'anniversary',
-    'color', 'coloured', '컬러', '음반', '수입', '수입반', '한정반', '투명', '블랙', '화이트', '레드', '블루', '한정',
+    'color', 'coloured', 'colored', '컬러', '음반', '수입', '수입반', '한정반', '투명', '블랙', '화이트', '레드', '블루', '한정',
     '투명컬러', '2lp', '3lp', '180g', '140g', '레코드', 'record', 'records', 'vol', 'pt', 'part', 'the', 'of', 'and', 'in', 'a', 'to', 'for', 'with', 'on', 'at', 'by', 'original', 'motion', 'picture', 'score',
     '영화', '미국', '발송', '해외', '배송', '정품', '미개봉', '새상품', 'music', '뮤직', '앨범', 'album', 'sealed', 'new', 'mint',
     '오리지널', 'composer', '작곡', '지휘',
     'kpop', 'k-pop', 'signed', 'hand', 'd2c', 'in',
-    '초판', '중고', '미개봉'
+    '초판', '중고', '미개봉',
+    // 컬러/변형 관련
+    'clear', 'splatter', 'mix', '클리어', '옐로우', '그린', '핑크', '오렌지', '퍼플', '골드', '실버', '마블',
+    'yellow', 'green', 'pink', 'orange', 'purple', 'gold', 'silver', 'marble', 'marbled', 'blue', 'red', 'white', 'black',
+    // 판매 사이트 문구
+    '주문', '당일', '출고', '주문당일출고', '이전', '15시이전', '3집', '4집', '5집', '6집', '7집', '1집', '2집', '정규',
+    'limited', 'deluxe', 'special', 'standard', 'pressing', 'repress', 'reissue', 'import',
   ]);
 
   let extraSubstantiveCount = 0;
@@ -456,8 +462,8 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipL
     }
   }
 
-  // STRICTER penalty: limit extra substantive words drastically for short titles
-  const maxAllowedExtra = Math.max(1, Math.floor(albumTokens.length * 0.5));
+  // Extra token penalty: 짧은 타이틀은 엄격하게, 긴 타이틀은 여유 있게
+  const maxAllowedExtra = Math.max(2, Math.floor(albumTokens.length * 0.8));
   if (extraSubstantiveCount > maxAllowedExtra) {
     return false;
   }
@@ -545,6 +551,12 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
   if (offers.length === 0) {
     const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
     offers = await searchNaver(keywordQuery);
+  }
+
+  // fallback: LP 키워드 없이 재검색 (네이버에서 LP 안 붙은 결과가 더 많은 경우)
+  if (offers.length === 0) {
+    const fallbackQuery = `${identifier.artist} ${identifier.title} 바이닐`;
+    offers = await searchNaver(fallbackQuery);
   }
 
   return offers;
