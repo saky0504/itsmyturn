@@ -17,7 +17,7 @@ export default async function handler(req: Request) {
         });
     }
 
-    const results: Record<string, any> = {};
+    const results: Record<string, unknown> = {};
     const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
 
     console.log(`Starting unified cron sync at ${new Date().toISOString()}`);
@@ -35,9 +35,10 @@ export default async function handler(req: Request) {
             const data = await response.json();
             results[name] = { status: response.status, data };
             console.log(`[sync-all] Finished ${name}:`, response.status);
-        } catch (error: any) {
-            console.error(`[sync-all] Error in ${name}:`, error);
-            results[name] = { error: error.message };
+        } catch (error: unknown) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            console.error(`[sync-all] Error in ${name}:`, err);
+            results[name] = { error: err.message };
         }
     };
 

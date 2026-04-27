@@ -1,21 +1,20 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+
+export const config = { runtime: 'edge' };
 
 const BASE_URL = 'https://itsmyturn.app';
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+export default async function handler(_req: Request): Promise<Response> {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   const staticUrls = [
     { loc: `${BASE_URL}/`, changefreq: 'daily', priority: '1.0' },
     { loc: `${BASE_URL}/market`, changefreq: 'daily', priority: '0.9' },
     { loc: `${BASE_URL}/market/list`, changefreq: 'daily', priority: '0.8' },
-    { loc: `${BASE_URL}/privacy-policy.html`, changefreq: 'monthly', priority: '0.5' },
-    { loc: `${BASE_URL}/terms-of-service.html`, changefreq: 'monthly', priority: '0.5' },
   ];
 
-  let productUrls: { loc: string; changefreq: string; priority: string }[] = [];
+  let productUrls: { loc: string; changefreq: string; priority: string; lastmod?: string }[] = [];
 
   if (supabaseUrl && supabaseKey) {
     try {
@@ -48,7 +47,7 @@ ${allUrls
   .map(
     (u) => `  <url>
     <loc>${u.loc}</loc>
-    <lastmod>${(u as { lastmod?: string }).lastmod || today}</lastmod>
+    <lastmod>${u.lastmod || today}</lastmod>
     <changefreq>${u.changefreq}</changefreq>
     <priority>${u.priority}</priority>
   </url>`
@@ -56,7 +55,10 @@ ${allUrls
   .join('\n')}
 </urlset>`;
 
-  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.status(200).send(xml);
+  return new Response(xml, {
+    headers: {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
 }

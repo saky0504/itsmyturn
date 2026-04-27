@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Send, Heart, User, RefreshCw } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
+import { Send, Heart, RefreshCw, Pencil } from 'lucide-react';
 import { supabase, type Comment } from '../../lib/supabase';
 import { toast } from 'sonner';
 
@@ -18,7 +17,6 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Load username from localStorage
   useEffect(() => {
     const savedUsername = localStorage.getItem('username');
     if (savedUsername) {
@@ -27,7 +25,6 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
     }
   }, []);
 
-  // Fetch comments for this product
   const fetchComments = async () => {
     try {
       setIsRefreshing(true);
@@ -40,35 +37,28 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
 
       if (error) {
         console.error('Error fetching comments:', error);
-        // 에러가 발생해도 조용히 처리 (RLS 정책, 테이블 없음 등은 정상적인 상황일 수 있음)
-        // 빈 배열로 설정하고 에러 메시지는 표시하지 않음
         setComments([]);
         return;
       }
 
-      // data가 null이거나 undefined가 아닌 경우 (빈 배열도 정상)
       if (data !== null && data !== undefined) {
         setComments(data as Comment[]);
       } else {
-        // data가 null인 경우 빈 배열로 설정
         setComments([]);
       }
     } catch (error: unknown) {
       console.error('Error:', error);
-      // 모든 에러를 조용히 처리 (빈 배열로 설정)
       setComments([]);
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  // Load comments on mount
   useEffect(() => {
     fetchComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
-  // Subscribe to real-time updates for this product
   useEffect(() => {
     const channel = supabase
       .channel(`lp-comments-${productId}`)
@@ -158,7 +148,6 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
         return;
       }
 
-      // Update local state
       setComments(comments.map(c =>
         c.id === commentId ? { ...c, likes: c.likes + 1 } : c
       ));
@@ -183,58 +172,75 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
     return date.toLocaleDateString('ko-KR');
   };
 
+  const avatarColor = (name: string) => {
+    const colors = [
+      'bg-violet-500', 'bg-indigo-500', 'bg-sky-500',
+      'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-pink-500',
+    ];
+    const idx = name.charCodeAt(0) % colors.length;
+    return colors[idx];
+  };
+
   return (
-    <section className="space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-foreground">댓글</h2>
-        <p className="text-xs font-normal text-muted-foreground mt-1">
-          이 앨범에 대한 의견을 남겨주세요
-        </p>
+    <section className="space-y-6">
+      {/* 섹션 헤더 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-bold text-foreground tracking-tight">댓글</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">이 앨범에 대한 의견을 남겨주세요</p>
+        </div>
+        <button
+          onClick={fetchComments}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 shadow-sm disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span>{comments.length > 0 ? `${comments.length}개` : '새로고침'}</span>
+        </button>
       </div>
 
-      {/* Username Setup */}
-      {showUsernameInput && (
-        <div>
-          <div className="flex gap-2">
+      {/* 입력 카드 */}
+      <div className="rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
+        {/* 닉네임 행 */}
+        {showUsernameInput ? (
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/30">
+            <div className="w-7 h-7 rounded-full bg-muted border border-border/60 flex items-center justify-center flex-shrink-0">
+              <Pencil className="w-3 h-3 text-muted-foreground" />
+            </div>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSetUsername()}
               placeholder="닉네임을 설정해주세요"
-              className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex-1 text-sm bg-transparent text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
               maxLength={20}
             />
-            <Button
+            <button
               onClick={handleSetUsername}
-              size="sm"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 w-12 text-xs p-0"
+              disabled={!username.trim()}
+              className="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-40"
             >
               설정
-            </Button>
+            </button>
           </div>
-        </div>
-      )}
-
-      {/* Current User Info */}
-      {!showUsernameInput && (
-        <div className="px-4 py-2 bg-muted rounded-lg border border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">{username}</span>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/20">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${avatarColor(username)}`}>
+              {username[0].toUpperCase()}
+            </div>
+            <span className="flex-1 text-sm font-medium text-foreground">{username}</span>
+            <button
+              onClick={() => setShowUsernameInput(true)}
+              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 rounded-full hover:bg-primary/10"
+            >
+              변경
+            </button>
           </div>
-          <button
-            onClick={() => setShowUsernameInput(true)}
-            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-          >
-            변경
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Comment Input */}
-      <div className="space-y-2">
-        <div className="flex gap-2 items-stretch">
+        {/* 텍스트 입력 */}
+        <div className="px-4 pt-3 pb-2">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -244,84 +250,69 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
                 handleSubmitComment();
               }
             }}
-            placeholder="의견을 남겨주세요... (200자 이내)"
-            className="flex-1 px-3 py-2 text-sm border border-border rounded-lg resize-none bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder={showUsernameInput ? '닉네임을 먼저 설정해주세요' : '의견을 남겨주세요... (200자 이내)'}
+            className="w-full text-sm bg-transparent text-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none leading-relaxed"
             rows={3}
             maxLength={200}
             disabled={showUsernameInput || isLoading}
           />
-          <Button
-            onClick={handleSubmitComment}
-            size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 w-12 p-0"
-            disabled={!newComment.trim() || showUsernameInput || isLoading}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
         </div>
-        {newComment.length > 0 && (
-          <p className="text-xs font-normal text-muted-foreground text-right">
-            {newComment.length}/200
-          </p>
-        )}
+
+        {/* 하단 액션 바 */}
+        <div className="flex items-center justify-between px-4 pb-3">
+          <span className="text-xs text-muted-foreground/60">
+            {newComment.length > 0 ? `${newComment.length}/200` : ''}
+          </span>
+          <button
+            onClick={handleSubmitComment}
+            disabled={!newComment.trim() || showUsernameInput || isLoading}
+            className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Send className="w-3 h-3" />
+            <span>게시</span>
+          </button>
+        </div>
       </div>
 
-      {/* Refresh Button */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-normal text-muted-foreground">
-          댓글 {comments.length}개
-        </p>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={fetchComments}
-          disabled={isRefreshing}
-          className="h-8"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
-
-      {/* Comments List */}
+      {/* 댓글 목록 */}
       <div className="space-y-3">
         {isRefreshing && comments.length === 0 ? (
-          <div className="text-center py-12">
-            <RefreshCw className="w-12 h-12 text-muted-foreground mx-auto mb-3 animate-spin" />
-            <p className="text-sm font-normal text-muted-foreground">댓글을 불러오는 중...</p>
+          <div className="text-center py-10">
+            <RefreshCw className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3 animate-spin" />
+            <p className="text-sm text-muted-foreground/60">불러오는 중...</p>
           </div>
         ) : comments.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-sm font-normal text-muted-foreground">아직 댓글이 없습니다</p>
+          <div className="text-center py-10">
+            <p className="text-sm font-medium text-muted-foreground/60">아직 댓글이 없습니다</p>
+            <p className="text-xs text-muted-foreground/40 mt-1">첫 번째 의견을 남겨보세요</p>
           </div>
         ) : (
           comments.map((comment) => (
             <div
               key={comment.id}
-              className="bg-muted rounded-lg p-4 border border-border"
+              className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm p-4 hover:bg-card/60 transition-colors"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold">
-                    {comment.author[0].toUpperCase()}
+              <div className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 ${avatarColor(comment.author)}`}>
+                  {comment.author[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="text-sm font-semibold text-foreground truncate">{comment.author}</span>
+                    <span className="text-xs text-muted-foreground/60 flex-shrink-0">{formatTimestamp(comment.created_at)}</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{comment.author}</p>
-                    <p className="text-xs font-normal text-muted-foreground">{formatTimestamp(comment.created_at)}</p>
-                  </div>
+                  <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
+                    {comment.message}
+                  </p>
+                  <button
+                    onClick={() => handleLike(comment.id)}
+                    className={`mt-2 flex items-center gap-1 text-xs transition-colors ${comment.likes > 0 ? 'text-rose-500' : 'text-muted-foreground/50 hover:text-rose-400'}`}
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${comment.likes > 0 ? 'fill-rose-500' : ''}`} />
+                    <span>{comment.likes > 0 ? comment.likes : '좋아요'}</span>
+                  </button>
                 </div>
               </div>
-
-              <p className="text-sm font-normal text-foreground whitespace-pre-wrap break-words mb-2">
-                {comment.message}
-              </p>
-
-              <button
-                onClick={() => handleLike(comment.id)}
-                className="flex items-center gap-1 text-xs font-normal text-muted-foreground hover:text-primary transition-colors"
-              >
-                <Heart className={`w-4 h-4 ${comment.likes > 0 ? 'fill-primary text-primary' : ''}`} />
-                <span>{comment.likes > 0 ? comment.likes : '좋아요'}</span>
-              </button>
             </div>
           ))
         )}
@@ -329,4 +320,3 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
     </section>
   );
 }
-

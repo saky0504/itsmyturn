@@ -82,7 +82,7 @@ export function VinylPlayer() {
     return url;
   };
 
-  const handleDragEnd = (_event: unknown, info: any) => {
+  const handleDragEnd = (_event: unknown, info: { offset: { x: number } }) => {
     const swipeThreshold = isMobile ? 30 : 50;
     if (info.offset.x > swipeThreshold) {
       handleNextTrack();

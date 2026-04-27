@@ -5,6 +5,13 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "regions": ["icn1"],
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/sync-all",
@@ -57,6 +64,33 @@
     },
     {
       "source": "/admin.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/privacy-policy.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/terms-of-service.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/load-products.html",
       "headers": [
         {
           "key": "X-Robots-Tag",

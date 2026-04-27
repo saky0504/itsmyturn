@@ -72,7 +72,7 @@ export function ShareButton({ title, text, url, className }: ShareButtonProps) {
         aria-label="공유하기"
         className={
           className ??
-          'inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors'
+          'inline-flex items-center justify-center h-8 gap-1.5 rounded-full border border-border/60 bg-card/60 backdrop-blur-sm px-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 shadow-sm'
         }
       >
         <Share2 className="w-4 h-4" />

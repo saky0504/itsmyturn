@@ -3,31 +3,6 @@
 
 <head>
   <!-- =========================================== -->
-  <!-- Analytics & Tracking -->
-  <!-- =========================================== -->
-
-  <!-- Google Tag Manager -->
-  <script>
-    (function (w, d, s, l, i) {
-      w[l] = w[l] || []; w[l].push({
-        'gtm.start':
-          new Date().getTime(), event: 'gtm.js'
-      }); var f = d.getElementsByTagName(s)[0],
-        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
-          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
-    })(window, document, 'script', 'dataLayer', 'GTM-NCZK44T9');
-  </script>
-
-  <!-- Google Analytics (GA4) - Managed via GTM -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-80DCFGLZS7"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-80DCFGLZS7');
-  </script>
-
-  <!-- =========================================== -->
   <!-- Basic Meta Tags -->
   <!-- =========================================== -->
   <meta charset="UTF-8" />
@@ -52,9 +27,9 @@
     content="Experience a beautiful vinyl turntable interface with Free Vintage music! Plus, search the lowest LP prices across Korean record shops (LP 최저가 검색)." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://itsmyturn.app" />
-  <meta property="og:image" content="https://itsmyturn.app/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
+  <meta property="og:image" content="https://itsmyturn.app/og-image.jpg" />
+  <meta property="og:image:width" content="718" />
+  <meta property="og:image:height" content="719" />
   <meta property="og:image:alt" content="It's My Turn - Vinyl LP Turntable Music Player and Date Price Aggregator" />
   <meta property="og:site_name" content="It's My Turn" />
   <meta property="og:locale" content="ko_KR" />
@@ -66,7 +41,7 @@
   <meta name="twitter:title" content="It's My Turn - Vinyl Turntable Music Player & LP Price Search" />
   <meta name="twitter:description"
     content="Your turn to experience a beautiful vinyl turntable interface with Free Vintage music, legally!" />
-  <meta name="twitter:image" content="https://itsmyturn.app/og-image.png" />
+  <meta name="twitter:image" content="https://itsmyturn.app/og-image.jpg" />
   <meta name="twitter:image:alt" content="It's My Turn - Vinyl LP Turntable Music Player" />
 
   <!-- =========================================== -->
@@ -74,6 +49,8 @@
   <!-- =========================================== -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://nbizzgetxskphtltxnva.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://nbizzgetxskphtltxnva.supabase.co">
 </head>
 
 <body>
@@ -87,6 +64,27 @@
 
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Google Tag Manager -->
+  <script>
+    (function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-NCZK44T9');
+  </script>
+
+  <!-- Google Analytics (GA4) - Managed via GTM -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-80DCFGLZS7"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-80DCFGLZS7');
+  </script>
 </body>
 
 </html>

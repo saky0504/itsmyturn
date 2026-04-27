@@ -60,6 +60,15 @@ export function useAudioPlayer({
             }
             preloadedAudioRef.current = tempMap;
         }
+
+        // Cleanup: 이전 프리로드 인스턴스의 네트워크 연결 해제
+        return () => {
+            for (const audio of preloadedAudioRef.current.values()) {
+                audio.src = '';
+                audio.load();
+            }
+            preloadedAudioRef.current.clear();
+        };
     }, [tracks, currentTrackIndex]);
 
     // ==========================================
@@ -260,9 +269,10 @@ export function useAudioPlayer({
                 audio.play().then(() => {
                     setIsPlaying(true);
                     setIsLoading(false);
-                }).catch((err: any) => {
-                    if (err.name !== 'AbortError') {
-                        console.warn('Auto-play after track change failed:', err.message);
+                }).catch((err: unknown) => {
+                    const error = err instanceof Error ? err : new Error(String(err));
+                    if (error.name !== 'AbortError') {
+                        console.warn('Auto-play after track change failed:', error.message);
                         setIsPlaying(false);
                         setIsLoading(false);
                     }

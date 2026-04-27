@@ -15,52 +15,75 @@ export function AdminApp() {
   const [filterTrack, setFilterTrack] = useState('');
   const [activeView, setActiveView] = useState<'board' | 'market'>('board');
 
-  // Admin password - Change this!
-  const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+// 관리자 API 호출 헬퍼 — 서버에서 발급받은 토큰을 사용
+const fetchAdminApi = async (action: string, payload: any) => {
+  const token = sessionStorage.getItem('admin_token');
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
 
-// 관리자 API 호출 헬퍼
-async function fetchAdminApi(action: string, payload: any) {
-  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
   const res = await fetch('/api/admin/db', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${adminPassword}`
+      'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify({ action, payload })
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => null);
+    // 토큰 만료 시 자동 로그아웃
+    if (res.status === 401) {
+      sessionStorage.removeItem('admin_auth');
+      sessionStorage.removeItem('admin_token');
+      window.location.reload();
+    }
     throw new Error(errorData?.error || `API Error: ${res.status}`);
   }
   
   return res.json();
-}
+};
 
-  // Check if already authenticated
+  // Check if already authenticated (토큰이 유효한지도 확인)
   useEffect(() => {
     const auth = sessionStorage.getItem('admin_auth');
-    if (auth === 'true') {
+    const token = sessionStorage.getItem('admin_token');
+    if (auth === 'true' && token) {
       setIsAuthenticated(true);
       fetchComments();
     }
   }, []);
 
-  const handleAuth = () => {
-    if (password === ADMIN_PASSWORD) {
+  const handleAuth = async () => {
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || 'Authentication failed');
+        return;
+      }
+
+      const data = await res.json();
       setIsAuthenticated(true);
       sessionStorage.setItem('admin_auth', 'true');
+      sessionStorage.setItem('admin_token', data.token);
       toast.success('Authenticated successfully');
       fetchComments();
-    } else {
-      toast.error('Invalid password');
+    } catch (error) {
+      toast.error('Network error. Please try again.');
     }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     sessionStorage.removeItem('admin_auth');
+    sessionStorage.removeItem('admin_token');
     setPassword('');
     toast.info('Logged out');
   };
@@ -214,8 +237,8 @@ async function fetchAdminApi(action: string, payload: any) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">🛡️ Admin Dashboard</h1>
-              <p className="text-sm text-gray-600">Community Board Management</p>
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900">🛡️ Admin</h1>
+              <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Community Board Management</p>
             </div>
             <Button
               onClick={handleLogout}

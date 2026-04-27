@@ -27,7 +27,7 @@ export default async function handler(
   }
 
   // 모든 응답에 CORS 헤더 추가하는 헬퍼
-  const jsonResponse = (status: number, data: any) => {
+  const jsonResponse = (status: number, data: Record<string, unknown>) => {
     return response.status(status)
       .setHeader('Access-Control-Allow-Origin', '*')
       .setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -39,40 +39,20 @@ export default async function handler(
     // Vercel Serverless Function 환경 변수 가져오기
     // 🚨 중요: 기존 SUPABASE_URL이 잘못된 옛날 프로젝트 DB를 가리키고 있어서 VITE_ 변수를 최우선으로 선언합니다.
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      // 모든 환경 변수 확인 (디버깅용)
-      const allEnvKeys = Object.keys(process.env).sort();
-      const relevantKeys = allEnvKeys.filter(k =>
-        k.includes('SUPABASE') ||
-        k.includes('NAVER') ||
-        k.includes('VITE')
-      );
-
-      const envInfo = {
+      // 서버 로그에만 디버깅 정보 기록 (클라이언트에 노출하지 않음)
+      console.error('[가격 검색 API] ❌ Supabase 환경 변수 없음:', {
         hasUrl: !!process.env.SUPABASE_URL,
         hasViteUrl: !!process.env.VITE_SUPABASE_URL,
         hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
         hasViteKey: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-        relevantEnvKeys: relevantKeys,
-        supabaseUrlValue: supabaseUrl ? '***설정됨***' : '없음',
-        supabaseKeyValue: supabaseKey ? '***설정됨***' : '없음'
-      };
+      });
 
-      console.error('[가격 검색 API] ❌ Supabase 환경 변수 없음:', JSON.stringify(envInfo, null, 2));
-
-      // 프로덕션에서도 디버깅 정보 반환 (환경 변수 값은 제외)
       return jsonResponse(500, {
         error: 'Supabase credentials not configured',
-        hint: 'Vercel 대시보드 > Settings > Environment Variables에서 다음을 설정하세요: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET',
-        debug: {
-          hasUrl: !!process.env.SUPABASE_URL,
-          hasViteUrl: !!process.env.VITE_SUPABASE_URL,
-          hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-          hasViteKey: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-          foundEnvKeys: relevantKeys
-        }
+        hint: 'Vercel 대시보드 > Settings > Environment Variables에서 설정이 필요합니다.',
       });
     }
 
@@ -207,17 +187,18 @@ export default async function handler(
       if (offers.length === 0) {
         console.log(`[가격 검색 API] ⚠️ 결과 없음 - 검색 쿼리나 필터링 문제 가능성`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error(`[가격 검색 API] ❌ 검색 오류:`, {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
+        message: err.message,
+        stack: err.stack,
+        name: err.name,
         identifier,
       });
       return jsonResponse(500, {
         error: 'Price search failed',
-        message: error.message || 'Unknown error during price search',
-        errorName: error.name,
+        message: err.message || 'Unknown error during price search',
+        errorName: err.name,
         identifier,
       });
     }
@@ -302,11 +283,12 @@ export default async function handler(
       productId: productId || null,
     });
 
-  } catch (error: any) {
-    console.error('[가격 검색 오류]', error);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('[가격 검색 오류]', err);
     return jsonResponse(500, {
-      error: error.message || 'Unknown error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      error: err.message || 'Unknown error',
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     });
   }
 }
@@ -378,7 +360,7 @@ function tokenize(str: string): string[] {
   return str.toLowerCase().replace(/[^a-z0-9가-힣]/g, ' ').split(/\s+/).filter(w => w.length > 1);
 }
 
-function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): boolean {
+function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipLpKeyword = false): boolean {
   if (!foundTitle) return false;
 
   const lowerTitle = foundTitle.toLowerCase();
@@ -432,7 +414,11 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
   if (albumTokens.length > 0) {
     const requiredAlbumMatches = Math.max(1, Math.floor(albumTokens.length * 0.4));
     if (albumMatchCount < requiredAlbumMatches) {
-      return false;
+      // 띄어쓰기 무시 fallback: "환상의나라" vs "환상의 나라"
+      const squishAlbum = albumTokens.join('');
+      const squishTitle = tokenize(lowerTitle).join('');
+      if (!squishTitle.includes(squishAlbum)) return false;
+      albumMatchCount = albumTokens.length;
     }
   }
 
@@ -445,11 +431,11 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     return false;
   }
 
-  // 최후의 보루: 타이틀에 반드시 lp, vinyl, 바이닐 중 하나가 포함되어야 함 (단어의 일부여도 됨)
-  // CD가 섞여 들어오는 것을 막기 위한 강력한 필터
-  const hasLpKeyword = ['lp', 'vinyl', '바이닐'].some(k => lowerTitle.includes(k));
-  if (!hasLpKeyword) {
-    return false;
+  // 타이틀에 LP/vinyl 관련 키워드가 하나라도 있어야 통과 (CD 등 필터링)
+  // skipLpKeyword: 번개장터처럼 쿼리에 이미 LP가 포함된 경우 면제
+  if (!skipLpKeyword) {
+    const hasLpKeyword = ['lp', 'vinyl', '바이닐'].some(k => lowerTitle.includes(k));
+    if (!hasLpKeyword) return false;
   }
 
   // Find extra un-matched tokens to penalize completely different albums in a franchise
@@ -459,7 +445,8 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier): bool
     '투명컬러', '2lp', '3lp', '180g', '140g', '레코드', 'record', 'records', 'vol', 'pt', 'part', 'the', 'of', 'and', 'in', 'a', 'to', 'for', 'with', 'on', 'at', 'by', 'original', 'motion', 'picture', 'score',
     '영화', '미국', '발송', '해외', '배송', '정품', '미개봉', '새상품', 'music', '뮤직', '앨범', 'album', 'sealed', 'new', 'mint',
     '오리지널', 'composer', '작곡', '지휘',
-    'kpop', 'k-pop', 'signed', 'hand', 'd2c', 'in'
+    'kpop', 'k-pop', 'signed', 'hand', 'd2c', 'in',
+    '초판', '중고', '미개봉'
   ]);
 
   let extraSubstantiveCount = 0;
@@ -495,7 +482,7 @@ function parseStatusFlags(title: string): { badge?: 'used' | 'out-of-print' } {
 }
 
 function isValidPrice(price: number): boolean {
-  return price >= 15000 && price <= 500000;
+  return price >= 15000;
 }
 
 async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOffer[]> {
@@ -567,9 +554,9 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
   const aladinTtbKey = process.env.ALADIN_TTB_KEY;
   if (!aladinTtbKey) return [];
 
-  const searchAladin = async (query: string) => {
+  const searchAladin = async (query: string, target: 'Music' | 'Used' = 'Music') => {
     try {
-      const url = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${aladinTtbKey}&QueryType=Keyword&Query=${encodeURIComponent(query)}&MaxResults=5&start=1&SearchTarget=Music&Output=JS&Version=20131101`;
+      const url = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${aladinTtbKey}&QueryType=Keyword&Query=${encodeURIComponent(query)}&MaxResults=5&start=1&SearchTarget=${target}&Output=JS&Version=20131101`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -601,17 +588,25 @@ async function fetchAladinPrice(identifier: ProductIdentifier): Promise<VendorOf
   };
 
   const cleanEan = identifier.ean ? identifier.ean.replace(/[^0-9]/g, '') : '';
-  let offers: VendorOffer[] = [];
+  const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
+
+  let newOffers: VendorOffer[] = [];
   if (cleanEan) {
-    offers = await searchAladin(cleanEan);
+    newOffers = await searchAladin(cleanEan, 'Music');
+  }
+  if (newOffers.length === 0) {
+    newOffers = await searchAladin(keywordQuery, 'Music');
   }
 
-  if (offers.length === 0) {
-    const keywordQuery = `${identifier.artist} ${identifier.title} LP`;
-    offers = await searchAladin(keywordQuery);
+  let usedOffers: VendorOffer[] = [];
+  if (cleanEan) {
+    usedOffers = await searchAladin(cleanEan, 'Used');
+  }
+  if (usedOffers.length === 0) {
+    usedOffers = await searchAladin(keywordQuery, 'Used');
   }
 
-  return offers;
+  return [...newOffers, ...usedOffers];
 }
 
 async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOffer[]> {
@@ -802,6 +797,121 @@ async function fetchGimbabPrice(identifier: ProductIdentifier): Promise<VendorOf
   return await searchGimbab(keywordQuery);
 }
 
+async function fetchBunjangPrice(identifier: ProductIdentifier): Promise<VendorOffer[]> {
+  try {
+    const query = `${identifier.artist} ${identifier.title} LP`;
+    const url = `https://api.bunjang.co.kr/api/1/find_v2.json?q=${encodeURIComponent(query)}&order=score&page=0&n=30&stat_device=w&stat_category_required=1&req_ref=search&version=5`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Origin': 'https://m.bunjang.co.kr',
+        'Referer': 'https://m.bunjang.co.kr/',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items: any[] = data.list || [];
+
+    // 1단계: 검색 결과 필터링
+    const validItems: any[] = [];
+    for (const item of items) {
+      const title = item.name || '';
+      const price = parseInt(item.price, 10);
+      if (!isValidPrice(price)) continue;
+      if (item.status !== '0') continue; // 0 = 판매중
+      if (['구매', '구함', '구합', '삽니다', '구인', '구해요'].some(k => title.includes(k))) continue;
+      if (!isValidLpMatch(title, identifier, true)) continue;
+      validItems.push(item);
+      if (validItems.length >= 8) break; // 상위 8개만 상세 조회
+    }
+
+    // 2단계: 상세 API로 상점명 + 배송비 가져오기 (병렬, 최대 8개)
+    const detailHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Origin': 'https://m.bunjang.co.kr',
+      'Referer': 'https://m.bunjang.co.kr/',
+    };
+
+    const offers: VendorOffer[] = [];
+
+    const detailPromises = validItems.map(async (item) => {
+      const price = parseInt(item.price, 10);
+      let shopName = '번개장터';
+      let shippingFee = 0;
+      let shippingText = item.free_shipping ? '무료배송' : '택배';
+      let condition: 'used' | null = 'used'; // 기본값: 중고
+
+      try {
+        const detailCtrl = new AbortController();
+        const detailTimeout = setTimeout(() => detailCtrl.abort(), 4000);
+        const detailRes = await fetch(
+          `https://api.bunjang.co.kr/api/pms/v3/products-detail/${item.pid}?viewerUid=-1`,
+          { headers: detailHeaders, signal: detailCtrl.signal }
+        );
+        clearTimeout(detailTimeout);
+
+        if (detailRes.ok) {
+          const detail = await detailRes.json();
+          const d = detail.data;
+
+          // 상점명
+          if (d?.shop?.name) {
+            shopName = d.shop.name;
+          }
+
+          // 배송비
+          const trade = d?.product?.trade;
+          if (trade) {
+            if (trade.freeShipping) {
+              shippingFee = 0;
+              shippingText = '무료배송';
+            } else if (trade.shippingSpecs?.DEFAULT?.fee) {
+              shippingFee = parseInt(trade.shippingSpecs.DEFAULT.fee, 10) || 0;
+              shippingText = '택배';
+            }
+          }
+
+          // 상품 상태 (NEW이면 중고 뱃지 제거)
+          if (d?.product?.condition === 'NEW') {
+            condition = null;
+          }
+        }
+      } catch {
+        // 상세 조회 실패 시 검색 결과의 기본값 사용
+      }
+
+      return {
+        vendorName: shopName,
+        channelId: 'bunjang' as const,
+        basePrice: price,
+        shippingFee,
+        shippingPolicy: shippingText,
+        url: `https://bunjang.co.kr/products/${item.pid}`,
+        inStock: true,
+        ...(condition && { badge: condition }),
+      };
+    });
+
+    const results = await Promise.allSettled(detailPromises);
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        offers.push(result.value as VendorOffer);
+      }
+    }
+
+    return offers;
+  } catch (e) { return []; }
+}
+
 export async function collectPricesForProduct(identifier: ProductIdentifier): Promise<VendorOffer[]> {
   const { vendor } = identifier;
   const offers: VendorOffer[] = [];
@@ -816,13 +926,16 @@ export async function collectPricesForProduct(identifier: ProductIdentifier): Pr
     return await fetchKyoboPrice(identifier);
   } else if (vendor === 'gimbab') {
     return await fetchGimbabPrice(identifier);
+  } else if (vendor === 'bunjang') {
+    return await fetchBunjangPrice(identifier);
   } else {
     const results = await Promise.allSettled([
       fetchNaverPrice(identifier),
       fetchAladinPrice(identifier),
       fetchYes24Price(identifier),
       fetchKyoboPrice(identifier),
-      fetchGimbabPrice(identifier)
+      fetchGimbabPrice(identifier),
+      fetchBunjangPrice(identifier),
     ]);
     for (const res of results) {
       if (res.status === 'fulfilled') offers.push(...res.value);

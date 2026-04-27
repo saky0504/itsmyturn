@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { MarketHeader } from '../../components/market/MarketHeader';
@@ -25,6 +26,30 @@ export function LpProductDetail() {
   const { searchPrices, isLoading: isSearchingPrice } = useOnDemandPriceSearch();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const hasAutoSearched = useRef(false); // 자동 검색 중복 방지
+
+  const handleManualRefresh = async () => {
+    if (!product || isRefreshing || isSearchingPrice) return;
+    setIsRefreshing(true);
+    const vendors = ['naver', 'aladin', 'yes24', 'kyobo', 'gimbab', 'bunjang'];
+    for (const vendor of vendors) {
+      try {
+        await searchPrices({
+          productId: product.id,
+          artist: product.artist,
+          title: product.title,
+          ean: product.barcode ?? undefined,
+          discogsId: product.discogsId ?? undefined,
+          forceRefresh: true,
+          vendor,
+        });
+        await refetch();
+      } catch (err) {
+        console.error(`[${vendor}] 가격 재검색 실패:`, err);
+      }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    setIsRefreshing(false);
+  };
 
   const sortedOffers = useMemo(() => {
     if (!product) return [];
@@ -72,7 +97,7 @@ export function LpProductDetail() {
       hasAutoSearched.current = true;
       setIsRefreshing(true);
 
-      const vendors = ['naver', 'aladin', 'yes24', 'kyobo', 'gimbab'];
+      const vendors = ['naver', 'aladin', 'yes24', 'kyobo', 'gimbab', 'bunjang'];
 
       const fetchSequentially = async () => {
         for (const vendor of vendors) {
@@ -177,10 +202,9 @@ export function LpProductDetail() {
                 navigate('/market');
               }
             }}
-            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
+            className="inline-flex items-center justify-center h-8 rounded-full border border-border/60 bg-card/60 backdrop-blur-sm px-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 shadow-sm"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>마켓으로 돌아가기</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
           </button>
           <ShareButton
             title={metaTitle}
@@ -200,6 +224,7 @@ export function LpProductDetail() {
                   alt={product.title}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                   loading="eager"
+                  fetchPriority="high"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     if (target.src !== `${window.location.origin}/images/DJ_duic.jpg`) {
@@ -293,7 +318,14 @@ export function LpProductDetail() {
                 )}
               </h2>
             </div>
-
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing || isSearchingPrice}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || isSearchingPrice ? 'animate-spin' : ''}`} />
+              새로고침
+            </button>
           </div>
 
           {sortedOffers.length > 0 ? (
@@ -306,7 +338,7 @@ export function LpProductDetail() {
                       <th className="px-6 py-4 text-left">판매처</th>
                       <th className="px-6 py-4 text-right">기준가</th>
                       <th className="px-6 py-4 text-left">배송정책</th>
-                      <th className="px-6 py-4 text-right">최종 혜택가</th>
+                      <th className="px-6 py-4 text-right">가격</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border bg-card">
@@ -316,8 +348,9 @@ export function LpProductDetail() {
 
                       // 네이버 쇼핑인 경우 처리
                       const isNaver = offer.channelId === 'naver' || offer.channelId === 'naver-api' || offer.vendorName.includes('네이버');
+                      const isBunjang = offer.channelId === 'bunjang';
                       const displayVendor = isNaver && offer.vendorName === '네이버 쇼핑' ? '상세조건 확인' : offer.vendorName;
-                      const displaySubName = isNaver ? 'Naver Smartstore' : null;
+                      const displaySubName = isNaver ? 'Naver Smartstore' : isBunjang ? '번개장터' : null;
 
                       return (
                         <tr
@@ -363,13 +396,13 @@ export function LpProductDetail() {
                           <td className="px-6 py-4">
                             <div className="flex flex-col gap-1">
                               <div className="text-xs text-foreground">
-                                {offer.shippingFee
+                                {offer.shippingFee > 0
                                   ? `배송비 ${formatCurrency(offer.shippingFee)}`
-                                  : isNaver
+                                  : isNaver && !offer.shippingFee
                                     ? '배송비 확인'
                                     : '무료배송'}
                               </div>
-                              {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && (
+                              {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && !offer.shippingPolicy.startsWith('배송비') && offer.shippingPolicy !== '택배' && (
                                 <div className="text-[11px] text-muted-foreground max-w-[200px] truncate" title={offer.shippingPolicy}>
                                   {offer.shippingPolicy}
                                 </div>
@@ -395,8 +428,9 @@ export function LpProductDetail() {
 
                   // 네이버 쇼핑인 경우 처리
                   const isNaver = offer.channelId === 'naver' || offer.channelId === 'naver-api' || offer.vendorName.includes('네이버');
+                  const isBunjang = offer.channelId === 'bunjang';
                   const displayVendor = isNaver && offer.vendorName === '네이버 쇼핑' ? '상세조건 확인' : offer.vendorName;
-                  const displaySubName = isNaver ? 'Naver Smartstore' : null;
+                  const displaySubName = isNaver ? 'Naver Smartstore' : isBunjang ? '번개장터' : null;
 
                   return (
                     <div
@@ -440,12 +474,12 @@ export function LpProductDetail() {
                               <span>기준가 {formatCurrency(offer.basePrice)}</span>
                               <span>배송비 {formatCurrency(offer.shippingFee)}</span>
                             </>
-                          ) : isNaver ? (
+                          ) : isNaver && !offer.shippingFee ? (
                             <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium text-[10px]">배송비 확인</span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded bg-muted/60 text-foreground/70 font-medium">무료배송</span>
                           )}
-                          {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && offer.shippingPolicy !== '상세조건 확인' && (
+                          {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && offer.shippingPolicy !== '상세조건 확인' && !offer.shippingPolicy.startsWith('배송비') && offer.shippingPolicy !== '택배' && (
                             <span className="text-[10px] max-w-[120px] truncate" title={offer.shippingPolicy}>{offer.shippingPolicy}</span>
                           )}
                         </div>

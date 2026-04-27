@@ -23,12 +23,46 @@ export default async function handler(
     return response.status(200).end();
   }
 
-  // 2. Authentication Check
+  // 2. Authentication Check — 서명된 토큰 검증
   const authHeader = request.headers.authorization;
-  const adminPassword = process.env.VITE_ADMIN_PASSWORD || 'admin123';
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return response.status(401).json({ error: 'Unauthorized: Missing token' });
+  }
 
-  if (!authHeader || authHeader !== `Bearer ${adminPassword}`) {
-    return response.status(401).json({ error: 'Unauthorized: Invalid Admin Password' });
+  const token = authHeader.slice(7); // 'Bearer ' 제거
+  const adminPassword = process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    console.error('[Admin DB] ADMIN_PASSWORD 환경변수가 설정되지 않음');
+    return response.status(500).json({ error: 'Server configuration error' });
+  }
+
+  // 토큰 검증
+  const tokenParts = token.split('.');
+  if (tokenParts.length !== 2) {
+    return response.status(401).json({ error: 'Unauthorized: Invalid token format' });
+  }
+
+  try {
+    const payloadStr = Buffer.from(tokenParts[0], 'base64').toString();
+    const encoder = new TextEncoder();
+    const data = encoder.encode(payloadStr + ':' + adminPassword);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const expectedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    if (tokenParts[1] !== expectedHash) {
+      return response.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+
+    // 토큰 만료 검증 (24시간)
+    const parts = payloadStr.split(':');
+    const timestamp = parseInt(parts[1], 10);
+    if (isNaN(timestamp) || Date.now() - timestamp > 24 * 60 * 60 * 1000) {
+      return response.status(401).json({ error: 'Unauthorized: Token expired' });
+    }
+  } catch {
+    return response.status(401).json({ error: 'Unauthorized: Token verification failed' });
   }
 
   // 3. Request Validation
@@ -149,11 +183,12 @@ export default async function handler(
 
     return response.status(200).json({ success: true, data: result.data });
 
-  } catch (error: any) {
-    console.error('Admin API Error:', error);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Admin API Error:', err);
     return response.status(500).json({ 
       success: false, 
-      error: error.message || String(error) 
+      error: err.message || String(err) 
     });
   }
 }

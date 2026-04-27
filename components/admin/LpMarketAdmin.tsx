@@ -184,11 +184,15 @@ function useScrollToTop() {
   return { visible, scrollTop };
 }
 
+const PAGE_SIZE = 50;
+
 // ── 메인 컴포넌트 ────────────────────────────────
 export function LpMarketAdmin() {
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // 편집 모달
   const [modalOpen, setModalOpen] = useState(false);
@@ -223,35 +227,28 @@ export function LpMarketAdmin() {
   const topRef = useRef<HTMLDivElement>(null);
 
   // ── 데이터 로드 ──────────────────────────────
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (page: number, query: string) => {
     setIsLoading(true);
     try {
-      let allData: DbProduct[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
 
-      while (hasMore) {
-        const { data, error } = await adminSupabase
-          .from('lp_products')
-          .select('*, offers:lp_offers(*)')
-          .order('created_at', { ascending: false })
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+      let q = adminSupabase
+        .from('lp_products')
+        .select('*, offers:lp_offers(*)', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          allData = [...allData, ...data];
-          page++;
-          if (data.length < pageSize) {
-            hasMore = false;
-          }
-        } else {
-          hasMore = false;
-        }
+      if (query.trim()) {
+        q = q.or(
+          `title.ilike.%${query.trim()}%,artist.ilike.%${query.trim()}%,ean.ilike.%${query.trim()}%,discogs_id.ilike.%${query.trim()}%`
+        );
       }
-      
-      setProducts(allData);
+
+      const { data, error, count } = await q;
+      if (error) throw error;
+      setProducts((data as DbProduct[]) ?? []);
+      setTotalCount(count ?? 0);
     } catch {
       toast.error('상품 목록을 불러오지 못했습니다.');
     } finally {
@@ -259,7 +256,16 @@ export function LpMarketAdmin() {
     }
   }, []);
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  // 검색어 변경 시 1페이지로 리셋
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => fetchProducts(1, value), 300);
+  };
+
+  useEffect(() => { fetchProducts(1, ''); }, [fetchProducts]);
 
   // ── Discogs 자동 가져오기 ─────────────────────
   const handleFetchDiscogs = async () => {
@@ -360,7 +366,7 @@ export function LpMarketAdmin() {
         }
       }
 
-      await fetchProducts();
+      await fetchProducts(currentPage, searchQuery);
       setModalOpen(false);
     } catch (err) {
       toast.error(`저장 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
@@ -378,7 +384,7 @@ export function LpMarketAdmin() {
       await fetchAdminApi('deleteProduct', { id: draft.id });
       toast.success('삭제되었습니다.');
       setModalOpen(false);
-      await fetchProducts();
+      await fetchProducts(currentPage, searchQuery);
     } catch (err) {
       toast.error(`삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -489,7 +495,7 @@ export function LpMarketAdmin() {
       toast.success(`${secondaries.length}개 상품이 합쳐졌습니다.`);
       setMergeModalOpen(false);
       setSelectedIds(new Set());
-      await fetchProducts();
+      await fetchProducts(currentPage, searchQuery);
     } catch (err) {
       toast.error(`합치기 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     } finally {
@@ -517,12 +523,14 @@ export function LpMarketAdmin() {
       return { ...prev, offers };
     });
 
-  const filtered = products.filter((p) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return p.title?.toLowerCase().includes(q) || p.artist?.toLowerCase().includes(q)
-      || p.ean?.toLowerCase().includes(q) || p.discogs_id?.toLowerCase().includes(q);
-  });
+  const filtered = products; // 서버사이드 검색/페이지네이션
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    fetchProducts(page, searchQuery);
+    topRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
     <>
@@ -543,7 +551,7 @@ export function LpMarketAdmin() {
             {selectedIds.size > 0 && (
               <Button variant="outline" className="rounded-2xl text-slate-500" onClick={() => setSelectedIds(new Set())}>선택 해제</Button>
             )}
-            <Button variant="outline" className="rounded-2xl border-slate-200" onClick={fetchProducts} disabled={isLoading}>
+            <Button variant="outline" className="rounded-2xl border-slate-200" onClick={() => fetchProducts(currentPage, searchQuery)} disabled={isLoading}>
               <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
               {isLoading ? '로딩 중' : '새로고침'}
             </Button>
@@ -557,7 +565,7 @@ export function LpMarketAdmin() {
           type="text"
           placeholder="제목 / 아티스트 / EAN / Discogs ID 검색..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
         />
 
@@ -568,7 +576,7 @@ export function LpMarketAdmin() {
           </div>
         )}
 
-        <p className="text-xs text-slate-400">{filtered.length}개 상품</p>
+        <p className="text-xs text-slate-400">전체 {totalCount.toLocaleString()}개 · 페이지 {currentPage}/{totalPages || 1}</p>
 
         <div className="rounded-2xl border border-slate-100 overflow-hidden">
           <table className="w-full text-sm">
@@ -636,21 +644,66 @@ export function LpMarketAdmin() {
             </tbody>
           </table>
         </div>
+
+        {/* ── 페이지네이션 ── */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1 pt-2 flex-wrap">
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1 || isLoading}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ‹ 이전
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+              .reduce<(number | '...')[]>((acc, p, i, arr) => {
+                if (i > 0 && typeof arr[i - 1] === 'number' && (p as number) - (arr[i - 1] as number) > 1) acc.push('...');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${i}`} className="px-2 text-slate-400 text-sm">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => goToPage(p as number)}
+                    disabled={isLoading}
+                    className={`min-w-[36px] px-3 py-1.5 rounded-xl border text-sm transition-colors ${
+                      currentPage === p
+                        ? 'bg-slate-900 text-white border-slate-900 font-medium'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages || isLoading}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              다음 ›
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 플로팅 버튼 ── */}
       {showScrollTop && (
-        <div className="fixed bottom-8 right-8 z-40 flex items-center gap-2" style={{ animation: 'fadeInUp 0.2s ease' }}>
+        <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-40 flex items-center gap-2 pb-safe" style={{ animation: 'fadeInUp 0.2s ease' }}>
           {selectedIds.size >= 2 && (
             <button onClick={openMergeModal}
-              className="flex items-center gap-1.5 h-12 px-4 rounded-full bg-amber-500 text-white shadow-lg hover:bg-amber-400 transition-all text-sm font-medium">
-              <Combine className="w-4 h-4 shrink-0" />{selectedIds.size}개 합치기
+              className="flex items-center gap-1.5 h-10 sm:h-12 px-3 sm:px-4 rounded-full bg-amber-500 text-white shadow-lg hover:bg-amber-400 transition-all text-sm font-medium">
+              <Combine className="w-4 h-4 shrink-0" /><span className="hidden sm:inline">{selectedIds.size}개 </span>합치기
             </button>
           )}
           <button onClick={scrollTop}
-            className="w-12 h-12 rounded-full bg-slate-900 text-white shadow-lg hover:bg-slate-700 transition-all flex items-center justify-center"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-900 text-white shadow-lg hover:bg-slate-700 transition-all flex items-center justify-center"
             title="맨 위로">
-            <ArrowUp className="w-5 h-5" />
+            <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       )}
@@ -659,20 +712,22 @@ export function LpMarketAdmin() {
       {mergeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[90vw] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">앨범 세부 항목 병합</h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  각 필드별로 남길 원본 데이터를 선택하세요.<br/>
-                  저장 시 <strong className="text-indigo-600">ID가 유지될 기준 상품</strong>을 최상단에서 선택해야 합니다.
-                </p>
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">앨범 세부 항목 병합</h3>
+                  <p className="text-xs text-slate-500 mt-1 hidden sm:block">
+                    각 필드별로 남길 원본 데이터를 선택하세요.<br/>
+                    저장 시 <strong className="text-indigo-600">ID가 유지될 기준 상품</strong>을 최상단에서 선택해야 합니다.
+                  </p>
+                </div>
+                <button onClick={() => setMergeModalOpen(false)} className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 shrink-0"><X className="w-5 h-5" /></button>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" className="rounded-2xl" onClick={() => setMergeModalOpen(false)}>취소</Button>
-                <Button className="rounded-2xl bg-amber-600 text-white hover:bg-amber-700" onClick={handleMerge} disabled={isMerging || !mergeSelections.baseId}>
-                  {isMerging ? '병합 진행 중...' : `선택한 내용으로 병합 (${selectedProducts.length}개)`}
+              <div className="flex items-center gap-2 mt-3">
+                <Button variant="outline" size="sm" className="rounded-2xl" onClick={() => setMergeModalOpen(false)}>취소</Button>
+                <Button size="sm" className="rounded-2xl bg-amber-600 text-white hover:bg-amber-700 flex-1 sm:flex-none" onClick={handleMerge} disabled={isMerging || !mergeSelections.baseId}>
+                  {isMerging ? '병합 중...' : <><span className="hidden sm:inline">선택한 내용으로 </span>병합 ({selectedProducts.length}개)</>}
                 </Button>
-                <button onClick={() => setMergeModalOpen(false)} className="p-2 -mr-2 rounded-xl hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
               </div>
             </div>
 
@@ -681,9 +736,9 @@ export function LpMarketAdmin() {
                 <table className="w-full text-sm text-left">
                   <thead className="bg-slate-100/50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="px-4 py-3 font-semibold w-[140px] border-r border-slate-200 bg-slate-100/80 sticky left-0 z-10">필드 항목</th>
+                      <th className="px-3 py-3 font-semibold w-[90px] sm:w-[140px] border-r border-slate-200 bg-slate-100/80 sticky left-0 z-10">필드 항목</th>
                       {selectedProducts.map((p, i) => (
-                        <th key={p.id} className="px-4 py-4 font-semibold min-w-[250px] align-top relative">
+                        <th key={p.id} className="px-3 sm:px-4 py-3 sm:py-4 font-semibold min-w-[160px] sm:min-w-[220px] align-top relative">
                           <div className="flex flex-col gap-2">
                             <span className="text-xs text-slate-400 font-mono">상품 #{i + 1}</span>
                             <Button
@@ -708,7 +763,7 @@ export function LpMarketAdmin() {
                   <tbody className="divide-y divide-slate-100">
                     {/* 기준 ID 선택 행 */}
                     <tr className="bg-amber-50/30">
-                      <td className="px-4 py-4 border-r border-slate-200 bg-amber-50/50 sticky left-0 z-10 w-[140px]">
+                      <td className="px-3 py-3 border-r border-slate-200 bg-amber-50/50 sticky left-0 z-10 w-[90px] sm:w-[140px]">
                         <div className="font-semibold text-amber-900">기준 상품 (ID 유지)</div>
                         <div className="text-[10px] text-amber-700/70 mt-1 leading-tight">이 상품의 ID가 유지되고 판매처가 합산됩니다.</div>
                       </td>
@@ -751,7 +806,7 @@ export function LpMarketAdmin() {
                       { key: 'styles', label: '스타일', renderer: (p: DbProduct) => p.styles?.join(', ') || <span className="text-slate-400 italic">없음</span> },
                     ] as const).map(({ key, label, renderer }) => (
                       <tr key={key}>
-                        <td className="px-4 py-4 border-r border-slate-200 bg-slate-50/80 sticky left-0 z-10 w-[140px]">
+                        <td className="px-3 py-3 border-r border-slate-200 bg-slate-50/80 sticky left-0 z-10 w-[90px] sm:w-[140px]">
                           <span className="font-medium text-slate-700">{label}</span>
                         </td>
                         {selectedProducts.map((p) => {
@@ -776,7 +831,7 @@ export function LpMarketAdmin() {
                     
                     {/* 판매처 합산 안내 행 */}
                      <tr className="bg-slate-50">
-                      <td className="px-4 py-4 border-r border-slate-200 font-medium text-slate-700 sticky left-0 z-10">판매처(Offers)</td>
+                      <td className="px-3 py-3 border-r border-slate-200 font-medium text-slate-700 sticky left-0 z-10 w-[90px] sm:w-[140px] text-xs sm:text-sm">판매처</td>
                       <td colSpan={selectedProducts.length} className="px-4 py-3 text-slate-500 text-sm">
                         선택된 모든 상품의 판매처 <strong className="text-green-600 font-semibold">{selectedProducts.reduce((sum, p) => sum + (p.offers?.length || 0), 0)}개</strong>가 기준 상품 목록으로 모두 통합됩니다. (이 항목은 선택 방식이 아니며 모두 합쳐집니다.)
                       </td>
@@ -794,25 +849,27 @@ export function LpMarketAdmin() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* 헤더 */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">
-                  {isNewProduct ? '새 상품 추가' : draft.title || '상품 편집'}
-                </h3>
-                {!isNewProduct && draft.discogs_id && (
-                  <p className="text-xs text-slate-400 font-mono">Discogs: {draft.discogs_id}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {!isNewProduct && draft.id && (
-                  <Button variant="outline" size="sm" className="rounded-2xl text-rose-600 border-rose-200 hover:bg-rose-50" onClick={handleDelete}>삭제</Button>
-                )}
-                <Button size="sm" className="rounded-2xl bg-slate-900 text-white hover:bg-slate-800" onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? '저장 중...' : '저장'}
-                </Button>
-                <button onClick={() => setModalOpen(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500">
-                  <X className="w-5 h-5" />
-                </button>
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
+                    {isNewProduct ? '새 상품 추가' : draft.title || '상품 편집'}
+                  </h3>
+                  {!isNewProduct && draft.discogs_id && (
+                    <p className="text-xs text-slate-400 font-mono truncate">Discogs: {draft.discogs_id}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!isNewProduct && draft.id && (
+                    <Button variant="outline" size="sm" className="rounded-2xl text-rose-600 border-rose-200 hover:bg-rose-50 px-2.5" onClick={handleDelete}>삭제</Button>
+                  )}
+                  <Button size="sm" className="rounded-2xl bg-slate-900 text-white hover:bg-slate-800 px-3" onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? '저장 중...' : '저장'}
+                  </Button>
+                  <button onClick={() => setModalOpen(false)} className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
 

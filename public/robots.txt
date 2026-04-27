@@ -1,6 +1,17 @@
 User-agent: *
 Allow: /
+Allow: /market
+Allow: /market/list
+Allow: /market/lp/
+
+# 검색엔진에서 제외할 페이지 (footer 법적 문서, 관리자, 유틸리티)
 Disallow: /admin.html
+Disallow: /admin
+Disallow: /privacy-policy.html
+Disallow: /terms-of-service.html
+Disallow: /load-products.html
+Disallow: /test-price-search.html
+Disallow: /api/
 
 # Sitemap
 Sitemap: https://itsmyturn.app/sitemap.xml

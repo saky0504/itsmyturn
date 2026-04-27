@@ -117,7 +117,8 @@ function ProductCard({ product, variant = 'default' }: ProductCardProps) {
             src={product.cover || '/images/DJ_duic.jpg'}
             alt={product.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 mix-blend-multiply"
-            loading="lazy"
+            loading="eager"
+            fetchPriority="high"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               if (target.src !== `${window.location.origin}/images/DJ_duic.jpg`) {
