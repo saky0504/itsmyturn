@@ -398,6 +398,10 @@ export function LpProductDetail() {
                               <span className="text-sm text-foreground font-medium">
                                 {formatCurrency(offer.shippingFee)}
                               </span>
+                            ) : offer.shippingPolicy === '별도' ? (
+                              <span className="text-sm text-muted-foreground">
+                                별도
+                              </span>
                             ) : (
                               <span className="text-sm text-foreground font-medium">
                                 무료배송
@@ -469,6 +473,8 @@ export function LpProductDetail() {
                               <span>기준가 {formatCurrency(offer.basePrice)}</span>
                               <span>배송비 {formatCurrency(offer.shippingFee)}</span>
                             </>
+                          ) : offer.shippingPolicy === '별도' ? (
+                            <span className="text-[10px] text-muted-foreground">배송비 별도</span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded bg-muted/60 text-foreground/70 font-medium">무료배송</span>
                           )}

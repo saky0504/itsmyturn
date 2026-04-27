@@ -523,8 +523,8 @@ async function fetchNaverPrice(identifier: ProductIdentifier): Promise<VendorOff
           vendorName: item.mallName || '네이버 쇼핑', // 실제 쇼핑몰 이름을 바로 사용
           channelId: 'naver',
           basePrice: price,
-          shippingFee: parseInt(item.deliveryFee || "0", 10),
-          shippingPolicy: '상세조건 확인',
+          shippingFee: 0, // 네이버 검색 API는 배송비를 정확히 반환하지 않음
+          shippingPolicy: '별도',
           url: item.link,
           inStock: !isExplicitlySoldOut,
           badge: status.badge,
