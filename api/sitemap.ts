@@ -8,7 +8,7 @@ export default async function handler(_req: Request): Promise<Response> {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const staticUrls = [
+  const staticUrls: { loc: string; changefreq: string; priority: string; lastmod?: string }[] = [
     { loc: `${BASE_URL}/`, changefreq: 'daily', priority: '1.0' },
     { loc: `${BASE_URL}/market`, changefreq: 'daily', priority: '0.9' },
     { loc: `${BASE_URL}/market/list`, changefreq: 'daily', priority: '0.8' },
