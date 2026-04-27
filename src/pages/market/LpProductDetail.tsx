@@ -337,7 +337,7 @@ export function LpProductDetail() {
                     <tr>
                       <th className="px-6 py-4 text-left">판매처</th>
                       <th className="px-6 py-4 text-right">기준가</th>
-                      <th className="px-6 py-4 text-left">배송정책</th>
+                      <th className="px-6 py-4 text-right">배송비</th>
                       <th className="px-6 py-4 text-right">가격</th>
                     </tr>
                   </thead>
@@ -393,21 +393,16 @@ export function LpProductDetail() {
                               {offer.basePrice > finalPrice ? '' : formatCurrency(offer.basePrice)}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col gap-1">
-                              <div className="text-xs text-foreground">
-                                {offer.shippingFee > 0
-                                  ? `배송비 ${formatCurrency(offer.shippingFee)}`
-                                  : isNaver && !offer.shippingFee
-                                    ? '배송비 확인'
-                                    : '무료배송'}
-                              </div>
-                              {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && !offer.shippingPolicy.startsWith('배송비') && offer.shippingPolicy !== '택배' && (
-                                <div className="text-[11px] text-muted-foreground max-w-[200px] truncate" title={offer.shippingPolicy}>
-                                  {offer.shippingPolicy}
-                                </div>
-                              )}
-                            </div>
+                          <td className="px-6 py-4 text-right">
+                            {offer.shippingFee > 0 ? (
+                              <span className="text-sm text-foreground font-medium">
+                                {formatCurrency(offer.shippingFee)}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-foreground font-medium">
+                                무료배송
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <span className="text-lg font-bold text-primary">
@@ -474,13 +469,8 @@ export function LpProductDetail() {
                               <span>기준가 {formatCurrency(offer.basePrice)}</span>
                               <span>배송비 {formatCurrency(offer.shippingFee)}</span>
                             </>
-                          ) : isNaver && !offer.shippingFee ? (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium text-[10px]">배송비 확인</span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded bg-muted/60 text-foreground/70 font-medium">무료배송</span>
-                          )}
-                          {offer.shippingPolicy && offer.shippingPolicy !== displayVendor && offer.shippingPolicy !== '상세조건 확인' && !offer.shippingPolicy.startsWith('배송비') && offer.shippingPolicy !== '택배' && (
-                            <span className="text-[10px] max-w-[120px] truncate" title={offer.shippingPolicy}>{offer.shippingPolicy}</span>
                           )}
                         </div>
                       </div>
