@@ -435,22 +435,44 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipL
     }
   }
 
-  // 앨범명 토큰이 존재한다면, 반드시 앨범명 중에서 일부는 매치되어야 함. (비율 40%)
+  // 앨범 제목의 숫자가 결과에도 있어야 함 (92 ≠ 93)
+  const STOP_WORDS = new Set(['the', 'of', 'and', 'in', 'a', 'to', 'for', 'with', 'on', 'at', 'by', 'is', 'it']);
   if (albumTokens.length > 0) {
-    const requiredAlbumMatches = Math.max(1, Math.floor(albumTokens.length * 0.4));
+    // 숫자 토큰 엄격 매칭: 앨범 제목의 숫자가 결과 제목에도 존재해야 함
+    const albumNumbers = albumTokens.filter(t => !isNaN(Number(t)));
+    if (albumNumbers.length > 0) {
+      const foundTitleFull = tokenize(lowerTitle);
+      for (const num of albumNumbers) {
+        if (!foundTitleFull.some(t => t === num)) return false;
+      }
+    }
+
+    // stop word 제외한 실질 매치 계산
+    const substantiveAlbumTokens = albumTokens.filter(t => !STOP_WORDS.has(t) && isNaN(Number(t)));
+    const requiredAlbumMatches = Math.max(1, Math.floor(albumTokens.length * 0.5));
     if (albumMatchCount < requiredAlbumMatches) {
-      // 띄어쓰기 무시 fallback: "환상의나라" vs "환상의 나라"
       const squishAlbum = albumTokens.join('');
       const squishTitle = tokenize(lowerTitle).join('');
       if (!squishTitle.includes(squishAlbum)) return false;
       albumMatchCount = albumTokens.length;
     }
+
+    // stop word만으로 매치된 경우 거부 (실질 토큰이 하나도 안 맞으면 탈락)
+    if (substantiveAlbumTokens.length > 0) {
+      const substantiveMatched = albumTokens.filter(t => !STOP_WORDS.has(t) && isNaN(Number(t)));
+      // 원본 타이틀에서 실질 토큰이 매치되는지 재확인
+      const origTitleTokens = tokenize(lowerTitle);
+      let realMatch = 0;
+      for (const token of substantiveMatched) {
+        if (origTitleTokens.some(t => tokenMatchesWithTranslit(token, t))) realMatch++;
+      }
+      if (realMatch === 0) return false;
+    }
   }
 
   const totalTokens = artistTokens.length + albumTokens.length;
   const matchCount = artistMatchCount + albumMatchCount;
-  // 전체 토큰 중에서도 40%는 매칭되어야 함
-  const requiredMatches = Math.max(1, Math.floor(totalTokens * 0.4));
+  const requiredMatches = Math.max(1, Math.floor(totalTokens * 0.5));
 
   if (matchCount < requiredMatches) {
     return false;
@@ -481,14 +503,14 @@ function isValidLpMatch(foundTitle: string, identifier: ProductIdentifier, skipL
   ]);
 
   let extraSubstantiveCount = 0;
-  for (const token of titleTokens) { // Using the leftover tokens after splice
+  for (const token of titleTokens) {
     if (!allowedExtraTokens.has(token) && isNaN(Number(token))) {
       extraSubstantiveCount++;
     }
   }
 
-  // Extra token penalty: 짧은 타이틀은 엄격하게, 긴 타이틀은 여유 있게
-  const maxAllowedExtra = Math.max(2, Math.floor(albumTokens.length * 0.8));
+  // Extra token penalty: 원래 엄격한 수준으로 복원
+  const maxAllowedExtra = Math.max(1, Math.floor(albumTokens.length * 0.5));
   if (extraSubstantiveCount > maxAllowedExtra) {
     return false;
   }
