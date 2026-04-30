@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Send, ChevronUp, ChevronDown, RefreshCw, Pencil, ShieldCheck } from 'lucide-react';
 import { supabase, type Comment } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { UserAvatar } from '../auth/UserAvatar';
 import { toast } from 'sonner';
 
 interface LpCommentsProps {
@@ -101,7 +102,11 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setComments(prev => [payload.new as Comment, ...prev]);
+            const incoming = payload.new as Comment;
+            setComments(prev => {
+              if (prev.some(c => c.id === incoming.id)) return prev; // dedup
+              return [incoming, ...prev];
+            });
           } else if (payload.eventType === 'UPDATE') {
             setComments(prev =>
               prev.map(c => c.id === payload.new.id ? payload.new as Comment : c)
@@ -155,6 +160,11 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
       }
 
       if (data) {
+        // 낙관적 즉시 추가 (realtime이 echo해도 dedup으로 중복 방지)
+        setComments(prev => {
+          if (prev.some(c => c.id === (data as Comment).id)) return prev;
+          return [data as CommentWithScore, ...prev];
+        });
         setNewComment('');
         toast.success('댓글이 작성되었습니다');
       }
@@ -282,18 +292,11 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
         {/* 닉네임 행 — 로그인 사용자는 프로필 표시명 고정 + Google 아바타 */}
         {user ? (
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-muted/20">
-            {profile?.avatar_url || user.user_metadata?.avatar_url ? (
-              <img
-                src={profile?.avatar_url || user.user_metadata?.avatar_url}
-                alt={username}
-                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${avatarColor(username)}`}>
-                {username[0]?.toUpperCase() || '?'}
-              </div>
-            )}
+            <UserAvatar
+              avatarUrl={profile?.avatar_url || user.user_metadata?.avatar_url}
+              fallbackChar={username[0]}
+              className="w-7 h-7 text-xs font-bold"
+            />
             <span className="flex-1 text-sm font-medium text-foreground truncate">{username}</span>
             {profile?.is_protected && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-semibold border border-emerald-200">

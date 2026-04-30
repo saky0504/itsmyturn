@@ -4,6 +4,7 @@ import { User as UserIcon, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { signInWithGoogle, signOut } from '../../lib/auth';
 import { GoogleIconMono } from './GoogleIconMono';
+import { UserAvatar } from './UserAvatar';
 import { toast } from 'sonner';
 
 interface UserMenuProps {
@@ -79,18 +80,11 @@ export function UserMenu({ size = 'sm' }: UserMenuProps = {}) {
         aria-label="사용자 메뉴"
         aria-expanded={open}
       >
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={displayName}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className={`w-full h-full rounded-full bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center text-white ${sz.text} font-bold`}>
-            {displayName[0].toUpperCase()}
-          </div>
-        )}
+        <UserAvatar
+          avatarUrl={avatarUrl}
+          fallbackChar={displayName[0]}
+          className={`${sz.box} ${sz.text} font-bold`}
+        />
       </button>
 
       {open && (

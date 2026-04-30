@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
+import { useIsMobile } from '../../../components/ui/use-mobile';
 import { Helmet } from 'react-helmet-async';
 import {
   AlertTriangle,
@@ -33,6 +34,7 @@ function SpinningLP({ size = 68 }: { size?: number }) {
 export function LpProductDetail() {
   const navigate = useNavigate();
   const { productId } = useParams();
+  const isMobile = useIsMobile();
   const { product, isLoading, refetch } = useSupabaseAlbum(productId);
   const { searchPrices, isLoading: isSearchingPrice } = useOnDemandPriceSearch();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -237,7 +239,7 @@ export function LpProductDetail() {
         {/* 헤더 섹션 */}
         <header className="space-y-6">
           <div className="flex flex-col md:flex-row gap-8">
-            {/* LP 이미지 + 별점 (좌측 컬럼) */}
+            {/* LP 이미지 + 별점 (데스크탑은 좌측 컬럼 안, 모바일은 트랙리스트 아래) */}
             <div className="flex-shrink-0 w-full md:w-80 lg:w-96 mx-auto md:mx-0 space-y-4">
               <div className="aspect-square rounded-xl overflow-hidden bg-muted shadow-sm border border-border/50">
                 <img
@@ -254,7 +256,7 @@ export function LpProductDetail() {
                   }}
                 />
               </div>
-              <LpRatingDisc productId={product.id} />
+              {!isMobile && <LpRatingDisc productId={product.id} />}
             </div>
 
             {/* 제품 정보 */}
@@ -324,6 +326,9 @@ export function LpProductDetail() {
             </div>
           </div>
         </header>
+
+        {/* 모바일에서만: 헤더(트랙리스트) 아래에 별점 */}
+        {isMobile && <LpRatingDisc productId={product.id} />}
 
         {/* 가격 비교 섹션 */}
         <section className="space-y-6">

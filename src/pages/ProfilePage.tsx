@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { signInWithGoogle, signOut } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { UserAvatar } from '../components/auth/UserAvatar';
+import { buildAchievementAvatarUrl } from '../lib/achievements';
 
 interface AchievementRow {
   id: string;
@@ -61,7 +63,10 @@ export function ProfilePage() {
   const [achievementsLoading, setAchievementsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState('');
-  const [isSavingName, setIsSavingName] = useState(false);
+  const [draftAvatar, setDraftAvatar] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const googleAvatarUrl = (user?.user_metadata?.avatar_url as string | undefined) || null;
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -72,34 +77,41 @@ export function ProfilePage() {
   };
 
   const openSettings = () => {
-    setDraftName(profile?.display_name || '');
+    setDraftName('');
+    setDraftAvatar(profile?.avatar_url || null);
     setIsEditing(true);
   };
 
-  const handleSaveName = async () => {
+  const handleSave = async () => {
     if (!user) return;
+    const update: { display_name?: string; avatar_url?: string | null } = {};
+
     const trimmed = draftName.trim();
-    if (!trimmed) {
-      toast.error('이름은 비울 수 없습니다');
-      return;
+    if (trimmed) {
+      update.display_name = trimmed;
     }
-    if (trimmed === profile?.display_name) {
+    if (draftAvatar !== (profile?.avatar_url || null)) {
+      update.avatar_url = draftAvatar;
+    }
+
+    if (Object.keys(update).length === 0) {
       setIsEditing(false);
       return;
     }
-    setIsSavingName(true);
+
+    setIsSaving(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ display_name: trimmed })
+      .update(update)
       .eq('id', user.id);
-    setIsSavingName(false);
+    setIsSaving(false);
     if (error) {
       toast.error(error.message || '저장 실패');
       return;
     }
     await refreshProfile();
     setIsEditing(false);
-    toast.success('이름이 변경되었습니다');
+    toast.success('변경되었습니다');
   };
 
   useEffect(() => {
@@ -208,18 +220,11 @@ export function ProfilePage() {
         {/* 프로필 카드 */}
         <section className="rounded-3xl bg-white border border-border/40 shadow-sm p-6 sm:p-8">
           <div className="flex items-center gap-5">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-white shadow-md"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center text-white text-2xl font-bold border-2 border-white shadow-md">
-                {displayName[0].toUpperCase()}
-              </div>
-            )}
+            <UserAvatar
+              avatarUrl={avatarUrl}
+              fallbackChar={displayName[0]}
+              className="w-20 h-20 sm:w-24 sm:h-24 border-2 border-white shadow-md text-2xl font-bold"
+            />
 
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate">{displayName}</h1>
@@ -257,45 +262,78 @@ export function ProfilePage() {
 
           {/* 인라인 설정 패널 */}
           {isEditing && (
-            <div className="mt-6 pt-6 border-t border-border/60 space-y-4">
+            <div className="mt-6 pt-6 border-t border-border/60 space-y-5">
+              {/* 이름 입력 */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={draftName}
+                  onChange={e => setDraftName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSave();
+                    if (e.key === 'Escape') setIsEditing(false);
+                  }}
+                  maxLength={30}
+                  placeholder={profile?.display_name || '이름을 입력하세요'}
+                  autoFocus
+                  className="flex-1 rounded-full border border-border bg-white px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                />
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="저장"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  disabled={isSaving}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors disabled:opacity-40"
+                  aria-label="취소"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 아바타 선택 */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                  대화명 (Display name)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={draftName}
-                    onChange={e => setDraftName(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleSaveName();
-                      if (e.key === 'Escape') setIsEditing(false);
-                    }}
-                    maxLength={30}
-                    placeholder="이름을 입력하세요"
-                    autoFocus
-                    className="flex-1 rounded-full border border-border bg-white px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                  <button
-                    onClick={handleSaveName}
-                    disabled={isSavingName || !draftName.trim()}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    aria-label="저장"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    disabled={isSavingName}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors disabled:opacity-40"
-                    aria-label="취소"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Profile photo</p>
+                <div className="flex flex-wrap gap-2.5">
+                  {googleAvatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setDraftAvatar(googleAvatarUrl)}
+                      className={`rounded-full transition-all ${
+                        draftAvatar === googleAvatarUrl ? 'ring-2 ring-foreground ring-offset-2' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      title="Google 프로필 사진"
+                    >
+                      <UserAvatar avatarUrl={googleAvatarUrl} className="w-12 h-12" />
+                    </button>
+                  )}
+                  {achievements.filter(a => a.unlocked).map(a => {
+                    const url = buildAchievementAvatarUrl(a.id);
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => setDraftAvatar(url)}
+                        className={`rounded-full transition-all ${
+                          draftAvatar === url ? 'ring-2 ring-foreground ring-offset-2' : 'opacity-70 hover:opacity-100'
+                        }`}
+                        title={a.title}
+                      >
+                        <UserAvatar avatarUrl={url} className="w-12 h-12" />
+                      </button>
+                    );
+                  })}
+                  {achievements.filter(a => a.unlocked).length === 0 && (
+                    <p className="text-xs text-muted-foreground/70 self-center">
+                      업적을 달성하면 여기서 메달을 프로필 사진으로 쓸 수 있어요
+                    </p>
+                  )}
                 </div>
-                <p className="text-[11px] text-muted-foreground/70 mt-2">
-                  Enter로 저장 · Esc로 취소 · 댓글에 표시되는 이름이 즉시 바뀝니다
-                </p>
               </div>
             </div>
           )}
