@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { UserMenu } from '../auth/UserMenu';
 
 export function MarketHeader() {
   return (
@@ -25,28 +26,31 @@ export function MarketHeader() {
               }}
             />
           </Link>
-          <a
-            href="https://buymeacoffee.com/mtfbwy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block hover:opacity-80 transition-opacity"
-            aria-label="도네이션"
-          >
-            <img
-              src="/images/bymeacoffee.jpg"
-              alt="Buy me a Coffee"
-              className="h-8 w-auto object-contain rounded-sm"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const parent = target.parentElement;
-                if (parent) {
-                  parent.classList.add('p-2', 'rounded-lg', 'text-muted-foreground', 'hover:text-foreground', 'hover:bg-accent', 'transition-colors');
-                  parent.innerHTML = '💝';
-                }
-              }}
-            />
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://buymeacoffee.com/mtfbwy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block hover:opacity-80 transition-opacity"
+              aria-label="도네이션"
+            >
+              <img
+                src="/images/bymeacoffee.jpg"
+                alt="Buy me a Coffee"
+                className="h-8 w-auto object-contain rounded-sm"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.classList.add('p-2', 'rounded-lg', 'text-muted-foreground', 'hover:text-foreground', 'hover:bg-accent', 'transition-colors');
+                    parent.innerHTML = '💝';
+                  }
+                }}
+              />
+            </a>
+            <UserMenu />
+          </div>
         </div>
       </div>
     </div>

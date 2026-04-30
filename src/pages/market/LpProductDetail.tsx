@@ -4,13 +4,13 @@ import { Helmet } from 'react-helmet-async';
 import {
   AlertTriangle,
   ArrowLeft,
-  Loader2,
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { MarketHeader } from '../../components/market/MarketHeader';
 import { LpComments } from '../../components/market/LpComments';
 import { ShareButton } from '../../components/market/ShareButton';
+import { LpRatingDisc } from '../../components/market/LpRatingDisc';
 import {
   buildAffiliateUrl,
   calculateOfferFinalPrice,
@@ -18,6 +18,17 @@ import {
 } from '../../data/lpMarket';
 import { useSupabaseAlbum } from '../../hooks/useSupabaseAlbum';
 import { useOnDemandPriceSearch } from '../../hooks/useOnDemandPriceSearch';
+
+function SpinningLP({ size = 68 }: { size?: number }) {
+  return (
+    <img
+      src="/images/back.png"
+      alt="로딩 중"
+      className="animate-spin"
+      style={{ width: size, height: size, animationDuration: '2s' }}
+    />
+  );
+}
 
 export function LpProductDetail() {
   const navigate = useNavigate();
@@ -131,7 +142,7 @@ export function LpProductDetail() {
   if (isLoading && !product) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-10 h-10 animate-spin text-muted-foreground" />
+        <SpinningLP />
       </div>
     );
   }
@@ -160,18 +171,28 @@ export function LpProductDetail() {
     ? `${product.title} - ${product.artist} | it's my turn`
     : `${product.title} | it's my turn`;
   const metaDescription = bestPrice
-    ? `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 레코드 최저가 ${formatCurrency(bestPrice)}. 국내 주요 쇼핑몰 가격 비교.`
-    : `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고.`;
+    ? `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 최저가 ${formatCurrency(bestPrice)}. 국내 주요 쇼핑몰 가격 비교.`
+    : `${product.title}${product.artist ? ` by ${product.artist}` : ''} LP 가격 비교. 네이버, 알라딘, Yes24, 교보문고.`;
+  const ogDescription = bestPrice
+    ? `it's my turn 최저가 ${formatCurrency(bestPrice)}`
+    : `it's my turn · LP 가격 비교`;
+
+
+  const ogImageUrl = 'https://itsmyturn.app/og-image.jpg';
 
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>{metaTitle}</title>
         <meta name="description" content={metaDescription} />
-        <meta property="og:title" content={metaTitle} />
-        <meta property="og:description" content={metaDescription} />
+        <meta property="og:title" content={product.artist ? `${product.artist} - ${product.title}` : product.title} />
+        <meta property="og:description" content={ogDescription} />
         <meta property="og:type" content="product" />
-        {product.cover && <meta property="og:image" content={product.cover} />}
+        <meta property="og:image" content={ogImageUrl} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:image" content={ogImageUrl} />
         {bestPrice && (
           <script type="application/ld+json">{JSON.stringify({
             '@context': 'https://schema.org',
@@ -208,7 +229,7 @@ export function LpProductDetail() {
           </button>
           <ShareButton
             title={metaTitle}
-            text={metaDescription}
+            text=""
             url={typeof window !== 'undefined' ? window.location.href.split('?')[0] : `https://itsmyturn.app/market/lp/${product.id}`}
           />
         </div>
@@ -303,28 +324,23 @@ export function LpProductDetail() {
           </div>
         </header>
 
+        {/* 별점 섹션 */}
+        <LpRatingDisc productId={product.id} />
+
         {/* 가격 비교 섹션 */}
         <section className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-            <div>
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                가격 비교
-                <span className="text-sm font-normal text-muted-foreground ml-1">({sortedOffers.length}개 판매처)</span>
-                {(isRefreshing || isSearchingPrice) && (
-                  <div className="flex items-center gap-1.5 ml-3 bg-primary/10 px-2 py-1 rounded-full">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                    <span className="text-xs font-medium text-primary">실시간 재검색 중...</span>
-                  </div>
-                )}
-              </h2>
-            </div>
+          <div className="flex items-center justify-between border-b border-border pb-6">
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+              가격 비교
+              <span className="text-sm font-normal text-muted-foreground ml-1">({sortedOffers.length}개 판매처)</span>
+            </h2>
             <button
               onClick={handleManualRefresh}
               disabled={isRefreshing || isSearchingPrice}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || isSearchingPrice ? 'animate-spin' : ''}`} />
-              새로고침
+              <RefreshCw className={`w-3 h-3 ${isRefreshing || isSearchingPrice ? 'animate-spin' : ''}`} />
+              <span>새로고침</span>
             </button>
           </div>
 
@@ -494,7 +510,7 @@ export function LpProductDetail() {
             <div className="text-center py-16 space-y-4">
               {isSearchingPrice || isRefreshing ? (
                 <div className="flex flex-col items-center gap-4">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <SpinningLP size={86} />
                   <p className="text-sm text-muted-foreground font-medium">가격 검색 중...</p>
                 </div>
               ) : (

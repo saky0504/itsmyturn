@@ -33,7 +33,7 @@ export function ShareButton({ title, text, url, className }: ShareButtonProps) {
       try {
         await navigator.share({
           title,
-          text,
+          ...(text && { text }),
           url: buildShareUrl(url, 'native'),
         });
         return;

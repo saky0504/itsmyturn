@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback, useRef, type ChangeEvent } from 'reac
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
-import { LP_VENDOR_CHANNELS } from '../../src/data/lpMarket';
 import { X, RefreshCw, Plus, ArrowUp, Combine, Trash2, Download } from 'lucide-react';
 
 // Admin 전용 Supabase 클라이언트 (읽기 전용, RLS 적용)
@@ -13,24 +12,111 @@ const adminSupabase = createClient(
   { auth: { persistSession: false } }
 );
 
-// 관리자 API 호출 헬퍼
-async function fetchAdminApi(action: string, payload: any) {
-  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
-  const res = await fetch('/api/admin/db', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${adminPassword}`
-    },
-    body: JSON.stringify({ action, payload })
-  });
+// 서비스롤 클라이언트 (쓰기 작업 로컬 폴백용)
+const serviceSupabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
+  { auth: { persistSession: false } }
+);
 
-  if (!res.ok) {
+// API 없을 때 직접 Supabase로 실행하는 폴백
+async function directAdminAction(action: string, payload: any) {
+  const sb = serviceSupabase;
+  const now = new Date().toISOString();
+
+  switch (action) {
+    case 'insertProduct': {
+      const { data, error } = await sb.from('lp_products').insert(payload.data).select(payload.select || '*').single();
+      if (error) throw error;
+      return { data };
+    }
+    case 'updateProduct': {
+      const { data, error } = await sb.from('lp_products').update(payload.data).eq('id', payload.id).select(payload.select || '*');
+      if (error) throw error;
+      return { data };
+    }
+    case 'deleteProduct': {
+      const { error } = await sb.from('lp_products').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { data: null };
+    }
+    case 'insertOffer': {
+      const { error } = await sb.from('lp_offers').insert(payload.data);
+      if (error) throw error;
+      return { data: null };
+    }
+    case 'updateOffer': {
+      const { error } = await sb.from('lp_offers').update(payload.data).eq('id', payload.id);
+      if (error) throw error;
+      return { data: null };
+    }
+    case 'deleteOffer': {
+      const { error } = await sb.from('lp_offers').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { data: null };
+    }
+    case 'deleteOffersByProductId': {
+      const { error } = await sb.from('lp_offers').delete().eq('product_id', payload.productId);
+      if (error) throw error;
+      return { data: null };
+    }
+    case 'moveOffersToNewProduct': {
+      const { data: newOffers } = await sb.from('lp_offers').select('id, vendor_name').eq('product_id', payload.newProductId);
+      const { data: oldOffers } = await sb.from('lp_offers').select('id, vendor_name').eq('product_id', payload.oldProductId);
+      const existingVendors = new Set((newOffers || []).map((o: any) => o.vendor_name));
+      const toMove: string[] = [], toDel: string[] = [];
+      for (const old of (oldOffers || [])) {
+        if (existingVendors.has(old.vendor_name)) { toDel.push(old.id); }
+        else { toMove.push(old.id); existingVendors.add(old.vendor_name); }
+      }
+      if (toDel.length > 0) await sb.from('lp_offers').delete().in('id', toDel);
+      if (toMove.length > 0) await sb.from('lp_offers').update({ product_id: payload.newProductId, updated_at: now }).in('id', toMove);
+      return { data: null };
+    }
+    case 'saveEditionDiscogs': {
+      if (!payload.discogsId) return { data: null };
+      const { error } = await sb.from('lp_editions').insert({ product_id: payload.productId, discogs_id: payload.discogsId, label: '병합' });
+      if (error?.code === '23505') return { data: null };
+      if (error) throw error;
+      return { data: null };
+    }
+    case 'deleteComment': {
+      const { error } = await sb.from('comments').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { data: null };
+    }
+    default:
+      throw new Error(`Unknown action: ${action}`);
+  }
+}
+
+// 관리자 API 호출 헬퍼 (API 실패 시 직접 Supabase 폴백)
+async function fetchAdminApi(action: string, payload: any) {
+  const token = sessionStorage.getItem('admin_token') || import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+  try {
+    const res = await fetch('/api/admin/db', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ action, payload })
+    });
+
+    if (res.ok) return res.json();
+
+    // API 서버 없는 로컬 환경 (500/502/503) → 직접 Supabase 실행
+    if (res.status >= 500) return directAdminAction(action, payload);
+
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.error || `API Error: ${res.status}`);
+  } catch (err: any) {
+    // 네트워크 연결 실패 (proxy 대상 없음) → 직접 Supabase 실행
+    if (err?.message?.includes('fetch') || err?.name === 'TypeError') {
+      return directAdminAction(action, payload);
+    }
+    throw err;
   }
-  
-  return res.json();
 }
 
 const DISCOGS_TOKEN = import.meta.env.VITE_DISCOGS_TOKEN;
@@ -489,6 +575,9 @@ export function LpMarketAdmin() {
           await fetchAdminApi('deleteOffersByProductId', { productId: sec.id });
         }
 
+        if (sec.discogs_id) {
+          await fetchAdminApi('saveEditionDiscogs', { productId: baseId, discogsId: sec.discogs_id }).catch(() => {});
+        }
         await fetchAdminApi('deleteProduct', { id: sec.id });
       }
 
@@ -1027,13 +1116,6 @@ export function LpMarketAdmin() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <InputField label="판매처명" value={offer.vendor_name} onChange={(e) => setOfferField(idx, 'vendor_name', e.target.value)} />
-                        <div className="flex flex-col gap-1 text-sm">
-                          <label className="text-gray-500">채널</label>
-                          <select value={offer.channel_id} onChange={(e) => setOfferField(idx, 'channel_id', e.target.value)}
-                            className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none">
-                            {LP_VENDOR_CHANNELS.map((ch) => <option key={ch.id} value={ch.id}>{ch.label}</option>)}
-                          </select>
-                        </div>
                         <InputField label="판매가" type="number" value={(offer.price ?? 0).toString()} onChange={(e) => setOfferField(idx, 'price', Number(e.target.value) || 0)} />
                         <InputField label="기준가" type="number" value={(offer.base_price ?? 0).toString()} onChange={(e) => setOfferField(idx, 'base_price', Number(e.target.value) || 0)} />
                         <InputField label="배송비" type="number" value={(offer.shipping_fee ?? 0).toString()} onChange={(e) => setOfferField(idx, 'shipping_fee', Number(e.target.value) || 0)} />
@@ -1046,17 +1128,6 @@ export function LpMarketAdmin() {
                             className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none">
                             <option value="true">재고 있음</option>
                             <option value="false">품절</option>
-                          </select>
-                        </div>
-                        <div className="flex flex-col gap-1 text-sm">
-                          <label className="text-gray-500">뱃지</label>
-                          <select value={offer.badge ?? ''} onChange={(e) => setOfferField(idx, 'badge', (e.target.value as DbOffer['badge']) || null)}
-                            className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none">
-                            <option value="">없음</option>
-                            <option value="fresh">fresh</option>
-                            <option value="lowest">lowest</option>
-                            <option value="exclusive">exclusive</option>
-                            <option value="best">best</option>
                           </select>
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Send, Heart, RefreshCw, Pencil } from 'lucide-react';
 import { supabase, type Comment } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface LpCommentsProps {
@@ -10,6 +11,7 @@ interface LpCommentsProps {
 }
 
 export function LpComments({ productId, productTitle, productArtist }: LpCommentsProps) {
+  const { user, profile } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [username, setUsername] = useState('');
@@ -17,13 +19,21 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // 로그인 사용자: 닉네임은 프로필 표시명으로 자동 세팅 + 입력 숨김
+  const loggedInName = profile?.display_name || user?.email?.split('@')[0] || null;
+
   useEffect(() => {
+    if (loggedInName) {
+      setUsername(loggedInName);
+      setShowUsernameInput(false);
+      return;
+    }
     const savedUsername = localStorage.getItem('username');
     if (savedUsername) {
       setUsername(savedUsername);
       setShowUsernameInput(false);
     }
-  }, []);
+  }, [loggedInName]);
 
   const fetchComments = async () => {
     try {
@@ -113,6 +123,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
             track_id: productId,
             track_title: productTitle,
             track_artist: productArtist,
+            user_id: user?.id ?? null,
           }
         ])
         .select()

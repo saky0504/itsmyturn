@@ -703,7 +703,7 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
       if (!html) return [];
 
       const $ = cheerio.load(html);
-      const offers: VendorOffer[] = [];
+      const rawOffers: { title: string; link: string; price: number; status: any; inStock: boolean; isUsed: boolean }[] = [];
 
       $('.itemUnit').slice(0, 5).each((_, el) => {
         const item = $(el);
@@ -721,21 +721,58 @@ async function fetchYes24Price(identifier: ProductIdentifier): Promise<VendorOff
 
         const isYes24Oos = item.find('.soldOut, .shortV').length > 0;
         const inStock = price > 0 && !isYes24Oos;
-        if (link.includes('UsedShopHub') || link.includes('used')) {
-          status.badge = 'used';
+        const isUsed = link.includes('UsedShopHub') || link.includes('used');
+        if (isUsed) status.badge = 'used';
+
+        rawOffers.push({ title, link: link.startsWith('http') ? link : `https://www.yes24.com${link}`, price, status, inStock, isUsed });
+      });
+
+      // 중고 허브 페이지에서 배송비 + 직접 구매 링크 추출
+      const offers: VendorOffer[] = [];
+      for (const raw of rawOffers) {
+        let shippingFee = 0;
+        let shippingPolicy = raw.isUsed ? '상세정보 확인' : '5만원 무료';
+        let finalUrl = raw.link;
+
+        if (raw.isUsed && raw.link.includes('UsedShopHub')) {
+          try {
+            const hubCtrl = new AbortController();
+            const hubTimeout = setTimeout(() => hubCtrl.abort(), 4000);
+            const hubRes = await fetch(raw.link, {
+              headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html', 'Accept-Language': 'ko-KR,ko;q=0.9' },
+              signal: hubCtrl.signal,
+            });
+            clearTimeout(hubTimeout);
+            if (hubRes.ok) {
+              const hubHtml = await hubRes.text();
+              const $h = cheerio.load(hubHtml);
+              // 최상단 판매자 배송비
+              const hubText = $h('.hGLi li').first().text().replace(/\s+/g, ' ');
+              const shipMatch = hubText.match(/배송비\s*[:\s]\s*([\d,]+)/);
+              if (shipMatch) {
+                shippingFee = extractNumber(shipMatch[1]);
+                shippingPolicy = '택배';
+              }
+              // 직접 구매 링크 (goods 페이지)
+              const goodsLink = $h('.hGLi li').first().find('a[href*="/product/goods/"]').first().attr('href');
+              if (goodsLink) {
+                finalUrl = goodsLink.startsWith('http') ? goodsLink : `https://www.yes24.com${goodsLink}`;
+              }
+            }
+          } catch { /* hub fetch 실패 시 기본값 유지 */ }
         }
 
         offers.push({
           vendorName: 'YES24',
           channelId: 'yes24',
-          basePrice: price,
-          shippingFee: 0,
-          shippingPolicy: '5만원 무료',
-          url: link.startsWith('http') ? link : `https://www.yes24.com${link}`,
-          inStock,
-          badge: status.badge,
+          basePrice: raw.price,
+          shippingFee,
+          shippingPolicy,
+          url: finalUrl,
+          inStock: raw.inStock,
+          badge: raw.status.badge,
         });
-      });
+      }
       return offers;
     } catch (e) { return []; }
   };
@@ -910,7 +947,7 @@ async function fetchBunjangPrice(identifier: ProductIdentifier): Promise<VendorO
       const price = parseInt(item.price, 10);
       let shopName = '번개장터';
       let shippingFee = 0;
-      let shippingText = item.free_shipping ? '무료배송' : '택배';
+      let shippingText = item.free_shipping ? '무료배송' : '상세정보 확인';
       let condition: 'used' | null = 'used'; // 기본값: 중고
 
       try {

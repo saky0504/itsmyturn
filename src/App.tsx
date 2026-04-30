@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '../components/ui/sonner';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { AuthProvider } from './contexts/AuthContext';
 
 // Lazy load all heavy components for better initial load performance
 const VinylPlayer = lazy(() => import('../components/VinylPlayer').then(module => ({ default: module.VinylPlayer })));
@@ -10,6 +11,8 @@ const LpHome = lazy(() => import('./pages/market/LpHome').then(module => ({ defa
 const LpPriceList = lazy(() => import('./pages/market/LpPriceList').then(module => ({ default: module.LpPriceList })));
 const LpProductDetail = lazy(() => import('./pages/market/LpProductDetail').then(module => ({ default: module.LpProductDetail })));
 const LpChannelDetail = lazy(() => import('./pages/market/LpChannelDetail').then(module => ({ default: module.LpChannelDetail })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
+const AuthCallback = lazy(() => import('./pages/AuthCallback').then(module => ({ default: module.AuthCallback })));
 
 function LoadingFallback() {
   return (
@@ -27,6 +30,7 @@ export default function App() {
     <HelmetProvider>
     <ErrorBoundary>
     <BrowserRouter>
+    <AuthProvider>
       <Routes>
         <Route
           path="/"
@@ -62,13 +66,29 @@ export default function App() {
             </Suspense>
           } 
         />
-        <Route 
-          path="/market/channels/:channelId" 
+        <Route
+          path="/market/channels/:channelId"
           element={
             <Suspense fallback={<LoadingFallback />}>
               <LpChannelDetail />
             </Suspense>
-          } 
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <ProfilePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/callback"
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <AuthCallback />
+            </Suspense>
+          }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -89,6 +109,7 @@ export default function App() {
           },
         }}
       />
+    </AuthProvider>
     </BrowserRouter>
     </ErrorBoundary>
     </HelmetProvider>

@@ -108,19 +108,19 @@ async function fetchProduct(id: string): Promise<ProductMeta | null> {
 }
 
 function buildMetaTags(product: ProductMeta, url: string): string {
-  const titleBase = product.artist
-    ? `${product.title} - ${product.artist}`
+  const ogTitle = product.artist
+    ? `${product.artist} - ${product.title}`
     : product.title;
-  const title = `${titleBase} | it's my turn`;
+  const pageTitle = `${ogTitle} | it's my turn`;
   const description = product.lowestPrice
-    ? `${titleBase} LP 레코드 최저가 ${formatKrw(product.lowestPrice)}. 국내 ${product.offerCount}개 판매처 가격 비교.`
-    : `${titleBase} LP 레코드 가격 비교. 네이버, 알라딘, Yes24, 교보문고.`;
+    ? `It's My Turn 최저가 ${formatKrw(product.lowestPrice)}`
+    : `It's My Turn · LP 가격 비교`;
 
-  const ogImage = `${BASE_URL}/api/og/lp/${encodeURIComponent(product.id)}`;
-  const fallbackImage = product.cover || `${BASE_URL}/og-image.png`;
+  const ogImage = `${BASE_URL}/og-image.jpg`;
+  const fallbackImage = ogImage;
 
   return `
-    <meta property="og:title" content="${escapeHtml(title)}" data-dynamic="1" />
+    <meta property="og:title" content="${escapeHtml(ogTitle)}" data-dynamic="1" />
     <meta property="og:description" content="${escapeHtml(description)}" data-dynamic="1" />
     <meta property="og:type" content="product" data-dynamic="1" />
     <meta property="og:url" content="${escapeHtml(url)}" data-dynamic="1" />
@@ -128,16 +128,16 @@ function buildMetaTags(product: ProductMeta, url: string): string {
     <meta property="og:image:secure_url" content="${escapeHtml(ogImage)}" data-dynamic="1" />
     <meta property="og:image:width" content="1200" data-dynamic="1" />
     <meta property="og:image:height" content="630" data-dynamic="1" />
-    <meta property="og:image:alt" content="${escapeHtml(titleBase)}" data-dynamic="1" />
+    <meta property="og:image:alt" content="${escapeHtml(ogTitle)}" data-dynamic="1" />
     <meta property="og:site_name" content="It's My Turn" data-dynamic="1" />
     <meta property="og:locale" content="ko_KR" data-dynamic="1" />
     <meta name="twitter:card" content="summary_large_image" data-dynamic="1" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" data-dynamic="1" />
+    <meta name="twitter:title" content="${escapeHtml(ogTitle)}" data-dynamic="1" />
     <meta name="twitter:description" content="${escapeHtml(description)}" data-dynamic="1" />
     <meta name="twitter:image" content="${escapeHtml(ogImage)}" data-dynamic="1" />
-    <meta name="twitter:image:alt" content="${escapeHtml(titleBase)}" data-dynamic="1" />
+    <meta name="twitter:image:alt" content="${escapeHtml(ogTitle)}" data-dynamic="1" />
     <meta property="og:image:fallback" content="${escapeHtml(fallbackImage)}" data-dynamic="1" />
-    <title>${escapeHtml(title)}</title>
+    <title>${escapeHtml(pageTitle)}</title>
   `.trim();
 }
 

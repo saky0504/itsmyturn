@@ -7,7 +7,22 @@ import { calculateOfferFinalPrice, formatCurrency, type LpProduct } from '../../
 import { useSupabaseProducts } from '../../hooks/useSupabaseProducts';
 import { useOnDemandPriceSearch } from '../../hooks/useOnDemandPriceSearch';
 import { getDailyLpRecommendations } from '../../lib/recommendation';
-import { useIsMobile } from '../../../components/ui/use-mobile';
+
+function usePicksCount() {
+  const [count, setCount] = useState(() => {
+    const w = window.innerWidth;
+    return w >= 1024 ? 5 : w >= 640 ? 6 : 4;
+  });
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      setCount(w >= 1024 ? 5 : w >= 640 ? 3 : 4);
+    };
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return count;
+}
 
 const getBestOffer = (offers: LpProduct['offers']) => {
   if (!offers?.length) return undefined;
@@ -238,7 +253,7 @@ export function LpHome() {
   // Supabase 데이터 훅 사용
   const { products, allProducts, totalCount, hasMore, isLoading, isLoadingMore, error, loadMore, refetch } = useSupabaseProducts(debouncedQuery);
   const { searchPrices } = useOnDemandPriceSearch();
-  const isMobile = useIsMobile();
+  const picksCount = usePicksCount();
 
   // IntersectionObserver sentinel ref
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -268,7 +283,7 @@ export function LpHome() {
 
   const featuredProducts = useMemo(() => {
     if (!debouncedQuery && allProducts.length > 0) {
-      return getDailyLpRecommendations(allProducts, 5);
+      return getDailyLpRecommendations(allProducts, 6);
     }
     return [];
   }, [debouncedQuery, allProducts]);
@@ -383,7 +398,7 @@ export function LpHome() {
                 <h2 className="text-2xl font-bold text-foreground">Today's Picks</h2>
                 <p className="text-sm text-muted-foreground mt-1">Daily curated selection just for you</p>
               </div>
-              <FeaturedCarousel products={isMobile ? featuredProducts.slice(0, 4) : featuredProducts} />
+              <FeaturedCarousel products={featuredProducts.slice(0, picksCount)} />
             </section>
           )}
 

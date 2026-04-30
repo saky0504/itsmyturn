@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Music, ShoppingBag, MessageCircle } from 'lucide-react';
+import { Music, ShoppingBag } from 'lucide-react';
 import { Button } from './ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from './ui/use-mobile';
@@ -151,11 +151,6 @@ export function VinylPlayer() {
                       <ShoppingBag className="w-5 h-5 text-gray-900" />
                     </div>
                   </button>
-                  <button onClick={() => setShowBoard(true)} className="group" aria-label="Open Community Board">
-                    <div className="relative w-10 h-10 bg-white/80 rounded-full shadow-lg backdrop-blur-sm flex items-center justify-center">
-                      <MessageCircle className="w-5 h-5 text-gray-900" />
-                    </div>
-                  </button>
                 </div>
 
                 <TurntableVisuals
@@ -192,11 +187,6 @@ export function VinylPlayer() {
                   <button onClick={handleOpenMarket} className="group" aria-label="Open LP Market comparison">
                     <div className="relative w-12 h-12 bg-white rounded-full bg-opacity-25 hover:bg-opacity-40 transition-opacity flex items-center justify-center shadow-lg">
                       <ShoppingBag className="w-5 h-5 text-black group-hover:text-gray-800" />
-                    </div>
-                  </button>
-                  <button onClick={() => setShowBoard(true)} className="group" aria-label="Open Community Board">
-                    <div className="relative w-12 h-12 bg-white rounded-full bg-opacity-25 hover:bg-opacity-40 transition-opacity flex items-center justify-center shadow-lg">
-                      <MessageCircle className="w-5 h-5 text-black group-hover:text-gray-800" />
                     </div>
                   </button>
                 </div>

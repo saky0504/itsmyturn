@@ -118,6 +118,15 @@ export default async function handler(
       case 'deleteOffersByProductId':
         result = await adminSupabase.from('lp_offers').delete().eq('product_id', payload.productId);
         break;
+      case 'saveEditionDiscogs': {
+        const { productId, discogsId } = payload as { productId: string; discogsId: string };
+        if (!discogsId) { result = { data: null, error: null }; break; }
+        result = await adminSupabase
+          .from('lp_editions')
+          .insert({ product_id: productId, discogs_id: discogsId, label: '병합' });
+        if (result.error?.code === '23505') result = { data: null, error: null };
+        break;
+      }
       case 'moveOffersToNewProduct': {
         // 1. 새 상품(baseId)이 이미 가진 Offer 조회
         const { data: newOffers } = await adminSupabase
@@ -171,6 +180,46 @@ export default async function handler(
       case 'deleteAllComments':
         result = await adminSupabase.from('comments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         break;
+
+      // --- LP Ratings (Admin) ---
+      case 'deleteRating':
+        result = await adminSupabase.from('lp_ratings').delete().eq('id', payload.id);
+        break;
+      case 'deleteRatingsByUser':
+        result = await adminSupabase.from('lp_ratings').delete().eq('user_id', payload.userId);
+        break;
+
+      // --- Profiles / Members (Admin) ---
+      case 'updateProfile': {
+        const { id, data } = payload as { id: string; data: Record<string, unknown> };
+        result = await adminSupabase.from('profiles').update(data).eq('id', id).select('*').single();
+        break;
+      }
+      case 'adjustReputation': {
+        const { id, delta } = payload as { id: string; delta: number };
+        const { data: row, error: fetchErr } = await adminSupabase
+          .from('profiles')
+          .select('reputation')
+          .eq('id', id)
+          .single();
+        if (fetchErr) throw fetchErr;
+        const next = Math.max(0, (row?.reputation ?? 0) + delta);
+        result = await adminSupabase
+          .from('profiles')
+          .update({ reputation: next })
+          .eq('id', id)
+          .select('*')
+          .single();
+        break;
+      }
+      case 'deleteUser': {
+        const { id } = payload as { id: string };
+        // auth.users 삭제 → cascade로 profiles/lp_ratings/user_achievements 정리
+        const { data, error } = await (adminSupabase as any).auth.admin.deleteUser(id);
+        if (error) throw error;
+        result = { data, error: null };
+        break;
+      }
 
       default:
         return response.status(400).json({ error: `Unknown action: ${action}` });

@@ -58,7 +58,9 @@ ${allUrls
   return new Response(xml, {
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'no-store',
+      // 엣지 1시간 캐시 + 24시간 stale-while-revalidate
+      // 브라우저는 캐시 안 함 (max-age=0), CDN/Vercel만 캐시 (s-maxage)
+      'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
     },
   });
 }
