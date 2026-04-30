@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Send, Heart, RefreshCw, Pencil } from 'lucide-react';
+import { Send, Heart, RefreshCw, Pencil, ShieldCheck } from 'lucide-react';
 import { supabase, type Comment } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -212,8 +212,30 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
 
       {/* 입력 카드 */}
       <div className="rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
-        {/* 닉네임 행 */}
-        {showUsernameInput ? (
+        {/* 닉네임 행 — 로그인 사용자는 프로필 표시명 고정 + Google 아바타 */}
+        {user ? (
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/20">
+            {profile?.avatar_url || user.user_metadata?.avatar_url ? (
+              <img
+                src={profile?.avatar_url || user.user_metadata?.avatar_url}
+                alt={username}
+                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${avatarColor(username)}`}>
+                {username[0]?.toUpperCase() || '?'}
+              </div>
+            )}
+            <span className="flex-1 text-sm font-medium text-foreground truncate">{username}</span>
+            {profile?.is_protected && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-semibold border border-emerald-200">
+                <ShieldCheck className="w-3 h-3" />
+                Verified
+              </span>
+            )}
+          </div>
+        ) : showUsernameInput ? (
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/30">
             <div className="w-7 h-7 rounded-full bg-muted border border-border/60 flex items-center justify-center flex-shrink-0">
               <Pencil className="w-3 h-3 text-muted-foreground" />
@@ -223,7 +245,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSetUsername()}
-              placeholder="닉네임을 설정해주세요"
+              placeholder="닉네임을 설정해주세요 (또는 로그인)"
               className="flex-1 text-sm bg-transparent text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
               maxLength={20}
             />

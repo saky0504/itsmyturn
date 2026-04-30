@@ -13,6 +13,7 @@ import { PlaybackControls } from './PlaybackControls';
 import { GenreSelector } from './GenreSelector';
 import { TrackInfoModal } from './TrackInfoModal';
 import { CommunityBoard } from './CommunityBoard';
+import { UserMenu } from '../src/components/auth/UserMenu';
 
 export function VinylPlayer() {
   const navigate = useNavigate();
@@ -145,12 +146,13 @@ export function VinylPlayer() {
           <>
             {isMobile ? (
               <div className="relative w-full flex-1 flex flex-col justify-center">
-                <div className="absolute top-4 right-4 z-50 flex flex-col gap-3">
+                <div className="absolute top-4 right-4 z-50 flex flex-col items-end gap-3">
                   <button onClick={handleOpenMarket} className="group" aria-label="Open LP Market comparison">
                     <div className="relative w-10 h-10 bg-white/80 rounded-full shadow-lg backdrop-blur-sm flex items-center justify-center">
                       <ShoppingBag className="w-5 h-5 text-gray-900" />
                     </div>
                   </button>
+                  <UserMenu />
                 </div>
 
                 <TurntableVisuals
@@ -189,6 +191,7 @@ export function VinylPlayer() {
                       <ShoppingBag className="w-5 h-5 text-black group-hover:text-gray-800" />
                     </div>
                   </button>
+                  <UserMenu />
                 </div>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 xl:gap-[104px] items-center">
                   <TurntableVisuals
