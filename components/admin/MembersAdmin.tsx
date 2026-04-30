@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { RefreshCw, Search, Plus, Minus, ShieldCheck, ShieldX, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
-
-const adminSupabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
-  { auth: { persistSession: false } }
-);
+import { supabase as adminSupabase } from '../../src/lib/supabase';
 
 interface MemberRow {
   id: string;
