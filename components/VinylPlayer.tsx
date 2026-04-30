@@ -152,7 +152,7 @@ export function VinylPlayer() {
                       <ShoppingBag className="w-5 h-5 text-gray-900" />
                     </div>
                   </button>
-                  <UserMenu />
+                  <UserMenu size="sm" />
                 </div>
 
                 <TurntableVisuals
@@ -191,7 +191,7 @@ export function VinylPlayer() {
                       <ShoppingBag className="w-5 h-5 text-black group-hover:text-gray-800" />
                     </div>
                   </button>
-                  <UserMenu />
+                  <UserMenu size="md" />
                 </div>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 xl:gap-[104px] items-center">
                   <TurntableVisuals

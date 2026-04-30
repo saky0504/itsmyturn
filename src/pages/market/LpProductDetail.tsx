@@ -237,8 +237,8 @@ export function LpProductDetail() {
         {/* 헤더 섹션 */}
         <header className="space-y-6">
           <div className="flex flex-col md:flex-row gap-8">
-            {/* LP 이미지 */}
-            <div className="flex-shrink-0 w-full md:w-80 lg:w-96 mx-auto md:mx-0">
+            {/* LP 이미지 + 별점 (좌측 컬럼) */}
+            <div className="flex-shrink-0 w-full md:w-80 lg:w-96 mx-auto md:mx-0 space-y-4">
               <div className="aspect-square rounded-xl overflow-hidden bg-muted shadow-sm border border-border/50">
                 <img
                   src={product.cover || '/images/DJ_duic.jpg'}
@@ -254,6 +254,7 @@ export function LpProductDetail() {
                   }}
                 />
               </div>
+              <LpRatingDisc productId={product.id} />
             </div>
 
             {/* 제품 정보 */}
@@ -323,9 +324,6 @@ export function LpProductDetail() {
             </div>
           </div>
         </header>
-
-        {/* 별점 섹션 */}
-        <LpRatingDisc productId={product.id} />
 
         {/* 가격 비교 섹션 */}
         <section className="space-y-6">
