@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Settings, LogOut, ShieldCheck, Award, Trophy, Star, Stars, MessageSquare, Lock, type LucideIcon } from 'lucide-react';
+import { Settings, LogOut, ShieldCheck, Award, Trophy, Star, Stars, MessageSquare, Lock, ArrowLeft, X, Check, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { signInWithGoogle, signOut } from '../lib/auth';
 import { supabase } from '../lib/supabase';
-import { MarketHeader } from '../components/market/MarketHeader';
 import { toast } from 'sonner';
 
 interface AchievementRow {
@@ -56,10 +55,52 @@ const RARITY_MEDAL: Record<string, MedalStyle> = {
 };
 
 export function ProfilePage() {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [achievements, setAchievements] = useState<AchievementRow[]>([]);
   const [achievementsLoading, setAchievementsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
+  const openSettings = () => {
+    setDraftName(profile?.display_name || '');
+    setIsEditing(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!user) return;
+    const trimmed = draftName.trim();
+    if (!trimmed) {
+      toast.error('이름은 비울 수 없습니다');
+      return;
+    }
+    if (trimmed === profile?.display_name) {
+      setIsEditing(false);
+      return;
+    }
+    setIsSavingName(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: trimmed })
+      .eq('id', user.id);
+    setIsSavingName(false);
+    if (error) {
+      toast.error(error.message || '저장 실패');
+      return;
+    }
+    await refreshProfile();
+    setIsEditing(false);
+    toast.success('이름이 변경되었습니다');
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -115,9 +156,17 @@ export function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background">
-        <MarketHeader />
-        <div className="max-w-md mx-auto px-4 py-20 text-center space-y-6">
+      <div className="min-h-screen bg-[#f5f0eb]">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-border/60 bg-white shadow-sm hover:bg-muted transition-colors"
+            aria-label="뒤로 가기"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="max-w-md mx-auto px-4 py-12 text-center space-y-6">
           <h1 className="text-2xl font-bold text-foreground">로그인이 필요합니다</h1>
           <p className="text-sm text-muted-foreground">프로필을 확인하려면 Google 계정으로 로그인해주세요.</p>
           <button
@@ -144,9 +193,18 @@ export function ProfilePage() {
         <title>Profile · it's my turn</title>
         <meta name="robots" content="noindex,nofollow" />
       </Helmet>
-      <MarketHeader />
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6">
+        <button
+          onClick={handleBack}
+          className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-border/60 bg-white shadow-sm hover:bg-muted transition-colors"
+          aria-label="뒤로 가기"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* 프로필 카드 */}
         <section className="rounded-3xl bg-white border border-border/40 shadow-sm p-6 sm:p-8">
           <div className="flex items-center gap-5">
@@ -182,9 +240,8 @@ export function ProfilePage() {
 
           <div className="flex items-center gap-2 mt-6">
             <button
-              disabled
-              title="설정은 곧 추가될 예정입니다"
-              className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-4 py-2 text-sm font-semibold hover:bg-foreground/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={openSettings}
+              className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-4 py-2 text-sm font-semibold hover:bg-foreground/90 transition-colors"
             >
               <Settings className="w-4 h-4" />
               Settings
@@ -197,6 +254,51 @@ export function ProfilePage() {
               Logout
             </button>
           </div>
+
+          {/* 인라인 설정 패널 */}
+          {isEditing && (
+            <div className="mt-6 pt-6 border-t border-border/60 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  대화명 (Display name)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={draftName}
+                    onChange={e => setDraftName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveName();
+                      if (e.key === 'Escape') setIsEditing(false);
+                    }}
+                    maxLength={30}
+                    placeholder="이름을 입력하세요"
+                    autoFocus
+                    className="flex-1 rounded-full border border-border bg-white px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={isSavingName || !draftName.trim()}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="저장"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    disabled={isSavingName}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors disabled:opacity-40"
+                    aria-label="취소"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground/70 mt-2">
+                  Enter로 저장 · Esc로 취소 · 댓글에 표시되는 이름이 즉시 바뀝니다
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* 업적 갤러리 */}

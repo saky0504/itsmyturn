@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Send, Heart, RefreshCw, Pencil, ShieldCheck } from 'lucide-react';
+import { Send, ChevronUp, ChevronDown, RefreshCw, Pencil, ShieldCheck } from 'lucide-react';
 import { supabase, type Comment } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -10,9 +10,13 @@ interface LpCommentsProps {
   productArtist: string;
 }
 
+type CommentWithScore = Comment & { score?: number };
+type VoteValue = -1 | 1;
+
 export function LpComments({ productId, productTitle, productArtist }: LpCommentsProps) {
   const { user, profile } = useAuth();
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<CommentWithScore[]>([]);
+  const [myVotes, setMyVotes] = useState<Record<string, VoteValue>>({});
   const [newComment, setNewComment] = useState('');
   const [username, setUsername] = useState('');
   const [showUsernameInput, setShowUsernameInput] = useState(true);
@@ -42,6 +46,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
         .from('comments')
         .select('*')
         .eq('track_id', productId)
+        .order('score', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -51,10 +56,24 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
         return;
       }
 
-      if (data !== null && data !== undefined) {
-        setComments(data as Comment[]);
+      const list = (data ?? []) as CommentWithScore[];
+      setComments(list);
+
+      // 본인 투표 상태 동시에 가져오기
+      if (user && list.length > 0) {
+        const ids = list.map(c => c.id);
+        const { data: votes } = await supabase
+          .from('comment_votes')
+          .select('comment_id, value')
+          .in('comment_id', ids)
+          .eq('user_id', user.id);
+        const map: Record<string, VoteValue> = {};
+        (votes || []).forEach((v: { comment_id: string; value: VoteValue }) => {
+          map[v.comment_id] = v.value;
+        });
+        setMyVotes(map);
       } else {
-        setComments([]);
+        setMyVotes({});
       }
     } catch (error: unknown) {
       console.error('Error:', error);
@@ -67,7 +86,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   useEffect(() => {
     fetchComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId]);
+  }, [productId, user?.id]);
 
   useEffect(() => {
     const channel = supabase
@@ -147,24 +166,73 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
     }
   };
 
-  const handleLike = async (commentId: string) => {
+  const handleVote = async (commentId: string, next: VoteValue) => {
+    if (!user) {
+      toast.info('로그인 후 투표할 수 있어요');
+      return;
+    }
+
+    const current = myVotes[commentId];
+    // 점수 델타 미리 계산해서 낙관적 업데이트
+    let scoreDelta = 0;
+    let nextLocal: VoteValue | null = null;
+    if (current === next) {
+      // 같은 방향 → 취소
+      scoreDelta = -current;
+      nextLocal = null;
+    } else if (current) {
+      // 반대 방향 전환
+      scoreDelta = next - current;
+      nextLocal = next;
+    } else {
+      scoreDelta = next;
+      nextLocal = next;
+    }
+
+    setComments(prev =>
+      prev.map(c => (c.id === commentId ? { ...c, score: (c.score ?? 0) + scoreDelta } : c)),
+    );
+    setMyVotes(prev => {
+      const copy = { ...prev };
+      if (nextLocal === null) delete copy[commentId];
+      else copy[commentId] = nextLocal;
+      return copy;
+    });
+
     try {
-      const { error } = await supabase.rpc('increment_comment_likes', {
-        comment_id: commentId
-      });
-
-      if (error) {
-        console.error('Error liking comment:', error);
-        toast.error('좋아요에 실패했습니다');
-        return;
+      if (current === next) {
+        const { error } = await supabase
+          .from('comment_votes')
+          .delete()
+          .eq('comment_id', commentId)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else if (current) {
+        const { error } = await supabase
+          .from('comment_votes')
+          .update({ value: next })
+          .eq('comment_id', commentId)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('comment_votes')
+          .insert({ comment_id: commentId, user_id: user.id, value: next });
+        if (error) throw error;
       }
-
-      setComments(comments.map(c =>
-        c.id === commentId ? { ...c, likes: c.likes + 1 } : c
-      ));
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('좋아요에 실패했습니다');
+    } catch (err: any) {
+      console.error('vote error:', err);
+      toast.error('투표 실패 — 다시 시도해주세요');
+      // 롤백
+      setComments(prev =>
+        prev.map(c => (c.id === commentId ? { ...c, score: (c.score ?? 0) - scoreDelta } : c)),
+      );
+      setMyVotes(prev => {
+        const copy = { ...prev };
+        if (current) copy[commentId] = current;
+        else delete copy[commentId];
+        return copy;
+      });
     }
   };
 
@@ -193,7 +261,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   };
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 max-w-2xl mx-auto">
       {/* 섹션 헤더 */}
       <div className="flex items-center justify-between">
         <div>
@@ -320,34 +388,66 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
             <p className="text-xs text-muted-foreground/40 mt-1">첫 번째 의견을 남겨보세요</p>
           </div>
         ) : (
-          comments.map((comment) => (
-            <div
-              key={comment.id}
-              className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm p-4 hover:bg-card/60 transition-colors"
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 ${avatarColor(comment.author)}`}>
-                  {comment.author[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-sm font-semibold text-foreground truncate">{comment.author}</span>
-                    <span className="text-xs text-muted-foreground/60 flex-shrink-0">{formatTimestamp(comment.created_at)}</span>
+          comments.map((comment) => {
+            const score = comment.score ?? 0;
+            const myVote = myVotes[comment.id];
+            const scoreColor =
+              score > 0 ? 'text-orange-600' : score < 0 ? 'text-blue-600' : 'text-muted-foreground/70';
+
+            return (
+              <div
+                key={comment.id}
+                className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm p-3 hover:bg-card/60 transition-colors"
+              >
+                <div className="flex items-stretch gap-3">
+                  {/* 좌측 투표 컬럼 (Reddit 스타일) */}
+                  <div className="flex flex-col items-center gap-0.5 pt-0.5">
+                    <button
+                      onClick={() => handleVote(comment.id, 1)}
+                      aria-label="추천"
+                      className={`p-0.5 rounded transition-colors ${
+                        myVote === 1
+                          ? 'text-orange-600'
+                          : 'text-muted-foreground/40 hover:text-orange-500 hover:bg-orange-50'
+                      }`}
+                    >
+                      <ChevronUp className={`w-4 h-4 ${myVote === 1 ? 'stroke-[3]' : 'stroke-2'}`} />
+                    </button>
+                    <span className={`text-xs font-bold tabular-nums leading-none ${scoreColor}`}>
+                      {score}
+                    </span>
+                    <button
+                      onClick={() => handleVote(comment.id, -1)}
+                      aria-label="비추천"
+                      className={`p-0.5 rounded transition-colors ${
+                        myVote === -1
+                          ? 'text-blue-600'
+                          : 'text-muted-foreground/40 hover:text-blue-500 hover:bg-blue-50'
+                      }`}
+                    >
+                      <ChevronDown className={`w-4 h-4 ${myVote === -1 ? 'stroke-[3]' : 'stroke-2'}`} />
+                    </button>
                   </div>
-                  <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
-                    {comment.message}
-                  </p>
-                  <button
-                    onClick={() => handleLike(comment.id)}
-                    className={`mt-2 flex items-center gap-1 text-xs transition-colors ${comment.likes > 0 ? 'text-rose-500' : 'text-muted-foreground/50 hover:text-rose-400'}`}
-                  >
-                    <Heart className={`w-3.5 h-3.5 ${comment.likes > 0 ? 'fill-rose-500' : ''}`} />
-                    <span>{comment.likes > 0 ? comment.likes : '좋아요'}</span>
-                  </button>
+
+                  {/* 본문 */}
+                  <div className="flex-1 min-w-0 flex items-start gap-2.5">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${avatarColor(comment.author)}`}>
+                      {comment.author[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span className="text-sm font-semibold text-foreground truncate">{comment.author}</span>
+                        <span className="text-[11px] text-muted-foreground/60 flex-shrink-0">{formatTimestamp(comment.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
+                        {comment.message}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </section>
