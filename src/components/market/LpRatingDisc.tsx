@@ -124,7 +124,7 @@ export function LpRatingDisc({ productId }: LpRatingDiscProps) {
     <section className="rounded-3xl bg-card/40 border border-border/40 p-6 sm:p-8">
       <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-10">
         {/* LP 디스크 + 슬라이더 */}
-        <div className="relative w-full max-w-[280px] sm:max-w-[320px] aspect-square select-none">
+        <div className="relative w-full max-w-[180px] sm:max-w-[220px] aspect-square select-none mx-auto md:mx-0">
           {/* 외곽 그림자 */}
           <div className="absolute inset-0 rounded-full shadow-[0_18px_48px_rgba(0,0,0,0.18)]" />
 
@@ -154,32 +154,30 @@ export function LpRatingDisc({ productId }: LpRatingDiscProps) {
             {/* 그루브 패턴 */}
             <div className="absolute inset-2 rounded-full vinyl-groove-pattern opacity-80" />
 
-            {/* 중앙 라벨 (점수에 따라 색 변화) */}
+            {/* 중앙 라벨 (점수에 따라 색 변화) — inset-[24%]으로 정확히 중앙에 52% 크기 */}
             <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full flex flex-col items-center justify-center transition-colors duration-200"
+              className="absolute inset-[24%] rounded-full flex flex-col items-center justify-center"
               style={{
-                width: '52%',
-                height: '52%',
                 backgroundColor: labelColor,
                 opacity: labelOpacity,
-                transform: `translate(-50%, -50%) rotate(${-(displayScore || 0) * 18}deg)`,
+                transform: `rotate(${-(displayScore || 0) * 18}deg)`,
                 transition: isDragging
                   ? 'background-color 0.15s ease-out'
                   : 'background-color 0.2s ease-out, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.18), inset 0 -2px 6px rgba(255,255,255,0.18)',
               }}
             >
-              <span className="text-white text-5xl sm:text-6xl font-black tabular-nums leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
+              <span className="text-white text-3xl sm:text-4xl font-black tabular-nums leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
                 {displayScore || '–'}
               </span>
-              <span className="text-white/90 text-[10px] sm:text-xs font-bold tracking-widest uppercase mt-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+              <span className="text-white/90 text-[9px] sm:text-[10px] font-bold tracking-widest uppercase mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
                 {showAvgFallback ? 'AVG' : '/ 10'}
               </span>
             </div>
 
             {/* 중앙 홀 */}
             <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-black z-10"
+              className="absolute top-1/2 left-1/2 w-2.5 h-2.5 sm:w-3 sm:h-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black z-10"
               style={{ boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6)' }}
             />
           </div>
