@@ -168,28 +168,28 @@ export function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#f5f0eb]">
-        <div className="max-w-md mx-auto px-4 py-6">
+      <div className="min-h-screen bg-background">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           <button
             onClick={handleBack}
-            className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-border/60 bg-white shadow-sm hover:bg-muted transition-colors"
+            className="inline-flex items-center justify-center h-8 rounded-full border border-border/60 bg-card/60 backdrop-blur-sm px-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 shadow-sm"
             aria-label="뒤로 가기"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5" />
           </button>
-        </div>
-        <div className="max-w-md mx-auto px-4 py-12 text-center space-y-6">
-          <h1 className="text-2xl font-bold text-foreground">로그인이 필요합니다</h1>
-          <p className="text-sm text-muted-foreground">프로필을 확인하려면 Google 계정으로 로그인해주세요.</p>
-          <button
-            onClick={() => signInWithGoogle('/profile')}
-            className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold hover:bg-primary/90 transition-colors"
-          >
-            Google로 로그인
-          </button>
-          <Link to="/" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-            홈으로 돌아가기
-          </Link>
+          <div className="text-center space-y-6 py-8">
+            <h1 className="text-2xl font-bold text-foreground">로그인이 필요합니다</h1>
+            <p className="text-sm text-muted-foreground">프로필을 확인하려면 Google 계정으로 로그인해주세요.</p>
+            <button
+              onClick={() => signInWithGoogle('/profile')}
+              className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold hover:bg-primary/90 transition-colors"
+            >
+              Google로 로그인
+            </button>
+            <Link to="/" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
+              홈으로 돌아가기
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -200,25 +200,25 @@ export function ProfilePage() {
   const reputation = profile?.reputation ?? 0;
 
   return (
-    <div className="min-h-screen bg-[#f5f0eb]">
+    <div className="min-h-screen bg-background">
       <Helmet>
         <title>Profile · it's my turn</title>
         <meta name="robots" content="noindex,nofollow" />
       </Helmet>
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6">
-        <button
-          onClick={handleBack}
-          className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-border/60 bg-white shadow-sm hover:bg-muted transition-colors"
-          aria-label="뒤로 가기"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* 상단 액션 바 — LpProductDetail와 동일 */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center justify-center h-8 rounded-full border border-border/60 bg-card/60 backdrop-blur-sm px-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 shadow-sm"
+            aria-label="뒤로 가기"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </button>
+        </div>
         {/* 프로필 카드 */}
-        <section className="rounded-3xl bg-white border border-border/40 shadow-sm p-6 sm:p-8">
+        <section className="rounded-2xl bg-card/40 border border-border/40 p-6 sm:p-8">
           <div className="flex items-center gap-5">
             <UserAvatar
               avatarUrl={avatarUrl}
@@ -276,7 +276,7 @@ export function ProfilePage() {
                   maxLength={30}
                   placeholder={profile?.display_name || '이름을 입력하세요'}
                   autoFocus
-                  className="flex-1 rounded-full border border-border bg-white px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                  className="flex-1 rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
                 />
                 <button
                   onClick={handleSave}
@@ -340,7 +340,7 @@ export function ProfilePage() {
         </section>
 
         {/* 업적 갤러리 */}
-        <section className="rounded-3xl bg-white border border-border/40 shadow-sm p-6 sm:p-8">
+        <section className="rounded-2xl bg-card/40 border border-border/40 p-6 sm:p-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-muted">
