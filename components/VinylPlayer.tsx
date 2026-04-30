@@ -13,7 +13,6 @@ import { PlaybackControls } from './PlaybackControls';
 import { GenreSelector } from './GenreSelector';
 import { TrackInfoModal } from './TrackInfoModal';
 import { CommunityBoard } from './CommunityBoard';
-import { UserMenu } from '../src/components/auth/UserMenu';
 
 export function VinylPlayer() {
   const navigate = useNavigate();
@@ -152,7 +151,6 @@ export function VinylPlayer() {
                       <ShoppingBag className="w-5 h-5 text-gray-900" />
                     </div>
                   </button>
-                  <UserMenu size="sm" />
                 </div>
 
                 <TurntableVisuals
@@ -191,7 +189,6 @@ export function VinylPlayer() {
                       <ShoppingBag className="w-5 h-5 text-black group-hover:text-gray-800" />
                     </div>
                   </button>
-                  <UserMenu size="md" />
                 </div>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 xl:gap-[104px] items-center">
                   <TurntableVisuals
