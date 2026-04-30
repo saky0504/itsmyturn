@@ -261,20 +261,19 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   };
 
   return (
-    <section className="space-y-6 max-w-2xl mx-auto">
+    <section className="space-y-3 max-w-2xl mx-auto">
       {/* 섹션 헤더 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold text-foreground tracking-tight">댓글</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">이 앨범에 대한 의견을 남겨주세요</p>
-        </div>
+        <h2 className="text-base font-bold text-foreground tracking-tight">
+          댓글 {comments.length > 0 && <span className="text-muted-foreground font-medium">({comments.length})</span>}
+        </h2>
         <button
           onClick={fetchComments}
           disabled={isRefreshing}
-          className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 shadow-sm disabled:opacity-50"
+          className="flex items-center gap-1 rounded-full border border-border/60 bg-card/60 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span>{comments.length > 0 ? `${comments.length}개` : '새로고침'}</span>
+          <span>새로고침</span>
         </button>
       </div>
 
@@ -282,7 +281,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
       <div className="rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
         {/* 닉네임 행 — 로그인 사용자는 프로필 표시명 고정 + Google 아바타 */}
         {user ? (
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/20">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-muted/20">
             {profile?.avatar_url || user.user_metadata?.avatar_url ? (
               <img
                 src={profile?.avatar_url || user.user_metadata?.avatar_url}
@@ -304,7 +303,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
             )}
           </div>
         ) : showUsernameInput ? (
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/30">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-muted/30">
             <div className="w-7 h-7 rounded-full bg-muted border border-border/60 flex items-center justify-center flex-shrink-0">
               <Pencil className="w-3 h-3 text-muted-foreground" />
             </div>
@@ -326,7 +325,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/20">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-muted/20">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${avatarColor(username)}`}>
               {username[0].toUpperCase()}
             </div>
@@ -341,7 +340,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
         )}
 
         {/* 텍스트 입력 */}
-        <div className="px-4 pt-3 pb-2">
+        <div className="px-3 pt-2 pb-1">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -352,15 +351,15 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
               }
             }}
             placeholder={showUsernameInput ? '닉네임을 먼저 설정해주세요' : '의견을 남겨주세요... (200자 이내)'}
-            className="w-full text-sm bg-transparent text-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none leading-relaxed"
-            rows={3}
+            className="w-full text-sm bg-transparent text-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none leading-snug"
+            rows={1}
             maxLength={200}
             disabled={showUsernameInput || isLoading}
           />
         </div>
 
         {/* 하단 액션 바 */}
-        <div className="flex items-center justify-between px-4 pb-3">
+        <div className="flex items-center justify-between px-3 pb-2">
           <span className="text-xs text-muted-foreground/60">
             {newComment.length > 0 ? `${newComment.length}/200` : ''}
           </span>
