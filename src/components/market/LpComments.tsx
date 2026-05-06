@@ -271,7 +271,7 @@ export function LpComments({ productId, productTitle, productArtist }: LpComment
   };
 
   return (
-    <section className="space-y-3 max-w-2xl mx-auto">
+    <section className="space-y-3">
       {/* 섹션 헤더 */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-foreground tracking-tight">
