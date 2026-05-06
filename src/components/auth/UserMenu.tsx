@@ -61,7 +61,7 @@ export function UserMenu({ size = 'sm' }: UserMenuProps = {}) {
     return (
       <button
         onClick={handleLogin}
-        className={`relative ${sz.box} bg-white/80 rounded-full shadow-lg backdrop-blur-sm flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 transition-colors`}
+        className={`relative ${sz.box} bg-white/80 rounded-full backdrop-blur-sm flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 transition-colors`}
         aria-label="Google로 로그인"
       >
         <GoogleIconMono className={sz.icon} />
@@ -76,7 +76,7 @@ export function UserMenu({ size = 'sm' }: UserMenuProps = {}) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className={`relative ${sz.box} rounded-full overflow-hidden bg-white/80 backdrop-blur-sm shadow-lg hover:ring-2 hover:ring-white/80 transition-all`}
+        className={`relative ${sz.box} rounded-full overflow-hidden bg-white/80 backdrop-blur-sm hover:ring-2 hover:ring-white/80 transition-all`}
         aria-label="사용자 메뉴"
         aria-expanded={open}
       >

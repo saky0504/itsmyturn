@@ -17,7 +17,10 @@ const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'placeholder-key';
 // Supabase 클라이언트 생성
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false,
+    persistSession: true,
+    storageKey: 'imt-auth',
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
   },
 });
 
