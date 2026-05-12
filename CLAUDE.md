@@ -32,18 +32,33 @@ const seenMasters = new Set<string>(/* 이번 실행에서 본 것 */);
 
 ### 4. 인기 아티스트는 부틀렉 폭탄 — 화이트리스트로 거르기
 
-| 아티스트 | 긁어온 총 개수 | 정식 | 비고 |
+| 아티스트 | 시작 | 정식 유지 | 비고 |
 |---|---|---|---|
-| Oasis | 128 | 12 | 부틀렉/한국 경음악 오아시스/Trio Oasis 등 116개 삭제 |
+| Oasis | 128 | 12 | 부틀렉/Trio Oasis/한국 경음악 오아시스 정리 |
 | Radiohead | 62 | 12 | 부틀렉 50개 삭제 |
+| Nirvana | 139 | 9 | 125 삭제, 90 master 블록 |
+| Pearl Jam | 120 | 21 | 97 삭제, 49 master 블록 |
 | Queen | 41 | 41 | 깔끔 (Queen Latifah는 사전 차단) |
 | Led Zeppelin | 9 | 9 | 깔끔 |
-| Beatles / Pink Floyd / Nirvana / Pearl Jam | - | - | 부틀렉 정리 미완료 |
+| Beatles / Pink Floyd | - | - | 부틀렉 정리 미완료 |
 
 **규칙**:
-- 부틀렉 많은 아티스트는 정식 앨범 master_id를 하드코딩한 Set으로 화이트리스트.
-- DB 전체 → Discogs detail 호출 → master_id 매칭 → 미매칭은 삭제.
-- `master_id`가 `null`(no-master)인 release는 거의 다 부틀렉/짝퉁 → 삭제.
+- 정식 master_id 화이트리스트를 `scripts/keep-<artist>.ts`에 하드코딩.
+- 공용 러너 `scripts/keep-official.ts`의 `runKeepOfficial()` 호출.
+- `master_id`가 `null`(no-master)인 release는 거의 다 부틀렉/짝퉁 → 기본 삭제 (`noMasterPolicy: 'delete'`).
+- 정리 시 **삭제 + `lp_master_blocklist` 적재** 동시 — `fetch-beatles.ts`가 다음 실행 때 자동 차단.
+
+### 4-1. 블록리스트 시스템
+
+테이블 `public.lp_master_blocklist` (`supabase/migrations/20260512000000_master_blocklist.sql`):
+
+```
+master_id (PK) | artist | reason | blocked_title | discogs_id | created_at
+```
+
+- `scripts/keep-official.ts` 의 `runKeepOfficial()` 이 삭제 시 자동 upsert.
+- `scripts/fetch-beatles.ts` 가 시작할 때 모든 master_id 로드, 검색결과 + 상세 응답 양쪽에서 차단.
+- 한번 부틀렉으로 분류된 master는 **영구적으로 재수집 불가**.
 
 ### 5. 검색 결과에 섞이는 다른 아티스트 차단
 
@@ -97,9 +112,10 @@ dotenv.config({ path: ['.env.local', '.env'] });
 
 | 파일 | 용도 |
 |---|---|
-| `scripts/fetch-beatles.ts` | 아티스트 인자 받는 범용 스크래퍼 (master_id 기반 dedup) |
-| `scripts/keep-official-only.ts` | Oasis 정식만 남기기 (템플릿) |
-| `scripts/keep-radiohead-official.ts` | Radiohead 정식만 남기기 (템플릿) |
+| `scripts/fetch-beatles.ts` | 아티스트 인자 받는 범용 스크래퍼 (master_id dedup + 블록리스트 차단) |
+| `scripts/keep-official.ts` | 공용 정리 러너 (삭제+블록리스트 적재) |
+| `scripts/keep-nirvana.ts` / `keep-pearljam.ts` / `keep-radiohead-official.ts` / `keep-official-only.ts` (Oasis) | 아티스트별 화이트리스트 |
+| `scripts/list-masters.ts` | master_id 분포 조사 (`npx tsx scripts/list-masters.ts "아티스트"`) |
 | `scripts/remove-wrong-artists.ts` | 엉뚱한 아티스트 제거 |
 | `scripts/cleanup-by-master.ts` | master_id 기준 중복 정리 |
 
