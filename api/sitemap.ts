@@ -19,20 +19,32 @@ export default async function handler(_req: Request): Promise<Response> {
   if (supabaseUrl && supabaseKey) {
     try {
       const supabase = createClient(supabaseUrl, supabaseKey);
-      const { data: products } = await supabase
-        .from('lp_products')
-        .select('id, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(5000);
 
-      if (products) {
-        productUrls = products.map((p) => ({
-          loc: `${BASE_URL}/market/lp/${p.id}`,
-          changefreq: 'weekly',
-          priority: '0.7',
-          lastmod: p.updated_at ? p.updated_at.split('T')[0] : undefined,
-        }));
+      // Supabase PostgREST default 1000 row 제한 → range로 페이지네이션해서 전체 가져오기
+      // 정렬은 id(고정값) 기준 — updated_at 정렬은 가격 sync마다 sitemap URL 집합이
+      // 바뀌어 Google이 색인을 떨구는 원인이라 의도적으로 제거.
+      const PAGE_SIZE = 1000;
+      const MAX_URLS = 50000; // sitemaps.org 권장 한도
+      const collected: Array<{ id: string; updated_at: string | null }> = [];
+
+      for (let from = 0; from < MAX_URLS; from += PAGE_SIZE) {
+        const to = from + PAGE_SIZE - 1;
+        const { data: page, error } = await supabase
+          .from('lp_products')
+          .select('id, updated_at')
+          .order('id', { ascending: true })
+          .range(from, to);
+        if (error || !page || page.length === 0) break;
+        collected.push(...page);
+        if (page.length < PAGE_SIZE) break;
       }
+
+      productUrls = collected.map((p) => ({
+        loc: `${BASE_URL}/market/lp/${p.id}`,
+        changefreq: 'weekly',
+        priority: '0.7',
+        lastmod: p.updated_at ? p.updated_at.split('T')[0] : undefined,
+      }));
     } catch {
       // Supabase 오류 시 정적 URL만 반환
     }
